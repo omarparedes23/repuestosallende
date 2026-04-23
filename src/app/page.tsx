@@ -102,7 +102,7 @@ function Navbar() {
           {/* CTA Button */}
           <div className="hidden md:flex items-center gap-4">
             <a
-              href="https://wa.me/51975167682?text=Hola%20Repuestos%20Allende%2C%20estoy%20interesado%20en%20sus%20repuestos."
+              href="https://wa.me/51935034586?text=Hola%20Repuestos%20Allende%2C%20estoy%20interesado%20en%20sus%20repuestos."
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -145,7 +145,7 @@ function Navbar() {
                 </a>
               ))}
               <a
-                href="https://wa.me/51975167682?text=Hola%20Repuestos%20Allende%2C%20estoy%20interesado%20en%20sus%20repuestos."
+                href="https://wa.me/51935034586?text=Hola%20Repuestos%20Allende%2C%20estoy%20interesado%20en%20sus%20repuestos."
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block pt-2"
@@ -219,7 +219,7 @@ function Hero() {
             className="flex flex-col sm:flex-row gap-4"
           >
             <a
-              href="https://wa.me/51975167682?text=Hola%20Repuestos%20Allende%2C%20estoy%20interesado%20en%20sus%20repuestos."
+              href="https://wa.me/51935034586?text=Hola%20Repuestos%20Allende%2C%20estoy%20interesado%20en%20sus%20repuestos."
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -231,10 +231,10 @@ function Hero() {
             <a href="#especialidades">
               <Button
                 variant="outline"
-                className="border-white/30 text-white hover:bg-white/10 hover:text-white rounded-full px-8 py-6 text-base"
+                className="border-white/30 text-white hover:bg-white/10 hover:text-white rounded-full px-8 py-6 text-base [&>*]:text-white"
               >
-                Ver Especialidades
-                <ChevronRight className="w-5 h-5 ml-2" />
+                <span className="text-white">Ver Especialidades</span>
+                <ChevronRight className="w-5 h-5 ml-2 text-white" />
               </Button>
             </a>
           </motion.div>
@@ -558,7 +558,7 @@ function ProductosDestacados() {
                   </ul>
                   <div className="mt-auto">
                     <a
-                      href={`https://wa.me/51975167682?text=Hola%20Repuestos%20Allende%2C%20estoy%20interesado%20en%20${encodeURIComponent(
+                      href={`https://wa.me/51935034586?text=Hola%20Repuestos%20Allende%2C%20estoy%20interesado%20en%20${encodeURIComponent(
                         prod.nombre
                       )}`}
                       target="_blank"
@@ -872,7 +872,7 @@ function Ubicacion() {
                     <h3 className="font-bold text-[#002D62] mb-1">
                       Teléfono / WhatsApp
                     </h3>
-                    <p className="text-[#64748b]">+51 975 167 682</p>
+                    <p className="text-[#64748b]">+51 935 034 586</p>
                   </div>
                 </div>
 
@@ -890,7 +890,7 @@ function Ubicacion() {
 
                 <div className="pt-4">
                   <a
-                    href="https://wa.me/51975167682?text=Hola%20Repuestos%20Allende%2C%20estoy%20interesado%20en%20sus%20repuestos."
+                    href="https://wa.me/51935034586?text=Hola%20Repuestos%20Allende%2C%20estoy%20interesado%20en%20sus%20repuestos."
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -1023,7 +1023,7 @@ function Footer() {
               </li>
               <li className="flex items-start gap-3">
                 <Phone className="w-5 h-5 text-[#FFD700] flex-shrink-0 mt-0.5" />
-                <span className="text-white/70 text-sm">+51 975 167 682</span>
+                <span className="text-white/70 text-sm">+51 935 034 586</span>
               </li>
               <li className="flex items-start gap-3">
                 <Mail className="w-5 h-5 text-[#FFD700] flex-shrink-0 mt-0.5" />
@@ -1055,7 +1055,7 @@ function Footer() {
 function WhatsAppFloat() {
   return (
     <motion.a
-      href="https://wa.me/51975167682?text=Hola%20Repuestos%20Allende%2C%20estoy%20interesado%20en%20sus%20repuestos."
+      href="https://wa.me/51935034586?text=Hola%20Repuestos%20Allende%2C%20estoy%20interesado%20en%20sus%20repuestos."
       target="_blank"
       rel="noopener noreferrer"
       className="fixed bottom-6 right-6 z-50 bg-[#25D366] hover:bg-[#128C7E] text-white rounded-full p-4 shadow-2xl transition-colors"
