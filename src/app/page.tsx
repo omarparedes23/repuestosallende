@@ -9,6 +9,7 @@ import {
   Facebook,
   Menu,
   X,
+  ChevronLeft,
   ChevronRight,
   Truck,
   Settings,
@@ -18,6 +19,8 @@ import {
   Package,
   Cog,
   MoveRight,
+  Play,
+  Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -52,6 +55,8 @@ function Navbar() {
     { label: "Inicio", href: "#hero" },
     { label: "Marcas", href: "#marcas" },
     { label: "Especialidades", href: "#especialidades" },
+    { label: "Productos", href: "#productos" },
+    { label: "Tienda", href: "#tienda" },
     { label: "Contacto", href: "#contacto" },
     { label: "Ubicación", href: "#ubicacion" },
   ];
@@ -170,7 +175,7 @@ function Hero() {
       {/* Background Image */}
       <div className="absolute inset-0 z-0">
         <img
-          src="/images/portada.jpg"
+          src="https://pub-ffd42694eda64a2f8f58d0f4b85d68be.r2.dev/portada.jpg"
           alt="Repuestos Allende - Tienda"
           className="w-full h-full object-cover"
         />
@@ -286,13 +291,14 @@ function TrustBar() {
    MARCAS
    ============================================================ */
 function Marcas() {
+  const CDN_IMG = "https://pub-ffd42694eda64a2f8f58d0f4b85d68be.r2.dev";
   const brands = [
-    { name: "Mercedes-Benz", logo: "/images/mercedesbenz.png" },
-    { name: "Sprinter", logo: "/images/sprinter.jpg" },
-    { name: "Peugeot", logo: "/images/peugeot.webp" },
-    { name: "Hyundai", logo: "/images/hyundailogo.jpg" },
-    { name: "Renault", logo: "/images/renaultlogo.svg" },
-    { name: "Iveco", logo: "/images/iveco.jpg" },
+    { name: "Mercedes-Benz", logo: `${CDN_IMG}/mercedesbenz.png` },
+    { name: "Sprinter", logo: `${CDN_IMG}/sprinter.jpg` },
+    { name: "Peugeot", logo: `${CDN_IMG}/peugeot.webp` },
+    { name: "Hyundai", logo: `${CDN_IMG}/hyundailogo.jpg` },
+    { name: "Renault", logo: `${CDN_IMG}/renaultlogo.svg` },
+    { name: "Iveco", logo: `${CDN_IMG}/iveco.jpg` },
   ];
 
   return (
@@ -364,7 +370,7 @@ function Especialidades() {
         "Especialistas en modelos 313, 415 y 515. Repuestos de motor, transmisión, frenos y suspensión con disponibilidad inmediata.",
       features: ["Sprinter 313 CDI", "Sprinter 415 CDI", "Sprinter 515 CDI"],
       image:
-        "https://images.unsplash.com/photo-1566008885218-90abf9200ddb?auto=format&fit=crop&w=800&q=80",
+        "https://pub-ffd42694eda64a2f8f58d0f4b85d68be.r2.dev/sprinter-camioneta.jpg",
     },
     {
       icon: Cog,
@@ -449,6 +455,246 @@ function Especialidades() {
             </motion.div>
           ))}
         </motion.div>
+      </div>
+    </section>
+  );
+}
+
+/* ============================================================
+   PRODUCTOS DESTACADOS
+   ============================================================ */
+function ProductosDestacados() {
+  const CDN_IMG = "https://pub-ffd42694eda64a2f8f58d0f4b85d68be.r2.dev";
+  const productos = [
+    {
+      nombre: "Intercooler Mercedes-Benz",
+      descripcion:
+        "Intercooler original MAHLE para Mercedes-Benz. Repuesto de alta calidad con garantía de fábrica.",
+      imagen: `${CDN_IMG}/intercooler-mercedes-etiqueta.jpg`,
+      partNumber: "MAHLE / Mercedes-Benz OEM",
+      features: [
+        "Original MAHLE",
+        "Aluminio soldado",
+        "Con mangueras y abrazaderas",
+      ],
+    },
+    {
+      nombre: "Sincronizador Piñón 1ra y 2da",
+      descripcion:
+        "Sincronizador para caja de cambios de modelos Sprinter 415 y 515. Disponible para entrega inmediata.",
+      imagen: `${CDN_IMG}/sincronizador-caja-415-515.jpg`,
+      partNumber: "Caja 415 – 515",
+      features: ["Para Sprinter 415 CDI", "Para Sprinter 515 CDI", "Stock disponible"],
+    },
+    {
+      nombre: "Emblema Mercedes-Benz Original",
+      descripcion:
+        "Emblema frontal original Mercedes-Benz con número de parte certificado. Empaque sellado de fábrica.",
+      imagen: `${CDN_IMG}/emblema-mercedes-9067580058.jpg`,
+      partNumber: "A 906 758 00 58",
+      features: ["100% Original", "Número de parte visible", "Empaque sellado"],
+    },
+  ];
+
+  return (
+    <section id="productos" className="py-24 bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-16"
+        >
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#002D62] mb-4">
+            Productos <span className="text-[#FFD700]">Destacados</span>
+          </h2>
+          <p className="text-[#64748b] max-w-2xl mx-auto text-lg">
+            Repuestos reales fotografiados en nuestro local. Cotiza hoy mismo y
+            recibe atención personalizada por WhatsApp.
+          </p>
+        </motion.div>
+
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={staggerContainer}
+          className="grid md:grid-cols-3 gap-8"
+        >
+          {productos.map((prod) => (
+            <motion.div key={prod.nombre} variants={fadeInUp}>
+              <Card className="h-full overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-shadow duration-300 flex flex-col">
+                <div className="relative h-56 overflow-hidden bg-slate-100 flex items-center justify-center">
+                  <img
+                    src={prod.imagen}
+                    alt={prod.nombre}
+                    className="w-full h-full object-contain p-4"
+                    loading="lazy"
+                  />
+                </div>
+                <CardContent className="p-6 flex flex-col flex-1">
+                  {prod.partNumber && (
+                    <span className="inline-block self-start bg-[#002D62]/5 text-[#002D62] text-xs font-bold px-3 py-1 rounded-full mb-3">
+                      Parte: {prod.partNumber}
+                    </span>
+                  )}
+                  <h3 className="text-xl font-bold text-[#002D62] mb-2">
+                    {prod.nombre}
+                  </h3>
+                  <p className="text-[#64748b] mb-4 text-sm leading-relaxed">
+                    {prod.descripcion}
+                  </p>
+                  <ul className="space-y-2 mb-6">
+                    {prod.features.map((feat) => (
+                      <li
+                        key={feat}
+                        className="flex items-center gap-2 text-sm text-[#002D62] font-medium"
+                      >
+                        <Package className="w-4 h-4 text-[#FFD700] flex-shrink-0" />
+                        {feat}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-auto">
+                    <a
+                      href={`https://wa.me/51975167682?text=Hola%20Repuestos%20Allende%2C%20estoy%20interesado%20en%20${encodeURIComponent(
+                        prod.nombre
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button className="w-full bg-[#FFD700] text-[#002D62] hover:bg-[#e6c200] font-bold rounded-full">
+                        <Phone className="w-4 h-4 mr-2" />
+                        Cotizar por WhatsApp
+                      </Button>
+                    </a>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+/* ============================================================
+   TIENDA / VIDEOS — CARRUSEL
+   ============================================================ */
+function Tienda() {
+  const CDN_URL = "https://pub-ffd42694eda64a2f8f58d0f4b85d68be.r2.dev";
+
+  const videos = [
+    { src: `${CDN_URL}/recorrido-local-01.mp4`, label: "Recorrido del local" },
+    { src: `${CDN_URL}/recorrido-local-02.mp4`, label: "Recorrido del local" },
+    { src: `${CDN_URL}/recorrido-local-03.mp4`, label: "Recorrido del local" },
+    { src: `${CDN_URL}/producto-demostracion-01.mp4`, label: "Demostración de producto" },
+    { src: `${CDN_URL}/producto-demostracion-02.mp4`, label: "Demostración de producto" },
+    { src: `${CDN_URL}/producto-demostracion-03.mp4`, label: "Demostración de producto" },
+    { src: `${CDN_URL}/producto-demostracion-04.mp4`, label: "Demostración de producto" },
+    { src: `${CDN_URL}/tienda-atencion-cliente-01.mp4`, label: "Atención al cliente" },
+    { src: `${CDN_URL}/tienda-exterior-01.mp4`, label: "Exterior de la tienda" },
+  ];
+
+  const [current, setCurrent] = useState(0);
+
+  const next = () => setCurrent((prev) => (prev + 1) % videos.length);
+  const prev = () => setCurrent((prev) => (prev - 1 + videos.length) % videos.length);
+
+  return (
+    <section id="tienda" className="py-24 bg-[#f1f5f9]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-12"
+        >
+          <div className="inline-flex items-center gap-2 bg-[#002D62]/5 border border-[#002D62]/10 rounded-full px-4 py-1.5 mb-4">
+            <Video className="w-4 h-4 text-[#002D62]" />
+            <span className="text-[#002D62] text-sm font-semibold tracking-wide">
+              CONOCE NUESTRO LOCAL
+            </span>
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#002D62] mb-4">
+            Mira Nuestra <span className="text-[#FFD700]">Tienda</span> en Video
+          </h2>
+          <p className="text-[#64748b] max-w-2xl mx-auto text-lg">
+            Recorre nuestro local, conoce nuestro stock y la atención que
+            brindamos a cada cliente. ¡Visítanos en La Victoria!
+          </p>
+        </motion.div>
+
+        {/* Carrusel */}
+        <div className="relative max-w-4xl mx-auto">
+          {/* Flecha izquierda */}
+          <button
+            onClick={prev}
+            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 sm:-translate-x-6 z-10 w-10 h-10 sm:w-12 sm:h-12 bg-[#002D62] hover:bg-[#001a3a] text-[#FFD700] rounded-full flex items-center justify-center shadow-lg transition-colors"
+            aria-label="Video anterior"
+          >
+            <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+
+          {/* Contenedor del video */}
+          <Card className="overflow-hidden border-0 shadow-2xl mx-8 sm:mx-14">
+            <div className="relative bg-black flex items-center justify-center max-h-[60vh] sm:max-h-[520px]">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={current}
+                  initial={{ opacity: 0, x: 50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -50 }}
+                  transition={{ duration: 0.3 }}
+                  className="w-full h-full flex items-center justify-center"
+                >
+                  <video
+                    src={videos[current].src}
+                    controls
+                    preload="metadata"
+                    className="w-full h-full max-h-[60vh] sm:max-h-[520px] object-contain"
+                  />
+                </motion.div>
+              </AnimatePresence>
+            </div>
+            <CardContent className="p-4 sm:p-5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Play className="w-4 h-4 text-[#FFD700]" />
+                <span className="text-[#002D62] font-semibold text-sm sm:text-base">
+                  {videos[current].label} {current + 1} / {videos.length}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Flecha derecha */}
+          <button
+            onClick={next}
+            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 sm:translate-x-6 z-10 w-10 h-10 sm:w-12 sm:h-12 bg-[#002D62] hover:bg-[#001a3a] text-[#FFD700] rounded-full flex items-center justify-center shadow-lg transition-colors"
+            aria-label="Video siguiente"
+          >
+            <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+        </div>
+
+        {/* Dots */}
+        <div className="flex items-center justify-center gap-2 mt-8">
+          {videos.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrent(idx)}
+              className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                idx === current
+                  ? "bg-[#002D62] w-8"
+                  : "bg-[#002D62]/30 hover:bg-[#002D62]/50"
+              }`}
+              aria-label={`Ir al video ${idx + 1}`}
+            />
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -748,6 +994,8 @@ function Footer() {
                 { label: "Inicio", href: "#hero" },
                 { label: "Marcas", href: "#marcas" },
                 { label: "Especialidades", href: "#especialidades" },
+                { label: "Productos", href: "#productos" },
+                { label: "Tienda", href: "#tienda" },
                 { label: "Contacto", href: "#contacto" },
                 { label: "Ubicación", href: "#ubicacion" },
               ].map((link) => (
@@ -834,6 +1082,8 @@ export default function Home() {
         <TrustBar />
         <Marcas />
         <Especialidades />
+        <ProductosDestacados />
+        <Tienda />
         <SocialMedia />
         <Ubicacion />
       </main>
