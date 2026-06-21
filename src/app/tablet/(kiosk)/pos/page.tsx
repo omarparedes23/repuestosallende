@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { KioskPosClient } from './components/KioskPosClient'
 
 export default async function PosPage() {
-  const supabase = await createClient()
+  const supabase = (await createClient()) as any
 
   const { data: categorias } = await supabase
     .from('ra_categorias')

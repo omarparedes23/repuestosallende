@@ -5,7 +5,8 @@ import { TabBar } from '@/app/tablet/components/shared/TabBar'
 import { SessionHydrator } from './SessionHydrator'
 
 export default async function KioskLayout({ children }: { children: React.ReactNode }) {
-  const { supabase, user, perfil } = await getSession()
+  const { supabase: rawSupabase, user, perfil } = await getSession()
+  const supabase = rawSupabase as any
 
   if (!user || !perfil?.empresa_id) {
     redirect('/tablet/login')

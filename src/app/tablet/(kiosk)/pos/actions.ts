@@ -62,7 +62,8 @@ export async function buscarProductos(
   query: string,
   categoriaId?: string
 ): Promise<ActionResponse<ProductoBuscado[]>> {
-  const { supabase, user, perfil } = await getSession()
+  const { supabase: rawSupabase, user, perfil } = await getSession()
+  const supabase = rawSupabase as any
   if (!user || !perfil?.empresa_id) return { data: null, error: 'No autenticado' }
 
   // Querying from ra_catalogo_repuestos allows ilike on nombre/codigo_oem directly
@@ -112,7 +113,8 @@ export async function buscarProductos(
 export async function procesarVenta(
   input: unknown
 ): Promise<ActionResponse<VentaResult>> {
-  const { supabase, user, perfil } = await getSession()
+  const { supabase: rawSupabase, user, perfil } = await getSession()
+  const supabase = rawSupabase as any
   if (!user || !perfil?.empresa_id) return { data: null, error: 'No autenticado' }
   if (perfil.rol === 'lectura') return { data: null, error: 'Sin permisos para registrar ventas' }
 

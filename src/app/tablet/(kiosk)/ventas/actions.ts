@@ -46,7 +46,8 @@ export async function getVentasDelDia(): Promise<{
   data: VentaResumen[]
   error: string | null
 }> {
-  const { supabase, user, perfil } = await getSessionFast()
+  const { supabase: rawSupabase, user, perfil } = await getSessionFast()
+  const supabase = rawSupabase as any
   if (!user || !perfil?.empresa_id) return { data: [], error: 'No autenticado' }
 
   const hoy = new Date()
@@ -85,7 +86,8 @@ export async function getVentaDetalle(id: string): Promise<{
   data: VentaDetalle | null
   error: string | null
 }> {
-  const { supabase, user, perfil } = await getSessionFast()
+  const { supabase: rawSupabase, user, perfil } = await getSessionFast()
+  const supabase = rawSupabase as any
   if (!user || !perfil?.empresa_id) return { data: null, error: 'No autenticado' }
 
   const { data, error } = await supabase

@@ -5,7 +5,8 @@ import { CajaScreen } from './components/CajaScreen'
 import type { RaCaja, RaMovimientoCaja } from '@/lib/types/database'
 
 export default async function CajaPage() {
-  const { supabase, user, perfil } = await getSession()
+  const { supabase: rawSupabase, user, perfil } = await getSession()
+  const supabase = rawSupabase as any
   if (!user || !perfil?.empresa_id) redirect('/tablet/login')
 
   const { data: caja } = await supabase
