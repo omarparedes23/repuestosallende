@@ -21,6 +21,7 @@
   --color-gray-tech: var(--gray-tech);
   --color-gray-light: var(--gray-light);
   --font-sans: var(--font-inter);
+  --font-heading: var(--font-outfit);
   --font-mono: var(--font-geist-mono);
 }
 
