@@ -80,11 +80,11 @@ export const siteConfig: SiteConfig = {
     nota: 'Al lado del BBVA',
   },
 
-  telefonoDisplay: '+51 975 167 682',
-  telefonoIntl: '51975167682',
+  telefonoDisplay: '+51 935 034 586',
+  telefonoIntl: '51935034586',
   whatsappMensaje:
     'Hola Repuestos Allende, estoy interesado en sus repuestos.',
-  email: 'ventas@repuestosallende.com',
+  email: 'ventas@repuestosallende.pe',
 
   geo: {
     lat: -12.0641667,
