@@ -42,7 +42,7 @@ export default async function CatalogoModeloPage({ params }: Props) {
   const [{ data: modelo }, { data: repuestos }, { data: categorias }] = await Promise.all([
     supabase
       .from('ra_modelos_auto')
-      .select('*')
+      .select('*, marca:ra_marcas_auto(id, nombre)')
       .eq('slug', slug)
       .eq('activo', true)
       .single(),

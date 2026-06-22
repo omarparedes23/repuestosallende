@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Truck } from 'lucide-react'
+import Image from 'next/image'
+import { siteConfig } from '@/lib/site.config'
 
 export const metadata: Metadata = {
   title: 'Catálogo de Repuestos — Repuestos Allende E.I.R.L.',
-  description: 'Encontrá el repuesto que necesitás para tu Sprinter. Suspensión, dirección, motor y caja.',
+  description: 'Encuentre el repuesto que necesita para su unidad. Suspensión, dirección, motor y caja.',
 }
 
 export default function CatalogoLayout({ children }: { children: React.ReactNode }) {
@@ -13,12 +14,14 @@ export default function CatalogoLayout({ children }: { children: React.ReactNode
       <nav className="bg-[#002D62] shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center p-1.5 shadow-sm flex-shrink-0">
-                <img 
-                  src="/images/repuestosallendelogo.png" 
-                  alt="Repuestos Allende" 
-                  className="w-full h-full object-contain"
+            <Link href="/" className="flex items-center gap-3 group" aria-label={siteConfig.razonSocial}>
+              <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center p-1.5 shadow-sm flex-shrink-0 relative overflow-hidden">
+                <Image
+                  src={siteConfig.imagenes.logo}
+                  alt={`${siteConfig.marcaCorta} — logo`}
+                  fill
+                  sizes="40px"
+                  className="object-contain p-1"
                 />
               </div>
               <div className="hidden sm:block">
@@ -40,7 +43,7 @@ export default function CatalogoLayout({ children }: { children: React.ReactNode
       <main className="flex-1">{children}</main>
 
       <footer className="bg-[#002D62] text-white/60 text-center text-xs py-4">
-        © {new Date().getFullYear()} Repuestos Allende E.I.R.L. · RUC: 20610105280
+        © {new Date().getFullYear()} {siteConfig.razonSocial} · RUC: {siteConfig.ruc}
       </footer>
     </div>
   )

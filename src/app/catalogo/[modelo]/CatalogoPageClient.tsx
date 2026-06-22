@@ -1,11 +1,18 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { Phone, Package, Filter } from 'lucide-react'
 import type { ModeloAuto, CatalogoRepuesto, Categoria } from '@/lib/types/database'
+import { siteConfig, whatsappUrl } from '@/lib/site.config'
 
 type RepuestoConCategoria = CatalogoRepuesto & {
   categoria: Pick<Categoria, 'id' | 'nombre' | 'slug' | 'orden'> | null
+}
+
+/** Modelo con su marca relacionada (join desde page.tsx). */
+type ModeloConMarca = ModeloAuto & {
+  marca?: { id: string; nombre: string } | null
 }
 
 const CATEGORIA_COLORS: Record<string, string> = {
@@ -15,20 +22,22 @@ const CATEGORIA_COLORS: Record<string, string> = {
   'Caja':       'bg-green-100 text-green-700',
 }
 
-function ProductoCard({ repuesto }: { repuesto: RepuestoConCategoria }) {
+function ProductoCard({ repuesto, priority = false }: { repuesto: RepuestoConCategoria; priority?: boolean }) {
   const categoriaNombre = repuesto.categoria?.nombre ?? ''
-  const waText = encodeURIComponent(
-    `Hola Repuestos Allende, estoy interesado en: ${repuesto.nombre}${repuesto.codigo_oem ? ` (OEM: ${repuesto.codigo_oem})` : ''}. ¿Tienen disponibilidad?`
-  )
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col group">
       <div className="bg-slate-50 p-4 flex items-center justify-center h-64 border-b border-slate-100">
-        <img
-          src={repuesto.imagen_url ?? '/images/modulos.jpg'}
-          alt={repuesto.nombre}
-          className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-105"
-        />
+        <div className="relative w-full h-full">
+          <Image
+            src={repuesto.imagen_url ?? siteConfig.imagenes.modulos}
+            alt={repuesto.nombre}
+            fill
+            sizes="(max-width: 768px) 100vw, 33vw"
+            className="object-contain transition-transform duration-300 group-hover:scale-105"
+            priority={priority}
+          />
+        </div>
       </div>
 
       <div className="p-4 flex flex-col flex-1">
@@ -49,10 +58,10 @@ function ProductoCard({ repuesto }: { repuesto: RepuestoConCategoria }) {
         <div className="mt-auto pt-3 border-t border-slate-100">
           <p className="text-[#002D62] text-xs font-semibold mb-2 flex items-center gap-1">
             <Package className="w-3 h-3 text-[#FFD700]" />
-            Consultá disponibilidad
+            Consulte disponibilidad
           </p>
           <a
-            href={`https://wa.me/51975167682?text=${waText}`}
+            href={whatsappUrl(`Hola Repuestos Allende, estoy interesado en: ${repuesto.nombre}${repuesto.codigo_oem ? ` (OEM: ${repuesto.codigo_oem})` : ''}. ¿Tienen disponibilidad?`)}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 w-full bg-[#25D366] hover:bg-[#128C7E] text-white text-xs font-bold py-2.5 rounded-xl transition-colors"
@@ -71,7 +80,7 @@ export function CatalogoPageClient({
   repuestos,
   categorias,
 }: {
-  modelo: ModeloAuto
+  modelo: ModeloConMarca
   repuestos: RepuestoConCategoria[]
   categorias: Pick<Categoria, 'id' | 'nombre' | 'slug' | 'orden'>[]
 }) {
@@ -97,15 +106,20 @@ export function CatalogoPageClient({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
             <div className="w-40 h-28 bg-white/10 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden p-3">
-              <img
-                src={modelo.imagen_url ?? '/images/modulos.jpg'}
-                alt={modelo.nombre}
-                className="w-full h-full object-contain"
-              />
+              <div className="relative w-full h-full">
+                <Image
+                  src={modelo.imagen_url ?? siteConfig.imagenes.modulos}
+                  alt={modelo.nombre}
+                  fill
+                  sizes="160px"
+                  className="object-contain"
+                  priority
+                />
+              </div>
             </div>
             <div className="text-center sm:text-left">
               <p className="text-[#FFD700] text-xs font-bold uppercase tracking-widest mb-1">
-                Línea Sprinter
+                {modelo.marca?.nombre ?? 'Repuestos'}
               </p>
               <h1 className="text-white text-3xl sm:text-4xl font-extrabold mb-2">
                 {modelo.nombre}
@@ -181,15 +195,15 @@ export function CatalogoPageClient({
               </div>
 
               <div className="p-4 border-t border-slate-100">
-                <p className="text-xs text-slate-400 mb-3">¿No encontrás lo que buscás?</p>
+                <p className="text-xs text-slate-400 mb-3">¿No encuentra lo que busca?</p>
                 <a
-                  href="https://wa.me/51975167682?text=Hola%2C%20busco%20un%20repuesto%20para%20mi%20Sprinter."
+                  href={whatsappUrl('Hola, busco un repuesto para mi unidad.')}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full bg-[#FFD700] hover:bg-[#e6c200] text-[#002D62] text-xs font-bold py-2.5 rounded-xl transition-colors"
                 >
                   <Phone className="w-3.5 h-3.5" />
-                  Consultá al equipo
+                  Consulte al equipo
                 </a>
               </div>
             </div>
@@ -246,15 +260,15 @@ export function CatalogoPageClient({
             {/* Product grid */}
             {repuestosFiltrados.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                {repuestosFiltrados.map((repuesto) => (
-                  <ProductoCard key={repuesto.id} repuesto={repuesto} />
+                {repuestosFiltrados.map((repuesto, i) => (
+                  <ProductoCard key={repuesto.id} repuesto={repuesto} priority={i === 0} />
                 ))}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <Package className="w-12 h-12 text-slate-300 mb-4" />
                 <p className="text-slate-500 font-medium">No hay repuestos en esta categoría aún.</p>
-                <p className="text-slate-400 text-sm mt-1">Consultanos directamente por WhatsApp.</p>
+                <p className="text-slate-400 text-sm mt-1">Consúltenos directamente por WhatsApp.</p>
               </div>
             )}
           </div>

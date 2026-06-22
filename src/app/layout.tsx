@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
+import { siteConfig } from "@/lib/site.config";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -15,9 +16,10 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://repuestosallende.com"), // Ajustar a la URL real en producción
+  metadataBase: new URL(siteConfig.dominio),
   title: "Repuestos Sprinter Mercedes Benz | Repuestos Allende E.I.R.L.",
-  description: "Repuestos Mercedes Benz Sprinter en Lima | Repuestos Allende E.I.R.L. Especialistas en repuestos originales y alternativos para Mercedes-Benz Sprinter en La Victoria.",
+  description:
+    "Repuestos Mercedes Benz Sprinter en Lima | Repuestos Allende E.I.R.L. Especialistas en repuestos originales y alternativos para Mercedes-Benz Sprinter en La Victoria.",
   keywords: [
     "repuestos sprinter mercedes benz",
     "repuestos mercedes benz sprinter",
@@ -42,35 +44,37 @@ export const metadata: Metadata = {
     "repuestos renault",
     "repuestos iveco",
     "repuestos de linea pesada",
-    "repuestos comerciales"
+    "repuestos comerciales",
   ],
-  authors: [{ name: "Repuestos Allende" }],
-  creator: "Repuestos Allende",
-  publisher: "Repuestos Allende E.I.R.L.",
+  authors: [{ name: siteConfig.marcaCorta }],
+  creator: siteConfig.marcaCorta,
+  publisher: siteConfig.razonSocial,
   alternates: {
     canonical: "/",
   },
   openGraph: {
     type: "website",
     locale: "es_PE",
-    url: "https://repuestosallende.com",
-    siteName: "Repuestos Allende",
+    url: siteConfig.dominio,
+    siteName: siteConfig.marcaCorta,
     title: "Repuestos Sprinter Mercedes Benz | Repuestos Allende E.I.R.L.",
-    description: "Especialistas en repuestos originales y alternativos para Mercedes Benz Sprinter en La Victoria, Lima, Perú.",
+    description:
+      "Especialistas en repuestos originales y alternativos para Mercedes Benz Sprinter en La Victoria, Lima, Perú.",
     images: [
       {
-        url: "/images/portada.jpg", // Asegurarse de tener una buena imagen genérica
+        url: siteConfig.imagenes.portada,
         width: 1200,
         height: 630,
-        alt: "Repuestos Allende E.I.R.L.",
+        alt: siteConfig.razonSocial,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Repuestos Sprinter Mercedes Benz | Repuestos Allende E.I.R.L.",
-    description: "Especialistas en repuestos originales y alternativos para Mercedes Benz Sprinter en La Victoria, Lima, Perú.",
-    images: ["/images/portada.jpg"],
+    description:
+      "Especialistas en repuestos originales y alternativos para Mercedes Benz Sprinter en La Victoria, Lima, Perú.",
+    images: [siteConfig.imagenes.portada],
   },
   robots: {
     index: true,
@@ -90,55 +94,55 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Schema JSON-LD: AutoPartsStore (SEO Local con datos geo).
+  // El schema FAQPage se inyecta desde src/app/home/FAQ.tsx (sección por sección).
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "AutoPartsStore",
-    "name": "Repuestos Allende E.I.R.L.",
-    "description": "Especialistas en repuestos originales y alternativos para Mercedes Benz Sprinter, Actros, Atego, Peugeot, Hyundai, Renault e Iveco en La Victoria, Lima, Perú.",
-    "knowsAbout": [
+    name: siteConfig.razonSocial,
+    description:
+      "Especialistas en repuestos originales y alternativos para Mercedes Benz Sprinter, Actros, Atego, Peugeot, Hyundai, Renault e Iveco en La Victoria, Lima, Perú.",
+    knowsAbout: [
       "Repuestos Mercedes Benz Sprinter",
       "Repuestos Sprinter Mercedes Benz",
       "Autopartes Mercedes Benz Sprinter",
       "Repuestos Peugeot",
       "Repuestos Hyundai",
       "Repuestos comerciales",
-      "Repuestos de línea pesada"
+      "Repuestos de línea pesada",
     ],
-    "image": "https://repuestosallende.com/images/repuestosallendelogo.png",
-    "@id": "https://repuestosallende.com",
-    "url": "https://repuestosallende.com",
-    "telephone": "+51975167682",
-    "email": "ventas@repuestosallende.com",
-    "address": {
+    image: `${siteConfig.dominio}${siteConfig.imagenes.logo}`,
+    "@id": siteConfig.dominio,
+    url: siteConfig.dominio,
+    telephone: `+${siteConfig.telefonoIntl}`,
+    email: siteConfig.email,
+    address: {
       "@type": "PostalAddress",
-      "streetAddress": "Av. Manco Cápac 316",
-      "addressLocality": "La Victoria",
-      "addressRegion": "Lima",
-      "postalCode": "15018",
-      "addressCountry": "PE"
+      streetAddress: siteConfig.direccion.linea,
+      addressLocality: siteConfig.direccion.distrito,
+      addressRegion: siteConfig.direccion.ciudad,
+      postalCode: "15018",
+      addressCountry: "PE",
     },
-    "geo": {
+    geo: {
       "@type": "GeoCoordinates",
-      "latitude": -12.0641667,
-      "longitude": -77.0138889
+      latitude: siteConfig.geo.lat,
+      longitude: siteConfig.geo.lng,
     },
-    "openingHoursSpecification": {
+    openingHoursSpecification: {
       "@type": "OpeningHoursSpecification",
-      "dayOfWeek": [
+      dayOfWeek: [
         "Monday",
         "Tuesday",
         "Wednesday",
         "Thursday",
         "Friday",
-        "Saturday"
+        "Saturday",
       ],
-      "opens": "09:00",
-      "closes": "18:00"
+      opens: "09:00",
+      closes: "18:00",
     },
-    "sameAs": [
-      "https://www.facebook.com/repuestosallendeeirl",
-      "https://www.tiktok.com/@repuestos_allende"
-    ]
+    sameAs: [siteConfig.redes.facebook.url, siteConfig.redes.tiktok.url],
   };
 
   return (
@@ -146,11 +150,16 @@ export default function RootLayout({
       <head>
         {/* Etiquetas meta clásicas para GEO SEO por si los crawlers antiguos las necesitan */}
         <meta name="geo.region" content="PE-LMA" />
-        <meta name="geo.placename" content="La Victoria, Lima" />
-        <meta name="geo.position" content="-12.0641667;-77.0138889" />
-        <meta name="ICBM" content="-12.0641667, -77.0138889" />
+        <meta name="geo.placename" content={`${siteConfig.direccion.distrito}, ${siteConfig.direccion.ciudad}`} />
+        <meta name="geo.position" content={`${siteConfig.geo.lat};${siteConfig.geo.lng}`} />
+        <meta name="ICBM" content={`${siteConfig.geo.lat}, ${siteConfig.geo.lng}`} />
       </head>
       <body className="min-h-full flex flex-col font-sans">
+        {/* Skip-link de accesibilidad */}
+        <a href="#contenido" className="skip-link">
+          Saltar al contenido
+        </a>
+
         {/* Inject JSON-LD Schema Markup para SEO Local (Geo) */}
         <script
           type="application/ld+json"

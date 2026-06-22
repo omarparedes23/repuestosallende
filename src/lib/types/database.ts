@@ -52,6 +52,7 @@ export interface Database {
           año_hasta: number | null
           imagen_url: string | null
           activo: boolean
+          updated_at: string | null
         }
         Insert: {
           id?: string
@@ -65,6 +66,7 @@ export interface Database {
           año_hasta?: number | null
           imagen_url?: string | null
           activo?: boolean
+          updated_at?: string | null
         }
         Update: {
           id?: string
@@ -78,6 +80,7 @@ export interface Database {
           año_hasta?: number | null
           imagen_url?: string | null
           activo?: boolean
+          updated_at?: string | null
         }
       }
       ra_categorias: {
