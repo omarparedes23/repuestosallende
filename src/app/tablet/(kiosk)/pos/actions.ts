@@ -4,7 +4,7 @@ import { after } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import { Decimal } from 'decimal.js'
-import { getSession } from '@/lib/session'
+import { getSession, getSessionFast } from '@/lib/session'
 import { calcularTotalesVenta } from '@/lib/calc/totales'
 import { emitirComprobante } from '@/lib/facturacion/ose'
 import type { CartItem } from '@/app/tablet/stores/posStore'
@@ -62,19 +62,21 @@ export async function buscarProductos(
   query: string,
   categoriaId?: string
 ): Promise<ActionResponse<ProductoBuscado[]>> {
-  const { supabase: rawSupabase, user, perfil } = await getSession()
+  const { supabase: rawSupabase, user, perfil, sucursalId } = await getSessionFast()
   const supabase = rawSupabase as any
   if (!user || !perfil?.empresa_id) return { data: null, error: 'No autenticado' }
+  if (!sucursalId) return { data: null, error: 'Tienda no seleccionada' }
 
   // Querying from ra_catalogo_repuestos allows ilike on nombre/codigo_oem directly
   let q = supabase
     .from('ra_catalogo_repuestos')
     .select(
       `id, nombre, codigo_oem, imagen_url, categoria_id,
-       ra_productos!inner ( id, precio_venta, precio_mayorista, stock_actual, empresa_id, activo )`
+       ra_productos!inner ( id, precio_venta, precio_mayorista, stock_actual, empresa_id, sucursal_id, activo )`
     )
     .eq('activo', true)
     .eq('ra_productos.empresa_id', perfil.empresa_id)
+    .eq('ra_productos.sucursal_id', sucursalId)
     .eq('ra_productos.activo', true)
     .gt('ra_productos.stock_actual', 0)
     .order('nombre')
@@ -113,9 +115,10 @@ export async function buscarProductos(
 export async function procesarVenta(
   input: unknown
 ): Promise<ActionResponse<VentaResult>> {
-  const { supabase: rawSupabase, user, perfil } = await getSession()
+  const { supabase: rawSupabase, user, perfil, sucursalId } = await getSession()
   const supabase = rawSupabase as any
   if (!user || !perfil?.empresa_id) return { data: null, error: 'No autenticado' }
+  if (!sucursalId) return { data: null, error: 'Tienda no seleccionada' }
   if (perfil.rol === 'lectura') return { data: null, error: 'Sin permisos para registrar ventas' }
 
   const parsed = VentaInputSchema.safeParse(input)
@@ -131,7 +134,7 @@ export async function procesarVenta(
     supabase
       .from('ra_cajas')
       .select('id')
-      .eq('usuario_id', user.id)
+      .eq('sucursal_id', sucursalId)
       .eq('empresa_id', perfil.empresa_id)
       .eq('estado', 'abierta')
       .maybeSingle(),
@@ -219,6 +222,7 @@ export async function procesarVenta(
     .from('ra_ventas')
     .insert({
       empresa_id: perfil.empresa_id,
+      sucursal_id: sucursalId,
       caja_id: caja.id,
       cliente_id: clienteId ?? null,
       usuario_id: user.id,
@@ -289,6 +293,7 @@ export async function procesarVenta(
           .eq('id', item.productoId),
         admin.from('ra_kardex').insert({
           empresa_id: perfil.empresa_id,
+          sucursal_id: sucursalId,
           catalogo_id: item.catalogoId,
           tipo: 'salida',
           motivo: 'venta',

@@ -167,6 +167,33 @@ export interface Database {
           año_hasta?: number | null
         }
       }
+      // ── Sucursales (migration 006) ─────────────────────────
+      ra_sucursales: {
+        Row: {
+          id: string
+          empresa_id: string
+          nombre: string
+          direccion: string | null
+          activo: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          empresa_id: string
+          nombre: string
+          direccion?: string | null
+          activo?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          empresa_id?: string
+          nombre?: string
+          direccion?: string | null
+          activo?: boolean
+          created_at?: string
+        }
+      }
       ra_empresas: {
         Row: {
           id: string
@@ -218,6 +245,7 @@ export interface Database {
         Row: {
           id: string
           empresa_id: string | null
+          sucursal_id: string | null
           nombre: string
           rol: RaRol
           activo: boolean
@@ -225,6 +253,7 @@ export interface Database {
         Insert: {
           id: string
           empresa_id?: string | null
+          sucursal_id?: string | null
           nombre: string
           rol?: RaRol
           activo?: boolean
@@ -232,6 +261,7 @@ export interface Database {
         Update: {
           id?: string
           empresa_id?: string | null
+          sucursal_id?: string | null
           nombre?: string
           rol?: RaRol
           activo?: boolean
@@ -241,6 +271,7 @@ export interface Database {
         Row: {
           id: string
           empresa_id: string
+          sucursal_id: string
           catalogo_id: string
           codigo_interno: string | null
           precio_venta: number | null
@@ -253,6 +284,7 @@ export interface Database {
         Insert: {
           id?: string
           empresa_id: string
+          sucursal_id: string
           catalogo_id: string
           codigo_interno?: string | null
           precio_venta?: number | null
@@ -265,6 +297,7 @@ export interface Database {
         Update: {
           id?: string
           empresa_id?: string
+          sucursal_id?: string
           catalogo_id?: string
           codigo_interno?: string | null
           precio_venta?: number | null
@@ -333,6 +366,7 @@ export interface Database {
         Row: {
           id: string
           empresa_id: string
+          sucursal_id: string
           usuario_id: string
           estado: RaEstadoCaja
           monto_inicial: number
@@ -344,6 +378,7 @@ export interface Database {
         Insert: {
           id?: string
           empresa_id: string
+          sucursal_id: string
           usuario_id: string
           estado?: RaEstadoCaja
           monto_inicial?: number
@@ -355,6 +390,7 @@ export interface Database {
         Update: {
           id?: string
           empresa_id?: string
+          sucursal_id?: string
           usuario_id?: string
           estado?: RaEstadoCaja
           monto_inicial?: number
@@ -400,6 +436,7 @@ export interface Database {
         Row: {
           id: string
           empresa_id: string
+          sucursal_id: string
           caja_id: string | null
           cliente_id: string | null
           usuario_id: string
@@ -424,6 +461,7 @@ export interface Database {
         Insert: {
           id?: string
           empresa_id: string
+          sucursal_id: string
           caja_id?: string | null
           cliente_id?: string | null
           usuario_id: string
@@ -443,6 +481,7 @@ export interface Database {
         Update: {
           id?: string
           empresa_id?: string
+          sucursal_id?: string
           caja_id?: string | null
           cliente_id?: string | null
           usuario_id?: string
@@ -531,6 +570,7 @@ export interface Database {
         Row: {
           id: string
           empresa_id: string
+          sucursal_id: string
           catalogo_id: string
           tipo: RaTipoKardex
           motivo: RaMotivoKardex
@@ -545,6 +585,7 @@ export interface Database {
         Insert: {
           id?: string
           empresa_id: string
+          sucursal_id: string
           catalogo_id: string
           tipo: RaTipoKardex
           motivo: RaMotivoKardex
@@ -559,6 +600,7 @@ export interface Database {
         Update: {
           id?: string
           empresa_id?: string
+          sucursal_id?: string
           catalogo_id?: string
           tipo?: RaTipoKardex
           motivo?: RaMotivoKardex
@@ -618,6 +660,10 @@ export type Compatibilidad   = Tables<'ra_compatibilidades'>
 export type Empresa          = Tables<'ra_empresas'>
 export type Perfil           = Tables<'ra_perfiles'>
 export type Producto         = Tables<'ra_productos'>
+
+// ── Tipos derivados: migration 006 (Sucursales) ─────────────
+export type RaSucursal = Tables<'ra_sucursales'>
+export type RaSucursalInsert = TablesInsert<'ra_sucursales'>
 
 // ── Tipos derivados: migration 003 (Tablet POS) ─────────────
 export type RaCliente         = Tables<'ra_clientes'>

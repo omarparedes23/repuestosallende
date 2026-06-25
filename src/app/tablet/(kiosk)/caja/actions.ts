@@ -16,25 +16,28 @@ export async function abrirCaja(
     return 'Ingresa un monto inicial válido.'
   }
 
-  const { supabase: supabaseRaw, user, perfil } = await getSession()
+  const { supabase: supabaseRaw, user, perfil, sucursalId } = await getSession()
   const supabase = supabaseRaw as any
   if (!user || !perfil?.empresa_id) return 'No autenticado.'
-  if (!['administrador', 'vendedor'].includes(perfil.rol)) {
-    return 'Sin permisos para abrir caja.'
+  if (!sucursalId) return 'Tienda no seleccionada. Vuelve al inicio.'
+  // Only admins and superadmins can open/close caja
+  if (!['administrador', 'superadmin'].includes(perfil.rol)) {
+    return 'Solo el administrador puede abrir la caja.'
   }
 
   const { data: existente } = await supabase
     .from('ra_cajas')
     .select('id')
-    .eq('usuario_id', user.id)
+    .eq('sucursal_id', sucursalId)
     .eq('empresa_id', perfil.empresa_id)
     .eq('estado', 'abierta')
     .maybeSingle()
 
-  if (existente) return 'Ya tienes una caja abierta.'
+  if (existente) return 'Ya hay una caja abierta en esta tienda.'
 
   const { error } = await supabase.from('ra_cajas').insert({
     empresa_id: perfil.empresa_id,
+    sucursal_id: sucursalId,
     usuario_id: user.id,
     estado: 'abierta',
     monto_inicial: montoInicial,
@@ -53,14 +56,18 @@ export async function cerrarCaja(
   const montoFinalStr = formData.get('monto_final') as string
   const montoFinal = montoFinalStr ? parseFloat(montoFinalStr) : null
 
-  const { supabase: supabaseRaw, user, perfil } = await getSession()
+  const { supabase: supabaseRaw, user, perfil, sucursalId } = await getSession()
   const supabase = supabaseRaw as any
   if (!user || !perfil?.empresa_id) return 'No autenticado.'
+  if (!sucursalId) return 'Tienda no seleccionada. Vuelve al inicio.'
+  if (!['administrador', 'superadmin'].includes(perfil.rol)) {
+    return 'Solo el administrador puede cerrar la caja.'
+  }
 
   const { data: caja } = await supabase
     .from('ra_cajas')
     .select('id')
-    .eq('usuario_id', user.id)
+    .eq('sucursal_id', sucursalId)
     .eq('empresa_id', perfil.empresa_id)
     .eq('estado', 'abierta')
     .maybeSingle()
@@ -78,7 +85,6 @@ export async function cerrarCaja(
 
   if (error) return 'Error al cerrar la caja. Intenta de nuevo.'
 
-  // El kiosk layout detectará que no hay caja y mostrará AbrirCajaScreen
   redirect('/tablet/pos')
 }
 
@@ -96,14 +102,15 @@ export async function registrarMovimiento(
   if (!concepto) return 'El concepto es obligatorio.'
   if (!['ingreso', 'egreso'].includes(tipo)) return 'Tipo de movimiento inválido.'
 
-  const { supabase: supabaseRaw, user, perfil } = await getSession()
+  const { supabase: supabaseRaw, user, perfil, sucursalId } = await getSession()
   const supabase = supabaseRaw as any
   if (!user || !perfil?.empresa_id) return 'No autenticado.'
+  if (!sucursalId) return 'Tienda no seleccionada. Vuelve al inicio.'
 
   const { data: caja } = await supabase
     .from('ra_cajas')
     .select('id')
-    .eq('usuario_id', user.id)
+    .eq('sucursal_id', sucursalId)
     .eq('empresa_id', perfil.empresa_id)
     .eq('estado', 'abierta')
     .maybeSingle()

@@ -2,7 +2,7 @@
 
 import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
-import { getSession } from '@/lib/session'
+import { getSession, getSessionFast } from '@/lib/session'
 import type { RaCliente } from '@/lib/types/database'
 
 export type ClienteResumen = Pick<
@@ -36,7 +36,7 @@ export async function buscarClientes(query: string): Promise<{
   data: ClienteResumen[]
   error: string | null
 }> {
-  const { supabase: rawSupabase, user, perfil } = await getSession()
+  const { supabase: rawSupabase, user, perfil } = await getSessionFast()
   const supabase = rawSupabase as any
   if (!user || !perfil?.empresa_id) return { data: [], error: 'No autenticado' }
 

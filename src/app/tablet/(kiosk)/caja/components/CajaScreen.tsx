@@ -3,11 +3,12 @@
 import { useState, useActionState } from 'react'
 import { LogOut, TrendingUp, TrendingDown, Plus, X } from 'lucide-react'
 import { cerrarCaja, registrarMovimiento } from '../actions'
-import type { RaCaja, RaMovimientoCaja } from '@/lib/types/database'
+import type { RaCaja, RaMovimientoCaja, RaRol } from '@/lib/types/database'
 
 type Props = {
   caja: RaCaja
   movimientos: RaMovimientoCaja[]
+  rol: RaRol
 }
 
 const TIPO_COLORS = {
@@ -23,7 +24,7 @@ const METODO_LABELS: Record<string, string> = {
   credito: 'Crédito',
 }
 
-export function CajaScreen({ caja, movimientos }: Props) {
+export function CajaScreen({ caja, movimientos, rol }: Props) {
   const [mostrarCierre, setMostrarCierre] = useState(false)
   const [mostrarMovimiento, setMostrarMovimiento] = useState(false)
 
@@ -32,6 +33,8 @@ export function CajaScreen({ caja, movimientos }: Props) {
     registrarMovimiento,
     null
   )
+
+  const esAdmin = rol === 'administrador' || rol === 'superadmin'
 
   const totalIngresos = movimientos
     .filter((m) => m.tipo === 'ingreso')
@@ -94,21 +97,23 @@ export function CajaScreen({ caja, movimientos }: Props) {
           <h3 className="text-sm font-semibold" style={{ color: '#374151' }}>
             Movimientos ({movimientos.length})
           </h3>
-          <button
-            onClick={() => {
-              setMostrarMovimiento(!mostrarMovimiento)
-              setMostrarCierre(false)
-            }}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold"
-            style={{ backgroundColor: '#F3F4F6', color: '#374151' }}
-          >
-            {mostrarMovimiento ? <X size={14} /> : <Plus size={14} />}
-            {mostrarMovimiento ? 'Cancelar' : 'Registrar'}
-          </button>
+          {esAdmin && (
+            <button
+              onClick={() => {
+                setMostrarMovimiento(!mostrarMovimiento)
+                setMostrarCierre(false)
+              }}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold"
+              style={{ backgroundColor: '#F3F4F6', color: '#374151' }}
+            >
+              {mostrarMovimiento ? <X size={14} /> : <Plus size={14} />}
+              {mostrarMovimiento ? 'Cancelar' : 'Registrar'}
+            </button>
+          )}
         </div>
 
-        {/* Formulario nuevo movimiento */}
-        {mostrarMovimiento && (
+        {/* Formulario nuevo movimiento — solo admins */}
+        {esAdmin && mostrarMovimiento && (
           <form
             action={formMovimiento}
             className="mb-4 p-4 rounded-2xl border-2 space-y-3"
@@ -211,60 +216,62 @@ export function CajaScreen({ caja, movimientos }: Props) {
         )}
       </div>
 
-      {/* Cerrar caja */}
-      <div className="p-4 border-t space-y-3" style={{ borderColor: '#E5E7EB' }}>
-        {!mostrarCierre ? (
-          <button
-            onClick={() => {
-              setMostrarCierre(true)
-              setMostrarMovimiento(false)
-            }}
-            className="w-full flex items-center justify-center gap-2 py-4 rounded-xl text-base font-bold border-2"
-            style={{ borderColor: '#DC2626', color: '#DC2626' }}
-          >
-            <LogOut size={18} />
-            Cerrar caja
-          </button>
-        ) : (
-          <form action={formCierre} className="space-y-3">
-            <p className="text-sm font-semibold" style={{ color: '#374151' }}>
-              Confirmar cierre — ingresa el efectivo contado
-            </p>
-            <input
-              name="monto_final"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder={`Efectivo en caja (S/. ${saldoActual.toFixed(2)} estimado)`}
-              className="w-full rounded-xl border-2 px-4 py-3 text-base font-bold outline-none"
-              style={{ borderColor: '#D1D5DB' }}
-            />
-            {errorCierre && (
-              <p className="text-xs font-medium" style={{ color: '#DC2626' }}>
-                {errorCierre}
+      {/* Cerrar caja — solo admins */}
+      {esAdmin && (
+        <div className="p-4 border-t space-y-3" style={{ borderColor: '#E5E7EB' }}>
+          {!mostrarCierre ? (
+            <button
+              onClick={() => {
+                setMostrarCierre(true)
+                setMostrarMovimiento(false)
+              }}
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-xl text-base font-bold border-2"
+              style={{ borderColor: '#DC2626', color: '#DC2626' }}
+            >
+              <LogOut size={18} />
+              Cerrar caja
+            </button>
+          ) : (
+            <form action={formCierre} className="space-y-3">
+              <p className="text-sm font-semibold" style={{ color: '#374151' }}>
+                Confirmar cierre — ingresa el efectivo contado
               </p>
-            )}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setMostrarCierre(false)}
-                className="flex-1 py-3 rounded-xl text-sm font-semibold border-2"
-                style={{ borderColor: '#D1D5DB', color: '#374151' }}
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={pendingCierre}
-                className="flex-1 py-3 rounded-xl text-sm font-bold disabled:opacity-50"
-                style={{ backgroundColor: '#DC2626', color: '#FFFFFF' }}
-              >
-                {pendingCierre ? 'Cerrando...' : 'Confirmar cierre'}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
+              <input
+                name="monto_final"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder={`Efectivo en caja (S/. ${saldoActual.toFixed(2)} estimado)`}
+                className="w-full rounded-xl border-2 px-4 py-3 text-base font-bold outline-none"
+                style={{ borderColor: '#D1D5DB' }}
+              />
+              {errorCierre && (
+                <p className="text-xs font-medium" style={{ color: '#DC2626' }}>
+                  {errorCierre}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMostrarCierre(false)}
+                  className="flex-1 py-3 rounded-xl text-sm font-semibold border-2"
+                  style={{ borderColor: '#D1D5DB', color: '#374151' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={pendingCierre}
+                  className="flex-1 py-3 rounded-xl text-sm font-bold disabled:opacity-50"
+                  style={{ backgroundColor: '#DC2626', color: '#FFFFFF' }}
+                >
+                  {pendingCierre ? 'Cerrando...' : 'Confirmar cierre'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
     </div>
   )
 }

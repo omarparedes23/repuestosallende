@@ -46,9 +46,10 @@ export async function getVentasDelDia(): Promise<{
   data: VentaResumen[]
   error: string | null
 }> {
-  const { supabase: rawSupabase, user, perfil } = await getSessionFast()
+  const { supabase: rawSupabase, user, perfil, sucursalId } = await getSessionFast()
   const supabase = rawSupabase as any
   if (!user || !perfil?.empresa_id) return { data: [], error: 'No autenticado' }
+  if (!sucursalId) return { data: [], error: 'Tienda no seleccionada' }
 
   const hoy = new Date()
   hoy.setHours(0, 0, 0, 0)
@@ -61,6 +62,7 @@ export async function getVentasDelDia(): Promise<{
       ra_venta_items ( id )
     `)
     .eq('empresa_id', perfil.empresa_id)
+    .eq('sucursal_id', sucursalId)
     .gte('created_at', hoy.toISOString())
     .order('created_at', { ascending: false })
 
@@ -86,9 +88,10 @@ export async function getVentaDetalle(id: string): Promise<{
   data: VentaDetalle | null
   error: string | null
 }> {
-  const { supabase: rawSupabase, user, perfil } = await getSessionFast()
+  const { supabase: rawSupabase, user, perfil, sucursalId } = await getSessionFast()
   const supabase = rawSupabase as any
   if (!user || !perfil?.empresa_id) return { data: null, error: 'No autenticado' }
+  if (!sucursalId) return { data: null, error: 'Tienda no seleccionada' }
 
   const { data, error } = await supabase
     .from('ra_ventas')
@@ -100,6 +103,7 @@ export async function getVentaDetalle(id: string): Promise<{
     `)
     .eq('id', id)
     .eq('empresa_id', perfil.empresa_id)
+    .eq('sucursal_id', sucursalId)
     .single()
 
   if (error || !data) return { data: null, error: 'Venta no encontrada' }

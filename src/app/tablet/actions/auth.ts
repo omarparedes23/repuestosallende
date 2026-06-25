@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { getCachedPerfil } from '@/lib/session'
 
 export async function signIn(
   _prevState: string | null,
@@ -13,9 +14,15 @@ export async function signIn(
   if (!email || !password) return 'Ingresa tu correo y contraseña.'
 
   const supabase = await createClient()
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  const { error, data } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) return 'Correo o contraseña incorrectos.'
+
+  // Admins (sucursal_id = null) must pick their store before entering the POS
+  const perfil = await getCachedPerfil(data.user.id)
+  if (!perfil?.sucursal_id) {
+    redirect('/tablet/sucursal')
+  }
 
   redirect('/tablet/pos')
 }

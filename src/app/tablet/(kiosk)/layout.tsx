@@ -5,23 +5,34 @@ import { TabBar } from '@/app/tablet/components/shared/TabBar'
 import { SessionHydrator } from './SessionHydrator'
 
 export default async function KioskLayout({ children }: { children: React.ReactNode }) {
-  const { supabase: rawSupabase, user, perfil } = await getSession()
+  const { supabase: rawSupabase, user, perfil, sucursalId } = await getSession()
   const supabase = rawSupabase as any
 
   if (!user || !perfil?.empresa_id) {
     redirect('/tablet/login')
   }
 
+  // Admins must pick a store before accessing the kiosk
+  if (!sucursalId) {
+    redirect('/tablet/sucursal')
+  }
+
   const { data: caja } = await supabase
     .from('ra_cajas')
     .select('id')
     .eq('empresa_id', perfil.empresa_id)
-    .eq('usuario_id', user.id)
+    .eq('sucursal_id', sucursalId)
     .eq('estado', 'abierta')
     .maybeSingle()
 
   if (!caja) {
-    return <AbrirCajaScreen empresaId={perfil.empresa_id} />
+    return (
+      <AbrirCajaScreen
+        empresaId={perfil.empresa_id}
+        sucursalId={sucursalId}
+        rol={perfil.rol}
+      />
+    )
   }
 
   return (
