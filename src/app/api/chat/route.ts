@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import { createPublicClient } from '@/lib/supabase/public'
+import { createClient } from '@supabase/supabase-js'
 
 const isOpenAI = process.env.AI_PROVIDER === 'openai'
 
@@ -44,12 +44,21 @@ function extractSearchTerm(messages: ChatMessage[]): string | null {
 
 async function buscarProductosDB(term: string): Promise<string> {
   try {
-    const supabase = createPublicClient()
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
     const { data, error } = await supabase.rpc('ra_chatbot_buscar', { q: term })
 
-    if (error || !data || data.length === 0) return ''
+    if (error || !data || !Array.isArray(data) || data.length === 0) return ''
 
-    const lines = data.map((r) => {
+    const lines = (data as Array<{
+      nombre: string
+      codigo_oem: string | null
+      precio_venta: number
+      tiene_stock: boolean
+      modelos: string | null
+    }>).map((r) => {
       const stock = r.tiene_stock ? 'En stock' : 'Sin stock'
       const modelos = r.modelos ? ` | Modelos: ${r.modelos}` : ''
       const oem = r.codigo_oem ? ` | OEM: ${r.codigo_oem}` : ''
