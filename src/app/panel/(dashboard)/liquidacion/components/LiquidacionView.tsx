@@ -72,6 +72,7 @@ export function LiquidacionView({ caja }: Props) {
   }
 
   function handleCerrar() {
+    if (!caja) return
     if (!confirmando) { setConfirmando(true); return }
 
     setError(null)
