@@ -18,6 +18,7 @@ import { Ubicacion } from './home/Ubicacion'
 import { CtaFinal } from './home/CtaFinal'
 import { Footer } from './home/Footer'
 import { WhatsAppFloat } from './home/WhatsAppFloat'
+import { ChatWidget } from './home/ChatWidget'
 import type { ModeloConMarca } from './home/Especialidades'
 
 interface HomePageClientProps {
@@ -52,6 +53,7 @@ export function HomePageClient({ marcas, modelos }: HomePageClientProps) {
       </main>
       <Footer />
       <WhatsAppFloat />
+      <ChatWidget />
     </MotionConfig>
   )
 }

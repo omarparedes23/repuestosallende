@@ -8,6 +8,10 @@ export type Json =
 
 export type RaRol = 'superadmin' | 'administrador' | 'vendedor' | 'lectura'
 
+// ── Enums: migrations 008–009 (Panel back-office) ──────────
+export type RaEstadoPagoCompra = 'pendiente' | 'parcial' | 'pagado'
+export type RaEstadoGuia       = 'borrador' | 'emitida' | 'en_transito' | 'recibida'
+
 // ── Enums: migration 003 (Tablet POS) ──────────────────────
 export type RaTipoCliente    = 'mayorista' | 'minorista'
 export type RaTipoDocumento  = 'DNI' | 'RUC' | 'CE' | 'PASAPORTE'
@@ -306,6 +310,238 @@ export interface Database {
           stock_actual?: number
           stock_minimo?: number
           activo?: boolean
+        }
+      }
+      // ── Panel back-office tables (migrations 007–010) ──────
+      ra_proveedores: {
+        Row: {
+          id: string
+          empresa_id: string
+          nombre: string
+          ruc: string | null
+          telefono: string | null
+          email: string | null
+          direccion: string | null
+          contacto: string | null
+          notas: string | null
+          saldo_deudor: number
+          activo: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          empresa_id: string
+          nombre: string
+          ruc?: string | null
+          telefono?: string | null
+          email?: string | null
+          direccion?: string | null
+          contacto?: string | null
+          notas?: string | null
+          saldo_deudor?: number
+          activo?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          empresa_id?: string
+          nombre?: string
+          ruc?: string | null
+          telefono?: string | null
+          email?: string | null
+          direccion?: string | null
+          contacto?: string | null
+          notas?: string | null
+          saldo_deudor?: number
+          activo?: boolean
+          updated_at?: string
+        }
+      }
+      ra_compras: {
+        Row: {
+          id: string
+          empresa_id: string
+          sucursal_id: string
+          proveedor_id: string | null
+          usuario_id: string
+          nro_documento: string | null
+          fecha_compra: string
+          subtotal: number
+          igv: number
+          total: number
+          estado_pago: RaEstadoPagoCompra
+          notas: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          empresa_id: string
+          sucursal_id: string
+          proveedor_id?: string | null
+          usuario_id: string
+          nro_documento?: string | null
+          fecha_compra?: string
+          subtotal?: number
+          igv?: number
+          total?: number
+          estado_pago?: RaEstadoPagoCompra
+          notas?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          proveedor_id?: string | null
+          nro_documento?: string | null
+          fecha_compra?: string
+          subtotal?: number
+          igv?: number
+          total?: number
+          estado_pago?: RaEstadoPagoCompra
+          notas?: string | null
+          updated_at?: string
+        }
+      }
+      ra_compra_items: {
+        Row: {
+          id: string
+          compra_id: string
+          catalogo_id: string
+          nombre_producto: string
+          cantidad: number
+          precio_unitario: number
+          subtotal: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          compra_id: string
+          catalogo_id: string
+          nombre_producto: string
+          cantidad: number
+          precio_unitario: number
+          subtotal: number
+          created_at?: string
+        }
+        Update: {
+          cantidad?: number
+          precio_unitario?: number
+          subtotal?: number
+        }
+      }
+      ra_guias_remision: {
+        Row: {
+          id: string
+          empresa_id: string
+          sucursal_origen_id: string
+          sucursal_destino_id: string
+          usuario_id: string
+          estado: RaEstadoGuia
+          serie: string | null
+          correlativo: number | null
+          notas: string | null
+          fecha_emision: string | null
+          fecha_recepcion: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          empresa_id: string
+          sucursal_origen_id: string
+          sucursal_destino_id: string
+          usuario_id: string
+          estado?: RaEstadoGuia
+          serie?: string | null
+          correlativo?: number | null
+          notas?: string | null
+          fecha_emision?: string | null
+          fecha_recepcion?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          estado?: RaEstadoGuia
+          serie?: string | null
+          correlativo?: number | null
+          notas?: string | null
+          fecha_emision?: string | null
+          fecha_recepcion?: string | null
+          updated_at?: string
+        }
+      }
+      ra_guia_items: {
+        Row: {
+          id: string
+          guia_id: string
+          catalogo_id: string
+          nombre_producto: string
+          cantidad: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          guia_id: string
+          catalogo_id: string
+          nombre_producto: string
+          cantidad: number
+          created_at?: string
+        }
+        Update: {
+          cantidad?: number
+        }
+      }
+      ra_liquidaciones: {
+        Row: {
+          id: string
+          caja_id: string
+          empresa_id: string
+          usuario_id: string
+          sistema_efectivo: number
+          sistema_yape: number
+          sistema_tarjeta: number
+          sistema_transferencia: number
+          sistema_credito: number
+          conteo_efectivo: number
+          conteo_yape: number
+          conteo_tarjeta: number
+          conteo_transferencia: number
+          conteo_credito: number
+          diff_efectivo: number
+          diff_yape: number
+          diff_tarjeta: number
+          diff_transferencia: number
+          diff_credito: number
+          notas: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          caja_id: string
+          empresa_id: string
+          usuario_id: string
+          sistema_efectivo?: number
+          sistema_yape?: number
+          sistema_tarjeta?: number
+          sistema_transferencia?: number
+          sistema_credito?: number
+          conteo_efectivo?: number
+          conteo_yape?: number
+          conteo_tarjeta?: number
+          conteo_transferencia?: number
+          conteo_credito?: number
+          notas?: string | null
+          created_at?: string
+        }
+        Update: {
+          conteo_efectivo?: number
+          conteo_yape?: number
+          conteo_tarjeta?: number
+          conteo_transferencia?: number
+          conteo_credito?: number
+          notas?: string | null
         }
       }
       // ── Tablet POS tables (migration 003) ──────────────────
@@ -634,6 +870,8 @@ export interface Database {
       ra_estado_venta: RaEstadoVenta
       ra_tipo_kardex: RaTipoKardex
       ra_motivo_kardex: RaMotivoKardex
+      ra_estado_pago_compra: RaEstadoPagoCompra
+      ra_estado_guia: RaEstadoGuia
     }
     CompositeTypes: {
       [_ in never]: never
@@ -687,3 +925,25 @@ export type RaKardexInsert         = TablesInsert<'ra_kardex'>
 export type RaClienteUpdate  = TablesUpdate<'ra_clientes'>
 export type RaCajaUpdate     = TablesUpdate<'ra_cajas'>
 export type RaVentaUpdate    = TablesUpdate<'ra_ventas'>
+
+// ── Tipos derivados: migrations 007–010 (Panel back-office) ──
+export type RaProveedor          = Tables<'ra_proveedores'>
+export type RaProveedorInsert    = TablesInsert<'ra_proveedores'>
+export type RaProveedorUpdate    = TablesUpdate<'ra_proveedores'>
+
+export type RaCompra             = Tables<'ra_compras'>
+export type RaCompraInsert       = TablesInsert<'ra_compras'>
+export type RaCompraUpdate       = TablesUpdate<'ra_compras'>
+
+export type RaCompraItem         = Tables<'ra_compra_items'>
+export type RaCompraItemInsert   = TablesInsert<'ra_compra_items'>
+
+export type RaGuiaRemision       = Tables<'ra_guias_remision'>
+export type RaGuiaRemisionInsert = TablesInsert<'ra_guias_remision'>
+export type RaGuiaRemisionUpdate = TablesUpdate<'ra_guias_remision'>
+
+export type RaGuiaItem           = Tables<'ra_guia_items'>
+export type RaGuiaItemInsert     = TablesInsert<'ra_guia_items'>
+
+export type RaLiquidacion        = Tables<'ra_liquidaciones'>
+export type RaLiquidacionInsert  = TablesInsert<'ra_liquidaciones'>
