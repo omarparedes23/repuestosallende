@@ -14,8 +14,12 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { signOutPanel } from '@/app/panel/actions/auth'
+import type { LucideIcon } from 'lucide-react'
 
-const NAV = [
+type NavItem = { label: string; href: string; icon: LucideIcon; exact?: boolean }
+type NavSection = { group?: string; items: NavItem[] }
+
+const NAV: NavSection[] = [
   {
     items: [{ label: 'Dashboard', href: '/panel', icon: LayoutDashboard, exact: true }],
   },
