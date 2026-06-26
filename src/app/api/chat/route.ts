@@ -6,6 +6,11 @@ import { createClient } from '@supabase/supabase-js'
 
 const isOpenAI = process.env.AI_PROVIDER === 'openai'
 
+console.log('[chat] init — provider:', isOpenAI ? 'openai' : 'deepseek')
+console.log('[chat] SUPABASE_URL set:', !!process.env.NEXT_PUBLIC_SUPABASE_URL)
+console.log('[chat] SUPABASE_ANON_KEY set:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+console.log('[chat] AI key set:', isOpenAI ? !!process.env.OPENAI_API_KEY : !!process.env.DEEPSEEK_API_KEY)
+
 const client = new OpenAI({
   apiKey: isOpenAI ? process.env.OPENAI_API_KEY : process.env.DEEPSEEK_API_KEY,
   ...(isOpenAI ? {} : { baseURL: 'https://api.deepseek.com' }),
@@ -16,7 +21,6 @@ type ChatMessage = {
   content: string
 }
 
-// Palabras de productos — si aparecen en el mensaje, buscamos en la BD
 const PRODUCT_TERMS = [
   'amortiguador', 'filtro', 'freno', 'disco', 'bomba', 'sensor', 'radiador',
   'cremallera', 'pastilla', 'rodaje', 'rotula', 'rótula', 'trapecio', 'rack',
@@ -34,15 +38,17 @@ function extractSearchTerm(messages: ChatMessage[]): string | null {
 
   const combined = recentUserMsgs.join(' ')
 
-  // Devolver la palabra de producto más específica (más larga) que aparezca
   const found = PRODUCT_TERMS
     .filter((term) => combined.includes(term))
-    .sort((a, b) => b.length - a.length) // más específica primero
+    .sort((a, b) => b.length - a.length)
 
-  return found[0] ?? null
+  const result = found[0] ?? null
+  console.log('[chat] extractSearchTerm — combined:', combined, '→ term:', result)
+  return result
 }
 
 async function buscarProductosDB(term: string): Promise<string> {
+  console.log('[chat] buscarProductosDB — searching:', term)
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -50,7 +56,17 @@ async function buscarProductosDB(term: string): Promise<string> {
     )
     const { data, error } = await supabase.rpc('ra_chatbot_buscar', { q: term })
 
-    if (error || !data || !Array.isArray(data) || data.length === 0) return ''
+    if (error) {
+      console.error('[chat] rpc error:', JSON.stringify(error))
+      return ''
+    }
+
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      console.log('[chat] rpc returned empty — data:', data)
+      return ''
+    }
+
+    console.log('[chat] rpc returned', data.length, 'rows')
 
     const lines = (data as Array<{
       nombre: string
@@ -71,45 +87,60 @@ async function buscarProductosDB(term: string): Promise<string> {
       lines.join('\n') +
       '\n(Precios en soles. Stock sujeto a confirmación. Para grandes volúmenes consulta al WhatsApp.)'
     )
-  } catch {
+  } catch (err) {
+    console.error('[chat] buscarProductosDB exception:', err)
     return ''
   }
 }
 
 export async function POST(request: Request) {
-  const { messages }: { messages: ChatMessage[] } = await request.json()
+  console.log('[chat] POST received')
+  try {
+    const { messages }: { messages: ChatMessage[] } = await request.json()
+    console.log('[chat] messages count:', messages.length)
 
-  const systemPrompt = readFileSync(
-    join(process.cwd(), 'src', 'data', 'chatbot-context.md'),
-    'utf-8'
-  )
+    const systemPrompt = readFileSync(
+      join(process.cwd(), 'src', 'data', 'chatbot-context.md'),
+      'utf-8'
+    )
+    console.log('[chat] systemPrompt loaded, length:', systemPrompt.length)
 
-  // Buscar en BD si el cliente menciona algún repuesto
-  const searchTerm = extractSearchTerm(messages)
-  const dbContext = searchTerm ? await buscarProductosDB(searchTerm) : ''
+    const searchTerm = extractSearchTerm(messages)
+    const dbContext = searchTerm ? await buscarProductosDB(searchTerm) : ''
+    console.log('[chat] dbContext length:', dbContext.length)
 
-  const stream = await client.chat.completions.create({
-    model: isOpenAI ? 'gpt-4o-mini' : 'deepseek-chat',
-    messages: [
-      { role: 'system', content: systemPrompt + dbContext },
-      ...messages,
-    ],
-    stream: true,
-    max_tokens: 500,
-  })
+    console.log('[chat] calling AI model:', isOpenAI ? 'gpt-4o-mini' : 'deepseek-chat')
+    const stream = await client.chat.completions.create({
+      model: isOpenAI ? 'gpt-4o-mini' : 'deepseek-chat',
+      messages: [
+        { role: 'system', content: systemPrompt + dbContext },
+        ...messages,
+      ],
+      stream: true,
+      max_tokens: 500,
+    })
 
-  const encoder = new TextEncoder()
-  const readable = new ReadableStream({
-    async start(controller) {
-      for await (const chunk of stream) {
-        const text = chunk.choices[0]?.delta?.content ?? ''
-        if (text) controller.enqueue(encoder.encode(text))
-      }
-      controller.close()
-    },
-  })
+    const encoder = new TextEncoder()
+    const readable = new ReadableStream({
+      async start(controller) {
+        let totalChars = 0
+        for await (const chunk of stream) {
+          const text = chunk.choices[0]?.delta?.content ?? ''
+          if (text) {
+            totalChars += text.length
+            controller.enqueue(encoder.encode(text))
+          }
+        }
+        console.log('[chat] stream complete — chars sent:', totalChars)
+        controller.close()
+      },
+    })
 
-  return new NextResponse(readable, {
-    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-  })
+    return new NextResponse(readable, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    })
+  } catch (err) {
+    console.error('[chat] POST error:', err)
+    return new NextResponse('Error interno', { status: 500 })
+  }
 }
