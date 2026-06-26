@@ -62,26 +62,26 @@ export function ProductGrid({ categorias }: Props) {
   return (
     <div className="flex flex-col h-full">
       {/* Search bar */}
-      <div className="p-3 border-b" style={{ borderColor: '#E5E7EB' }}>
+      <div className="p-3 border-b" style={{ borderColor: '#002D62', backgroundColor: '#002D62' }}>
         <div className="relative">
           <Search
             size={18}
             className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-            style={{ color: '#9CA3AF' }}
+            style={{ color: '#93B4D4' }}
           />
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar por nombre o código OEM..."
-            className="w-full pl-10 pr-4 py-3 rounded-xl border-2 text-sm outline-none transition-colors focus:border-[#002D62]"
-            style={{ borderColor: '#D1D5DB', backgroundColor: '#F9FAFB' }}
+            className="w-full pl-10 pr-4 py-3 rounded-xl border-2 text-sm outline-none transition-colors"
+            style={{ borderColor: '#001A3D', backgroundColor: '#001A3D', color: '#FFFFFF' }}
           />
           {isPending && (
             <Loader2
               size={16}
               className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin"
-              style={{ color: '#9CA3AF' }}
+              style={{ color: '#93B4D4' }}
             />
           )}
         </div>
@@ -90,14 +90,14 @@ export function ProductGrid({ categorias }: Props) {
       {/* Category bar */}
       <div
         className="flex gap-2 px-3 py-2 overflow-x-auto border-b"
-        style={{ borderColor: '#E5E7EB' }}
+        style={{ borderColor: '#002D62', backgroundColor: '#001A3D' }}
       >
         <button
           onClick={() => setSelectedCat(undefined)}
           className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
           style={{
-            backgroundColor: !selectedCat ? '#002D62' : '#F3F4F6',
-            color: !selectedCat ? '#FFD700' : '#374151',
+            backgroundColor: !selectedCat ? '#FFD700' : '#002D62',
+            color: !selectedCat ? '#002D62' : '#93B4D4',
           }}
         >
           Todos
@@ -108,8 +108,8 @@ export function ProductGrid({ categorias }: Props) {
             onClick={() => setSelectedCat(cat.id === selectedCat ? undefined : cat.id)}
             className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
             style={{
-              backgroundColor: selectedCat === cat.id ? '#002D62' : '#F3F4F6',
-              color: selectedCat === cat.id ? '#FFD700' : '#374151',
+              backgroundColor: selectedCat === cat.id ? '#FFD700' : '#002D62',
+              color: selectedCat === cat.id ? '#002D62' : '#93B4D4',
             }}
           >
             {cat.nombre}
@@ -118,7 +118,7 @@ export function ProductGrid({ categorias }: Props) {
       </div>
 
       {/* Product grid */}
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="flex-1 overflow-y-auto p-3" style={{ backgroundColor: '#F1F5F9' }}>
         {productos.length === 0 && !isPending ? (
           <div className="flex flex-col items-center justify-center h-40 gap-2">
             <p className="text-sm font-medium" style={{ color: '#9CA3AF' }}>

@@ -19,8 +19,8 @@ export function ProductCard({ producto, tipoVenta, onAdd }: Props) {
 
   return (
     <div
-      className="flex flex-col rounded-2xl overflow-hidden border-2 transition-shadow active:scale-95"
-      style={{ borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' }}
+      className="flex flex-col rounded-2xl overflow-hidden border transition-shadow active:scale-95"
+      style={{ borderColor: '#CBD5E1', backgroundColor: '#FFFFFF' }}
     >
       {producto.imagenUrl ? (
         <img
@@ -31,7 +31,7 @@ export function ProductCard({ producto, tipoVenta, onAdd }: Props) {
       ) : (
         <div
           className="w-full h-28 flex items-center justify-center text-3xl font-bold"
-          style={{ backgroundColor: '#F3F4F6', color: '#9CA3AF' }}
+          style={{ backgroundColor: '#002D62', color: '#FFD700' }}
         >
           {producto.nombre.charAt(0)}
         </div>

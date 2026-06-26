@@ -49,13 +49,7 @@ async function buscarProductosDB(term: string): Promise<string> {
 
     if (error || !data || data.length === 0) return ''
 
-    const lines = (data as Array<{
-      nombre: string
-      codigo_oem: string | null
-      precio_venta: number
-      tiene_stock: boolean
-      modelos: string | null
-    }>).map((r) => {
+    const lines = data.map((r) => {
       const stock = r.tiene_stock ? 'En stock' : 'Sin stock'
       const modelos = r.modelos ? ` | Modelos: ${r.modelos}` : ''
       const oem = r.codigo_oem ? ` | OEM: ${r.codigo_oem}` : ''

@@ -858,6 +858,16 @@ export interface Database {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      ra_chatbot_buscar: {
+        Args: { q: string }
+        Returns: Array<{
+          nombre: string
+          codigo_oem: string | null
+          precio_venta: number
+          tiene_stock: boolean
+          modelos: string | null
+        }>
+      }
     }
     Enums: {
       ra_rol: RaRol

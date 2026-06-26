@@ -24,9 +24,9 @@ export function KioskPosClient({ categorias }: Props) {
       {/* Tipo venta toggle */}
       <div
         className="flex items-center justify-between px-4 py-2 border-b"
-        style={{ borderColor: '#E5E7EB', backgroundColor: '#F9FAFB' }}
+        style={{ borderColor: '#001A3D', backgroundColor: '#002D62' }}
       >
-        <span className="text-sm font-semibold" style={{ color: '#374151' }}>
+        <span className="text-sm font-semibold" style={{ color: '#93B4D4' }}>
           Tipo de venta:
         </span>
         <div className="flex rounded-xl overflow-hidden border-2" style={{ borderColor: '#002D62' }}>
@@ -49,15 +49,15 @@ export function KioskPosClient({ categorias }: Props) {
       {/* 62/38 split */}
       <div className="flex flex-1 overflow-hidden">
         {/* Product grid — 62% */}
-        <div className="flex flex-col border-r" style={{ width: '62%', borderColor: '#E5E7EB' }}>
+        <div className="flex flex-col border-r" style={{ width: '62%', borderColor: '#002D62' }}>
           <ProductGrid categorias={categorias} />
         </div>
 
         {/* Cart — 38% */}
-        <div className="flex flex-col" style={{ width: '38%', backgroundColor: '#FAFAFA' }}>
+        <div className="flex flex-col" style={{ width: '38%', backgroundColor: '#001A3D' }}>
           <div
-            className="px-4 py-3 border-b font-semibold text-sm"
-            style={{ borderColor: '#E5E7EB', color: '#002D62' }}
+            className="px-4 py-3 border-b font-semibold text-sm tracking-wide uppercase"
+            style={{ borderColor: '#002D62', color: '#FFD700' }}
           >
             Carrito
           </div>
