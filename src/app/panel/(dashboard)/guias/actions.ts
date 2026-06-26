@@ -95,7 +95,7 @@ export async function crearGuia(
     usuario_id: perfil.id,
     estado: 'borrador',
     serie: serie || null,
-    correlativo: correlativo || null,
+    correlativo: correlativo ? parseInt(correlativo, 10) : null,
     notas: notas || null,
   }
 
