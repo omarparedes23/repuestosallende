@@ -264,7 +264,7 @@ export function ChatWidget() {
         onClick={() => setIsOpen((prev) => !prev)}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className="fixed bottom-24 right-4 sm:right-6 z-50 w-14 h-14 rounded-full flex items-center justify-center"
+        className="fixed bottom-24 right-4 sm:right-6 z-50 w-16 h-16 rounded-full flex items-center justify-center"
         style={{
           backgroundColor: '#002D62',
           boxShadow: '0 0 24px -5px rgba(0,45,98,0.5), 0 4px 20px rgba(0,0,0,0.3)',
@@ -280,7 +280,7 @@ export function ChatWidget() {
               exit={{ opacity: 0, rotate: 90 }}
               transition={{ duration: 0.15 }}
             >
-              <X size={22} style={{ color: '#FFD700' }} />
+              <X size={26} style={{ color: '#FFD700' }} />
             </motion.span>
           ) : (
             <motion.span
@@ -290,7 +290,7 @@ export function ChatWidget() {
               exit={{ opacity: 0, rotate: -90 }}
               transition={{ duration: 0.15 }}
             >
-              <MessageCircle size={22} style={{ color: '#FFD700' }} />
+              <MessageCircle size={26} style={{ color: '#FFD700' }} />
             </motion.span>
           )}
         </AnimatePresence>
