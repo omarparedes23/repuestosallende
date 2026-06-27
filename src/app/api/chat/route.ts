@@ -47,16 +47,26 @@ function extractSearchTerm(messages: ChatMessage[]): string | null {
   const recentUserMsgs = messages
     .filter((m) => m.role === 'user')
     .slice(-2)
-    .map((m) => m.content.toLowerCase())
+    .map((m) => m.content)
 
   const combined = recentUserMsgs.join(' ')
+  const combinedLower = combined.toLowerCase()
 
+  // Detect product codes first (e.g. CA-56041, DB0519, LF 4054, LF4054.IMP)
+  const codeMatch = combined.match(/\b([A-Za-z]{1,6}[\s\-.]?\d{3,7}[A-Za-z0-9.\-]*)\b/)
+  if (codeMatch) {
+    const code = codeMatch[1].trim()
+    console.log('[chat] extractSearchTerm — detected code:', code)
+    return code
+  }
+
+  // Fall back to keyword-based search
   const found = PRODUCT_TERMS
-    .filter((term) => combined.includes(term))
+    .filter((term) => combinedLower.includes(term))
     .sort((a, b) => b.length - a.length)
 
   const result = found[0] ?? null
-  console.log('[chat] extractSearchTerm — combined:', combined, '→ term:', result)
+  console.log('[chat] extractSearchTerm — combined:', combinedLower, '→ term:', result)
   return result
 }
 

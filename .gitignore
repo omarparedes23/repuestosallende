@@ -44,3 +44,7 @@ next-env.d.ts
 claude.md
 *.md
 
+# data migration (CSVs con datos sensibles)
+*.csv
+*.ps1
+
