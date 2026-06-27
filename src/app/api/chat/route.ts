@@ -46,6 +46,8 @@ const PRODUCT_TERMS = [
   'correa', 'embrague', 'culata', 'turbo', 'rodamiento', 'munon', 'muñon',
 ]
 
+const CODE_REGEX = /\b([A-Za-z]{1,6}[\s\-.]?\d{3,}[A-Za-z0-9.\-]*|\d{5,}[A-Za-z0-9.\-]*)\b/
+
 function extractSearchTerm(messages: ChatMessage[]): string | null {
   const userMsgs = messages.filter((m) => m.role === 'user')
   const lastMsg = userMsgs.at(-1)?.content ?? ''
@@ -54,23 +56,41 @@ function extractSearchTerm(messages: ChatMessage[]): string | null {
 
   console.log('[chat] extractSearchTerm — last msg:', JSON.stringify(lastMsg))
 
-  // Códigos solo en el último mensaje (evita reusar código de mensajes anteriores)
-  // Cubre: PD57029, CA-56041, LF 4054, 014301115.A, 65144, 3549099C3
-  const codeMatch = lastMsg.match(/\b([A-Za-z]{1,6}[\s\-.]?\d{3,}[A-Za-z0-9.\-]*|\d{5,}[A-Za-z0-9.\-]*)\b/)
-  console.log('[chat] extractSearchTerm — codeMatch:', codeMatch ? codeMatch[1] : null)
+  // Código en el último mensaje del usuario
+  const codeMatch = lastMsg.match(CODE_REGEX)
   if (codeMatch) {
-    console.log('[chat] extractSearchTerm — detected code:', codeMatch[1].trim())
+    console.log('[chat] extractSearchTerm — code in last msg:', codeMatch[1].trim())
     return codeMatch[1].trim()
   }
 
-  // Keywords en los últimos 2 mensajes
-  const found = PRODUCT_TERMS
+  // Keyword de producto en los últimos 2 mensajes
+  const keyword = PRODUCT_TERMS
     .filter((term) => recentLower.includes(term))
-    .sort((a, b) => b.length - a.length)
+    .sort((a, b) => b.length - a.length)[0] ?? null
 
-  const result = found[0] ?? null
-  console.log('[chat] extractSearchTerm — keyword:', result)
-  return result
+  if (keyword) {
+    // Si el keyword ya apareció en mensajes anteriores → es un seguimiento del mismo producto
+    // Si es un keyword nuevo → búsqueda de producto diferente
+    const prevText = userMsgs.slice(0, -1).map((m) => m.content).join(' ').toLowerCase()
+    const isFollowUp = prevText.includes(keyword)
+
+    if (isFollowUp) {
+      const lastUsedCode = [...userMsgs].reverse()
+        .slice(1)
+        .map((m) => m.content.match(CODE_REGEX))
+        .find((m) => m != null)?.[1]
+
+      if (lastUsedCode) {
+        console.log('[chat] extractSearchTerm — follow-up, reusing last code:', lastUsedCode.trim())
+        return lastUsedCode.trim()
+      }
+    }
+
+    console.log('[chat] extractSearchTerm — new keyword:', keyword)
+    return keyword
+  }
+
+  return null
 }
 
 async function buscarProductosDB(term: string): Promise<string> {
@@ -97,15 +117,20 @@ async function buscarProductosDB(term: string): Promise<string> {
     const lines = (data as Array<{
       nombre: string
       codigo_oem: string | null
+      codigos_alternos: string | null
       precio_venta: number
-      tiene_stock: boolean
+      moneda: string | null
+      stock_actual: number
       modelos: string | null
     }>).map((r, i) => {
-      const precio = r.precio_venta ? `S/ ${Number(r.precio_venta).toFixed(2)}` : 'Precio a consultar'
-      const stock = r.tiene_stock ? 'En stock ✓' : 'Stock a confirmar'
-      const oem = r.codigo_oem ? `Código OEM: ${r.codigo_oem}` : ''
+      const simbolo = (r.moneda ?? 'USD') === 'PEN' ? 'S/' : 'USD'
+      const precio = r.precio_venta ? `${simbolo} ${Number(r.precio_venta).toFixed(2)}` : 'Precio a consultar'
+      const qty = Number(r.stock_actual ?? 0)
+      const stock = qty > 0 ? `Stock: ${qty} unidad${qty !== 1 ? 'es' : ''}` : 'Stock a confirmar'
+      const oem = r.codigo_oem ? `Código comercial: ${r.codigo_oem}` : ''
+      const alternos = r.codigos_alternos ? `Códigos alternos: ${r.codigos_alternos}` : ''
       const modelos = r.modelos ? `Vehículos: ${r.modelos}` : ''
-      const detalles = [oem, modelos].filter(Boolean).join(' | ')
+      const detalles = [oem, alternos, modelos].filter(Boolean).join(' | ')
       return `${i + 1}. ${r.nombre}\n   Precio: ${precio} | ${stock}${detalles ? `\n   ${detalles}` : ''}`
     })
 
