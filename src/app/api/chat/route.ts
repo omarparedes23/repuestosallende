@@ -6,9 +6,12 @@ const SYSTEM_PROMPT = `Eres el asistente virtual de Repuestos Allende, especiali
 
 Eres directo, técnico y profesional. Solo respondes sobre repuestos automotrices, vehículos comerciales y mecánica. Si preguntan algo ajeno (política, deportes, tecnología general), declinas amablemente y rediriges.
 
-Los precios y stock los obtienes del inventario en tiempo real que se te proporciona en cada mensaje. Si no recibes datos de inventario para un producto, indica que consulten al WhatsApp para confirmar disponibilidad.
+## Cómo responder sobre productos
+- Si recibes una sección "INVENTARIO CONSULTADO AHORA MISMO", SIEMPRE muestra el nombre y precio del producto encontrado, aunque el stock sea 0 o diga "Sin stock".
+- "Sin stock" significa que el stock en sistema es 0, pero puede haber disponibilidad — indica el precio y sugiere confirmar por WhatsApp.
+- Si NO recibes datos de inventario para un producto, entonces sí indica que consulten al WhatsApp.
 
-Para cotizaciones por volumen, precios especiales o confirmación de stock urgente, siempre redirige al WhatsApp: wa.me/51935034586.
+Para cotizaciones por volumen, precios especiales o confirmación de stock urgente, redirige al WhatsApp: wa.me/51935034586.
 
 ## Datos de la empresa
 - Dirección: Av. Manco Cápac 316, La Victoria, Lima (al lado del BBVA)
@@ -44,29 +47,29 @@ const PRODUCT_TERMS = [
 ]
 
 function extractSearchTerm(messages: ChatMessage[]): string | null {
-  const recentUserMsgs = messages
-    .filter((m) => m.role === 'user')
-    .slice(-2)
-    .map((m) => m.content)
+  const userMsgs = messages.filter((m) => m.role === 'user')
+  const lastMsg = userMsgs.at(-1)?.content ?? ''
+  const recentCombined = userMsgs.slice(-2).map((m) => m.content).join(' ')
+  const recentLower = recentCombined.toLowerCase()
 
-  const combined = recentUserMsgs.join(' ')
-  const combinedLower = combined.toLowerCase()
+  console.log('[chat] extractSearchTerm — last msg:', JSON.stringify(lastMsg))
 
-  // Detect product codes first (e.g. CA-56041, DB0519, LF 4054, LF4054.IMP)
-  const codeMatch = combined.match(/\b([A-Za-z]{1,6}[\s\-.]?\d{3,7}[A-Za-z0-9.\-]*)\b/)
+  // Códigos solo en el último mensaje (evita reusar código de mensajes anteriores)
+  // Cubre: PD57029, CA-56041, LF 4054, 014301115.A, 65144, 3549099C3
+  const codeMatch = lastMsg.match(/\b([A-Za-z]{1,6}[\s\-.]?\d{3,}[A-Za-z0-9.\-]*|\d{5,}[A-Za-z0-9.\-]*)\b/)
+  console.log('[chat] extractSearchTerm — codeMatch:', codeMatch ? codeMatch[1] : null)
   if (codeMatch) {
-    const code = codeMatch[1].trim()
-    console.log('[chat] extractSearchTerm — detected code:', code)
-    return code
+    console.log('[chat] extractSearchTerm — detected code:', codeMatch[1].trim())
+    return codeMatch[1].trim()
   }
 
-  // Fall back to keyword-based search
+  // Keywords en los últimos 2 mensajes
   const found = PRODUCT_TERMS
-    .filter((term) => combinedLower.includes(term))
+    .filter((term) => recentLower.includes(term))
     .sort((a, b) => b.length - a.length)
 
   const result = found[0] ?? null
-  console.log('[chat] extractSearchTerm — combined:', combinedLower, '→ term:', result)
+  console.log('[chat] extractSearchTerm — keyword:', result)
   return result
 }
 
@@ -97,18 +100,19 @@ async function buscarProductosDB(term: string): Promise<string> {
       precio_venta: number
       tiene_stock: boolean
       modelos: string | null
-    }>).map((r) => {
-      const stock = r.tiene_stock ? 'En stock' : 'Sin stock'
-      const modelos = r.modelos ? ` | Modelos: ${r.modelos}` : ''
-      const oem = r.codigo_oem ? ` | OEM: ${r.codigo_oem}` : ''
-      return `- ${r.nombre}${oem}: S/ ${r.precio_venta.toFixed(2)} — ${stock}${modelos}`
+    }>).map((r, i) => {
+      const precio = r.precio_venta ? `S/ ${Number(r.precio_venta).toFixed(2)}` : 'Precio a consultar'
+      const stock = r.tiene_stock ? 'En stock ✓' : 'Stock a confirmar'
+      const oem = r.codigo_oem ? `Código OEM: ${r.codigo_oem}` : ''
+      const modelos = r.modelos ? `Vehículos: ${r.modelos}` : ''
+      const detalles = [oem, modelos].filter(Boolean).join(' | ')
+      return `${i + 1}. ${r.nombre}\n   Precio: ${precio} | ${stock}${detalles ? `\n   ${detalles}` : ''}`
     })
 
     return (
-      '\n\n## PRODUCTOS ENCONTRADOS EN INVENTARIO\n' +
-      'Los siguientes repuestos están disponibles con precios actualizados:\n' +
+      `\n\nPRODUCTOS EN INVENTARIO (${data.length} resultado${data.length > 1 ? 's' : ''}):\n` +
       lines.join('\n') +
-      '\n(Precios en soles. Stock sujeto a confirmación. Para grandes volúmenes consulta al WhatsApp.)'
+      '\n\nPrecios en soles. Stock sujeto a confirmación.'
     )
   } catch (err) {
     console.error('[chat] buscarProductosDB exception:', err)
@@ -128,13 +132,24 @@ export async function POST(request: Request) {
     const dbContext = searchTerm ? await buscarProductosDB(searchTerm) : ''
     console.log('[chat] dbContext length:', dbContext.length)
 
+    // Inject inventory into the last user message so the model can't ignore it
+    const messagesWithContext = dbContext
+      ? messages.map((m, i) =>
+          i === messages.length - 1 && m.role === 'user'
+            ? { ...m, content: m.content + '\n\n[INVENTARIO ENCONTRADO]\n' + dbContext }
+            : m
+        )
+      : messages
+
+    const aiMessages = [
+      { role: 'system' as const, content: SYSTEM_PROMPT },
+      ...messagesWithContext,
+    ]
+
     console.log('[chat] calling AI model:', isOpenAI ? 'gpt-4o-mini' : 'deepseek-chat')
     const stream = await client.chat.completions.create({
       model: isOpenAI ? 'gpt-4o-mini' : 'deepseek-chat',
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT + dbContext },
-        ...messages,
-      ],
+      messages: aiMessages,
       stream: true,
       max_tokens: 500,
     })
