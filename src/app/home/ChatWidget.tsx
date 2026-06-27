@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageCircle, X, Send, Wrench } from 'lucide-react'
 
@@ -10,34 +10,50 @@ type Message = {
 }
 
 const URL_REGEX = /(https?:\/\/[^\s]+|wa\.me\/[^\s]+)/g
+const BOLD_REGEX = /\*\*(.+?)\*\*/g
 
-function renderWithLinks(text: string) {
+function renderInline(text: string): React.ReactNode[] {
   const parts = text.split(URL_REGEX)
-  return parts.map((part, i) => {
+  return parts.flatMap((part, i) => {
     if (URL_REGEX.test(part)) {
       URL_REGEX.lastIndex = 0
       const trailingMatch = part.match(/([.,!?)]+)$/)
       const trailing = trailingMatch ? trailingMatch[1] : ''
       const cleanUrl = trailing ? part.slice(0, -trailing.length) : part
       const href = cleanUrl.startsWith('http') ? cleanUrl : `https://${cleanUrl}`
-      return (
-        <span key={i}>
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: '#FFD700', textDecoration: 'underline' }}
-            className="hover:opacity-80 transition-opacity"
-          >
-            {cleanUrl}
-          </a>
-          {trailing}
-        </span>
-      )
+      return [
+        <a
+          key={`url-${i}`}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: '#FFD700', textDecoration: 'underline' }}
+          className="hover:opacity-80 transition-opacity"
+        >
+          {cleanUrl}
+        </a>,
+        trailing,
+      ]
     }
-    return part
+    // Parsear **bold** dentro del texto plano
+    const boldParts = part.split(BOLD_REGEX)
+    return boldParts.map((bp, j) =>
+      j % 2 === 1 ? <strong key={`b-${i}-${j}`}>{bp}</strong> : bp
+    )
   })
 }
+
+function renderWithLinks(text: string) {
+  return text.split('\n').map((line, i, arr) => (
+    <span key={i}>
+      {renderInline(line)}
+      {i < arr.length - 1 && <br />}
+    </span>
+  ))
+}
+
+const STORAGE_KEY = 'ra_chat_history'
+const MAX_MESSAGES = 50
 
 const INITIAL_MESSAGE: Message = {
   role: 'assistant',
@@ -51,6 +67,28 @@ export function ChatWidget() {
   const [isStreaming, setIsStreaming] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Cargar historial de la sesión al montar
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved) as Message[]
+        if (Array.isArray(parsed) && parsed.length > 0) setMessages(parsed)
+      }
+    } catch {}
+  }, [])
+
+  // Persistir historial en sessionStorage (máx 50 mensajes)
+  useEffect(() => {
+    if (messages.length <= 1) return
+    try {
+      const capped = messages.length > MAX_MESSAGES
+        ? [INITIAL_MESSAGE, ...messages.slice(-(MAX_MESSAGES - 1))]
+        : messages
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(capped))
+    } catch {}
+  }, [messages])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -79,7 +117,7 @@ export function ChatWidget() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: history.map((m) => ({ role: m.role, content: m.content })),
+          messages: history.slice(-MAX_MESSAGES).map((m) => ({ role: m.role, content: m.content })),
         }),
       })
 

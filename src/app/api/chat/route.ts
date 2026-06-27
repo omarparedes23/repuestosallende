@@ -1,15 +1,19 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { createClient } from '@supabase/supabase-js'
+import fs from 'fs'
+import path from 'path'
 
 const SYSTEM_PROMPT = `Eres el asistente virtual de Repuestos Allende, especializada en repuestos para vehículos de línea pesada y comercial, ubicada en La Victoria, Lima, Perú.
 
 Eres directo, técnico y profesional. Solo respondes sobre repuestos automotrices, vehículos comerciales y mecánica. Si preguntan algo ajeno (política, deportes, tecnología general), declinas amablemente y rediriges.
 
 ## Cómo responder sobre productos
-- Si recibes una sección "INVENTARIO CONSULTADO AHORA MISMO", SIEMPRE muestra el nombre y precio del producto encontrado, aunque el stock sea 0 o diga "Sin stock".
+- IMPORTANTE: IGNORA cualquier inventario o producto mostrado en mensajes anteriores. SOLO básate en la sección "[INVENTARIO ENCONTRADO]" que aparece en el ÚLTIMO mensaje del usuario. NUNCA mezcles o inventes repuestos basándote en el historial de chat.
+- Si recibes la sección "[INVENTARIO ENCONTRADO]", SIEMPRE muestra el nombre y precio del producto encontrado, aunque el stock sea 0 o diga "Sin stock".
 - "Sin stock" significa que el stock en sistema es 0, pero puede haber disponibilidad — indica el precio y sugiere confirmar por WhatsApp.
-- Si NO recibes datos de inventario para un producto, entonces sí indica que consulten al WhatsApp.
+- Si NO recibes la sección "[INVENTARIO ENCONTRADO]" y el usuario preguntó por un repuesto específico, indica que no lo encontraste y sugiere consultar al WhatsApp.
+- Si NO recibes "[INVENTARIO ENCONTRADO]" y el usuario hace una pregunta general (horarios, dirección, marcas, etc.), responde con la información del sistema.
 
 Para cotizaciones por volumen, precios especiales o confirmación de stock urgente, redirige al WhatsApp: wa.me/51935034586.
 
@@ -48,49 +52,75 @@ const PRODUCT_TERMS = [
 
 const CODE_REGEX = /\b([A-Za-z]{1,6}[\s\-.]?\d{3,}[A-Za-z0-9.\-]*|\d{5,}[A-Za-z0-9.\-]*)\b/
 
+const STOP_WORDS = new Set([
+  'que', 'hay', 'tienes', 'tienen', 'para', 'como', 'cual', 'cuales',
+  'una', 'unos', 'unas', 'los', 'las', 'del', 'con', 'por', 'de',
+  'en', 'el', 'la', 'un', 'y', 'o', 'a', 'su', 'me', 'se', 'si',
+  'son', 'esta', 'ese', 'esa', 'esto', 'esos', 'esas', 'familia',
+  'linea', 'marca', 'modelo', 'vehiculo', 'auto', 'carro', 'busco',
+  'busca', 'necesito', 'tengo', 'quiero', 'dame', 'dime', 'ver',
+  'sobre', 'del', 'repuesto', 'repuestos', 'pieza', 'piezas', 'parte', 'partes', 'producto', 'stock',
+  'precio', 'costo', 'disponible', 'tienes', 'tienen', 'tengo',
+])
+
+function buildMultiQuery(text: string): string {
+  const words = text
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // quitar tildes
+    .split(/\s+/)
+    .map((w) => w.replace(/[^a-z0-9]/g, ''))
+    .filter((w) => w.length >= 3 && !STOP_WORDS.has(w))
+  // máximo 4 palabras para no sobrerestringir
+  return [...new Set(words)].slice(0, 4).join(' ')
+}
+
 function extractSearchTerm(messages: ChatMessage[]): string | null {
   const userMsgs = messages.filter((m) => m.role === 'user')
   const lastMsg = userMsgs.at(-1)?.content ?? ''
-  const recentCombined = userMsgs.slice(-2).map((m) => m.content).join(' ')
-  const recentLower = recentCombined.toLowerCase()
 
   console.log('[chat] extractSearchTerm — last msg:', JSON.stringify(lastMsg))
 
-  // Código en el último mensaje del usuario
+  // Código en el último mensaje → búsqueda exacta
   const codeMatch = lastMsg.match(CODE_REGEX)
   if (codeMatch) {
-    console.log('[chat] extractSearchTerm — code in last msg:', codeMatch[1].trim())
+    console.log('[chat] extractSearchTerm — code:', codeMatch[1].trim())
     return codeMatch[1].trim()
   }
 
-  // Keyword de producto en los últimos 2 mensajes
+  // Detectar si hay keyword de producto en el último mensaje
+  const lastLower = lastMsg.toLowerCase()
   const keyword = PRODUCT_TERMS
-    .filter((term) => recentLower.includes(term))
+    .filter((t) => lastLower.includes(t))
     .sort((a, b) => b.length - a.length)[0] ?? null
 
   if (keyword) {
-    // Si el keyword ya apareció en mensajes anteriores → es un seguimiento del mismo producto
-    // Si es un keyword nuevo → búsqueda de producto diferente
+    // Seguimiento del mismo producto si el keyword ya estaba en mensajes anteriores
     const prevText = userMsgs.slice(0, -1).map((m) => m.content).join(' ').toLowerCase()
-    const isFollowUp = prevText.includes(keyword)
-
-    if (isFollowUp) {
+    if (prevText.includes(keyword)) {
       const lastUsedCode = [...userMsgs].reverse()
         .slice(1)
         .map((m) => m.content.match(CODE_REGEX))
         .find((m) => m != null)?.[1]
-
       if (lastUsedCode) {
-        console.log('[chat] extractSearchTerm — follow-up, reusing last code:', lastUsedCode.trim())
+        console.log('[chat] extractSearchTerm — follow-up, reusing code:', lastUsedCode.trim())
         return lastUsedCode.trim()
       }
     }
 
-    console.log('[chat] extractSearchTerm — new keyword:', keyword)
-    return keyword
+    // Búsqueda nueva: usar keyword canónico (singular, exacto) + extras del mensaje
+    // buildMultiQuery puede devolver plural ("cremalleras") — lo excluimos
+    const extras = buildMultiQuery(lastMsg)
+      .split(' ')
+      .filter((w) => !w.startsWith(keyword.slice(0, 5))) // excluir variantes del keyword
+    const multiQuery = [keyword, ...extras].filter(Boolean).join(' ')
+    console.log('[chat] extractSearchTerm — multi-query:', multiQuery)
+    return multiQuery
   }
 
-  return null
+  // Sin keyword de producto: búsqueda por términos libres (marca, modelo, etc.)
+  const freeQuery = buildMultiQuery(lastMsg)
+  console.log('[chat] extractSearchTerm — free query:', freeQuery)
+  return freeQuery || null
 }
 
 async function buscarProductosDB(term: string): Promise<string> {
@@ -135,9 +165,9 @@ async function buscarProductosDB(term: string): Promise<string> {
     })
 
     return (
-      `\n\nPRODUCTOS EN INVENTARIO (${data.length} resultado${data.length > 1 ? 's' : ''}):\n` +
-      lines.join('\n') +
-      '\n\nPrecios en soles. Stock sujeto a confirmación.'
+      `\n\nPRODUCTOS EN INVENTARIO (${data.length} resultado${data.length > 1 ? 's' : ''}):\n\n` +
+      lines.join('\n\n') +
+      '\n\nPrecios sujetos a confirmación. Para más opciones consulta por WhatsApp.'
     )
   } catch (err) {
     console.error('[chat] buscarProductosDB exception:', err)
@@ -183,14 +213,29 @@ export async function POST(request: Request) {
     const readable = new ReadableStream({
       async start(controller) {
         let totalChars = 0
+        let accumulated = ''
         for await (const chunk of stream) {
           const text = chunk.choices[0]?.delta?.content ?? ''
           if (text) {
             totalChars += text.length
+            accumulated += text
             controller.enqueue(encoder.encode(text))
           }
         }
         console.log('[chat] stream complete — chars sent:', totalChars)
+
+        if (process.env.NODE_ENV === 'development') {
+          try {
+            const logPath = path.join(process.cwd(), 'chat-log.txt')
+            const lastUser = messages.at(-1)?.content ?? ''
+            const ts = new Date().toLocaleTimeString('es-PE')
+            const entry = `\n[${ts}] USUARIO:\n${lastUser}\n\n[${ts}] ASISTENTE:\n${accumulated}\n\n${'─'.repeat(60)}\n`
+            fs.appendFileSync(logPath, entry, 'utf8')
+          } catch (e) {
+            console.error('[chat] log write error:', e)
+          }
+        }
+
         controller.close()
       },
     })

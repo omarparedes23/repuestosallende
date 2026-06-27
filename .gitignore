@@ -48,3 +48,6 @@ claude.md
 *.csv
 *.ps1
 
+# local chat log (solo desarrollo)
+chat-log.txt
+
