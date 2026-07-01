@@ -148,13 +148,15 @@ async function buscarProductosDB(term: string): Promise<string> {
       nombre: string
       codigo_oem: string | null
       codigos_alternos: string | null
-      precio_venta: number
-      moneda: string | null
+      precio_venta: number | null
+      precio_venta_dolar: number | null
       stock_actual: number
       modelos: string | null
     }>).map((r, i) => {
-      const simbolo = (r.moneda ?? 'USD') === 'PEN' ? 'S/' : 'USD'
-      const precio = r.precio_venta ? `${simbolo} ${Number(r.precio_venta).toFixed(2)}` : 'Precio a consultar'
+      const precios: string[] = []
+      if (r.precio_venta != null) precios.push(`S/ ${Number(r.precio_venta).toFixed(2)}`)
+      if (r.precio_venta_dolar != null) precios.push(`USD ${Number(r.precio_venta_dolar).toFixed(2)}`)
+      const precio = precios.length > 0 ? precios.join(' / ') : 'Precio a consultar'
       const qty = Number(r.stock_actual ?? 0)
       const stock = qty > 0 ? `Stock: ${qty} unidad${qty !== 1 ? 'es' : ''}` : 'Stock a confirmar'
       const oem = r.codigo_oem ? `Código comercial: ${r.codigo_oem}` : ''

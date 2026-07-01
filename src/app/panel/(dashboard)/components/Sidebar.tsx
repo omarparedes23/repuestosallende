@@ -11,6 +11,7 @@ import {
   Truck,
   Calculator,
   LogOut,
+  Smartphone,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { signOutPanel } from '@/app/panel/actions/auth'
@@ -119,6 +120,14 @@ export function Sidebar({ nombreUsuario }: Props) {
         <p className="px-3 mb-2 text-xs font-medium truncate" style={{ color: '#8BA7CC' }}>
           {nombreUsuario}
         </p>
+        <Link
+          href="/tablet/pos"
+          className="flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-white/10"
+          style={{ color: '#8BA7CC' }}
+        >
+          <Smartphone size={16} />
+          Volver al Tablet
+        </Link>
         <form action={signOutPanel}>
           <button
             type="submit"

@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { createPublicClient } from '@/lib/supabase/public'
 import { siteConfig } from '@/lib/site.config'
+import { productoSlug } from '@/lib/slug'
 
 /**
  * Sitemap dinámico: landing + todos los catálogos de modelo activos.
@@ -36,6 +37,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         changeFrequency: 'weekly' as const,
         priority: 0.8,
       })) ?? []
+
+    const { data: productos } = await supabase
+      .from('ra_catalogo_repuestos')
+      .select('id, nombre, updated_at, ra_compatibilidades!inner(modelo_id)')
+      .eq('activo', true)
+      .returns<Array<{ id: string; nombre: string; updated_at: string | null }>>()
+
+    const productosSitemap: MetadataRoute.Sitemap =
+      productos?.map((p) => ({
+        url: `${base}/catalogo/producto/${productoSlug(p.nombre, p.id)}`,
+        lastModified: p.updated_at ? new Date(p.updated_at) : ahora,
+        changeFrequency: 'weekly' as const,
+        priority: 0.6,
+      })) ?? []
+
+    dinamicas = [...dinamicas, ...productosSitemap]
   } catch {
     // Si Supabase no responde en build, igual entregamos las rutas estáticas.
     dinamicas = []

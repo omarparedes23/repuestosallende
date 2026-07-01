@@ -279,11 +279,13 @@ export interface Database {
           catalogo_id: string
           codigo_interno: string | null
           precio_venta: number | null
+          precio_venta_dolar: number | null
           precio_mayorista: number | null
           precio_compra: number | null
           stock_actual: number
           stock_minimo: number
           activo: boolean
+          moneda: string
         }
         Insert: {
           id?: string
@@ -292,11 +294,13 @@ export interface Database {
           catalogo_id: string
           codigo_interno?: string | null
           precio_venta?: number | null
+          precio_venta_dolar?: number | null
           precio_mayorista?: number | null
           precio_compra?: number | null
           stock_actual?: number
           stock_minimo?: number
           activo?: boolean
+          moneda?: string
         }
         Update: {
           id?: string
@@ -305,11 +309,13 @@ export interface Database {
           catalogo_id?: string
           codigo_interno?: string | null
           precio_venta?: number | null
+          precio_venta_dolar?: number | null
           precio_mayorista?: number | null
           precio_compra?: number | null
           stock_actual?: number
           stock_minimo?: number
           activo?: boolean
+          moneda?: string
         }
       }
       // ── Panel back-office tables (migrations 007–010) ──────
@@ -863,8 +869,10 @@ export interface Database {
         Returns: Array<{
           nombre: string
           codigo_oem: string | null
-          precio_venta: number
-          tiene_stock: boolean
+          codigos_alternos: string | null
+          precio_venta: number | null
+          precio_venta_dolar: number | null
+          stock_actual: number
           modelos: string | null
         }>
       }

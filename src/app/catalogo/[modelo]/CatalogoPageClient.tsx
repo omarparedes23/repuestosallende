@@ -2,9 +2,11 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Phone, Package, Filter } from 'lucide-react'
 import type { ModeloAuto, CatalogoRepuesto, Categoria } from '@/lib/types/database'
 import { siteConfig, whatsappUrl } from '@/lib/site.config'
+import { productoSlug } from '@/lib/slug'
 
 type RepuestoConCategoria = CatalogoRepuesto & {
   categoria: Pick<Categoria, 'id' | 'nombre' | 'slug' | 'orden'> | null
@@ -27,25 +29,29 @@ function ProductoCard({ repuesto, priority = false }: { repuesto: RepuestoConCat
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col group">
-      <div className="bg-slate-50 p-4 flex items-center justify-center h-64 border-b border-slate-100">
-        <div className="relative w-full h-full">
-          <Image
-            src={repuesto.imagen_url ?? siteConfig.imagenes.modulos}
-            alt={repuesto.nombre}
-            fill
-            sizes="(max-width: 768px) 100vw, 33vw"
-            className="object-contain transition-transform duration-300 group-hover:scale-105"
-            priority={priority}
-          />
+      <Link href={`/catalogo/producto/${productoSlug(repuesto.nombre, repuesto.id)}`}>
+        <div className="bg-slate-50 p-4 flex items-center justify-center h-64 border-b border-slate-100">
+          <div className="relative w-full h-full">
+            <Image
+              src={repuesto.imagen_url ?? siteConfig.imagenes.modulos}
+              alt={repuesto.nombre}
+              fill
+              sizes="(max-width: 768px) 100vw, 33vw"
+              className="object-contain transition-transform duration-300 group-hover:scale-105"
+              priority={priority}
+            />
+          </div>
         </div>
-      </div>
+      </Link>
 
       <div className="p-4 flex flex-col flex-1">
         <span className={`self-start text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full mb-2 ${CATEGORIA_COLORS[categoriaNombre] ?? 'bg-slate-100 text-slate-600'}`}>
           {categoriaNombre}
         </span>
 
-        <h3 className="font-bold text-[#002D62] text-sm leading-snug mb-1">{repuesto.nombre}</h3>
+        <Link href={`/catalogo/producto/${productoSlug(repuesto.nombre, repuesto.id)}`}>
+          <h3 className="font-bold text-[#002D62] text-sm leading-snug mb-1 hover:underline">{repuesto.nombre}</h3>
+        </Link>
 
         {repuesto.codigo_oem && (
           <p className="text-slate-400 text-[11px] mb-2">OEM: {repuesto.codigo_oem}</p>

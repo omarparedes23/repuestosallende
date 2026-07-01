@@ -1,17 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Search, Pencil, AlertTriangle, Package } from 'lucide-react'
 import { ArticuloEditForm } from './ArticuloEditForm'
-import type { ArticuloRow } from '../actions'
+import type { ArticuloRow, ModeloOption } from '../actions'
 
-type Props = { initialArticulos: ArticuloRow[] }
+type Props = { initialArticulos: ArticuloRow[]; modelos: ModeloOption[] }
 
-export function ArticulosView({ initialArticulos }: Props) {
+export function ArticulosView({ initialArticulos, modelos }: Props) {
   const [articulos, setArticulos] = useState(initialArticulos)
   const [query, setQuery] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<ArticuloRow | null>(null)
+
+  useEffect(() => {
+    setArticulos(initialArticulos)
+  }, [initialArticulos])
 
   const filtered = query.trim()
     ? articulos.filter(
@@ -80,7 +84,7 @@ export function ArticulosView({ initialArticulos }: Props) {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#F9FAFB' }}>
-                  {['Nombre', 'Código OEM', 'Categoría', 'Stock', 'P. Venta', 'P. Compra', 'Acciones'].map((h) => (
+                  {['Nombre', 'Código OEM', 'Categoría', 'Stock', 'P. Venta S/', 'P. Venta USD', 'P. Compra', 'Acciones'].map((h) => (
                     <th
                       key={h}
                       className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
@@ -128,6 +132,9 @@ export function ArticulosView({ initialArticulos }: Props) {
                         {a.precio_venta != null ? `S/ ${a.precio_venta.toFixed(2)}` : '—'}
                       </td>
                       <td className="px-5 py-4" style={{ color: '#374151' }}>
+                        {a.precio_venta_dolar != null ? `USD ${a.precio_venta_dolar.toFixed(2)}` : '—'}
+                      </td>
+                      <td className="px-5 py-4" style={{ color: '#374151' }}>
                         {a.precio_compra != null ? `S/ ${a.precio_compra.toFixed(2)}` : '—'}
                       </td>
                       <td className="px-5 py-4">
@@ -152,6 +159,7 @@ export function ArticulosView({ initialArticulos }: Props) {
         open={formOpen}
         onClose={handleClose}
         articulo={editing}
+        modelos={modelos}
       />
     </>
   )

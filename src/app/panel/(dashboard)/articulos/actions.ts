@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { getSession, getSessionFast } from '@/lib/session'
+import { subirImagen, IMAGENES_TIPOS_PERMITIDOS, IMAGEN_MAX_BYTES } from '@/lib/r2'
 
 export type ArticuloRow = {
   id: string
@@ -9,13 +10,29 @@ export type ArticuloRow = {
   codigo_oem: string | null
   nombre: string
   categoria: string | null
+  imagen_url: string | null
   stock_actual: number
   stock_minimo: number
   precio_venta: number | null
+  precio_venta_dolar: number | null
   precio_mayorista: number | null
   precio_compra: number | null
   activo: boolean
   sucursal_id: string
+  modelos_compatibles: string[]
+}
+
+export type ModeloOption = { id: string; nombre: string }
+
+export async function getModelosAuto(): Promise<ModeloOption[]> {
+  const { supabase: raw } = await getSessionFast()
+  const supabase = raw as any
+  const { data } = await supabase
+    .from('ra_modelos_auto')
+    .select('id, nombre')
+    .eq('activo', true)
+    .order('nombre')
+  return (data ?? []) as ModeloOption[]
 }
 
 export async function getArticulos() {
@@ -31,6 +48,7 @@ export async function getArticulos() {
       stock_actual,
       stock_minimo,
       precio_venta,
+      precio_venta_dolar,
       precio_mayorista,
       precio_compra,
       activo,
@@ -38,7 +56,9 @@ export async function getArticulos() {
       ra_catalogo_repuestos!inner (
         codigo_oem,
         nombre,
-        ra_categorias ( nombre )
+        imagen_url,
+        ra_categorias ( nombre ),
+        ra_compatibilidades ( modelo_id )
       )
     `)
     .eq('empresa_id', perfil.empresa_id)
@@ -49,17 +69,32 @@ export async function getArticulos() {
     catalogo_id: row.catalogo_id,
     codigo_oem: row.ra_catalogo_repuestos?.codigo_oem ?? null,
     nombre: row.ra_catalogo_repuestos?.nombre ?? '',
+    imagen_url: row.ra_catalogo_repuestos?.imagen_url ?? null,
     categoria: row.ra_catalogo_repuestos?.ra_categorias?.nombre ?? null,
     stock_actual: row.stock_actual,
     stock_minimo: row.stock_minimo,
     precio_venta: row.precio_venta,
+    precio_venta_dolar: row.precio_venta_dolar,
     precio_mayorista: row.precio_mayorista,
     precio_compra: row.precio_compra,
     activo: row.activo,
     sucursal_id: row.sucursal_id,
+    modelos_compatibles: (row.ra_catalogo_repuestos?.ra_compatibilidades ?? []).map(
+      (c: any) => c.modelo_id
+    ),
   }))
 
   return { data: mapped as ArticuloRow[], error: error?.message ?? null }
+}
+
+const INVALID = Symbol('invalid')
+
+function parsePrecioOpcional(value: FormDataEntryValue | null): number | null | typeof INVALID {
+  const s = (value as string ?? '').trim()
+  if (s === '') return null
+  const n = parseFloat(s)
+  if (isNaN(n) || n < 0) return INVALID
+  return n
 }
 
 export async function updatePreciosArticulo(
@@ -67,15 +102,25 @@ export async function updatePreciosArticulo(
   formData: FormData
 ): Promise<string | null> {
   const id = formData.get('id') as string
-  const precioVenta = parseFloat(formData.get('precio_venta') as string)
-  const precioMayorista = parseFloat(formData.get('precio_mayorista') as string)
-  const precioCompra = parseFloat(formData.get('precio_compra') as string)
+  const precioVenta = parsePrecioOpcional(formData.get('precio_venta'))
+  const precioVentaDolar = parsePrecioOpcional(formData.get('precio_venta_dolar'))
+  const precioMayorista = parsePrecioOpcional(formData.get('precio_mayorista'))
+  const precioCompra = parsePrecioOpcional(formData.get('precio_compra'))
   const stockMinimo = parseFloat(formData.get('stock_minimo') as string)
 
-  if ([precioVenta, precioMayorista, precioCompra, stockMinimo].some(
-    (v) => isNaN(v) || v < 0
-  )) {
+  if (
+    precioVenta === INVALID ||
+    precioVentaDolar === INVALID ||
+    precioMayorista === INVALID ||
+    precioCompra === INVALID ||
+    isNaN(stockMinimo) ||
+    stockMinimo < 0
+  ) {
     return 'Todos los valores deben ser números mayores o iguales a 0.'
+  }
+
+  if (precioVenta === null && precioVentaDolar === null) {
+    return 'Debe ingresar al menos un precio de venta (soles o dólares).'
   }
 
   const { supabase: raw, perfil } = await getSession()
@@ -86,6 +131,7 @@ export async function updatePreciosArticulo(
     .from('ra_productos')
     .update({
       precio_venta: precioVenta,
+      precio_venta_dolar: precioVentaDolar,
       precio_mayorista: precioMayorista,
       precio_compra: precioCompra,
       stock_minimo: stockMinimo,
@@ -94,6 +140,79 @@ export async function updatePreciosArticulo(
     .eq('empresa_id', perfil.empresa_id)
 
   if (error) return 'Error al actualizar el artículo.'
+
+  revalidatePath('/panel/articulos')
+  return null
+}
+
+const EXT_POR_TIPO: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+}
+
+export async function subirImagenArticulo(
+  catalogoId: string,
+  formData: FormData
+): Promise<string | null> {
+  const file = formData.get('imagen')
+  if (!(file instanceof File) || file.size === 0) return 'Selecciona una imagen.'
+
+  if (!IMAGENES_TIPOS_PERMITIDOS.includes(file.type)) {
+    return 'Formato no soportado. Usa JPG, PNG o WEBP.'
+  }
+  if (file.size > IMAGEN_MAX_BYTES) {
+    return 'La imagen no debe superar los 5MB.'
+  }
+
+  const { supabase: raw, perfil } = await getSession()
+  const supabase = raw as any
+  if (!perfil?.empresa_id) return 'No autenticado.'
+
+  const ext = EXT_POR_TIPO[file.type]
+  const key = `productos/${catalogoId}.${ext}`
+
+  let url: string
+  try {
+    url = await subirImagen(file, key)
+  } catch {
+    return 'Error al subir la imagen.'
+  }
+
+  const { error } = await supabase
+    .from('ra_catalogo_repuestos')
+    .update({ imagen_url: url })
+    .eq('id', catalogoId)
+
+  if (error) return 'Imagen subida, pero no se pudo guardar en el producto.'
+
+  revalidatePath('/panel/articulos')
+  revalidatePath('/catalogo', 'layout')
+  return null
+}
+
+export async function updateCompatibilidad(
+  catalogoId: string,
+  modeloIds: string[]
+): Promise<string | null> {
+  const { supabase: raw, perfil } = await getSession()
+  const supabase = raw as any
+  if (!perfil?.empresa_id) return 'No autenticado.'
+
+  const { error: deleteError } = await supabase
+    .from('ra_compatibilidades')
+    .delete()
+    .eq('catalogo_id', catalogoId)
+
+  if (deleteError) return 'Error al actualizar modelos compatibles.'
+
+  if (modeloIds.length > 0) {
+    const { error: insertError } = await supabase
+      .from('ra_compatibilidades')
+      .insert(modeloIds.map((modeloId) => ({ catalogo_id: catalogoId, modelo_id: modeloId })))
+
+    if (insertError) return 'Error al actualizar modelos compatibles.'
+  }
 
   revalidatePath('/panel/articulos')
   return null

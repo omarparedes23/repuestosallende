@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ShoppingCart, Users, ClipboardList, Archive } from 'lucide-react'
+import { ShoppingCart, Users, ClipboardList, Archive, LayoutDashboard } from 'lucide-react'
 
 const TABS = [
   { label: 'POS', href: '/tablet/pos', icon: ShoppingCart },
@@ -11,15 +11,21 @@ const TABS = [
   { label: 'Caja', href: '/tablet/caja', icon: Archive },
 ]
 
-export function TabBar() {
+type Props = { rol?: string | null }
+
+export function TabBar({ rol }: Props) {
   const pathname = usePathname()
+  const tabs =
+    rol === 'administrador' || rol === 'superadmin'
+      ? [...TABS, { label: 'Panel', href: '/panel', icon: LayoutDashboard }]
+      : TABS
 
   return (
     <nav
       className="flex border-t"
       style={{ backgroundColor: '#002D62', borderColor: '#001A3D' }}
     >
-      {TABS.map(({ label, href, icon: Icon }) => {
+      {tabs.map(({ label, href, icon: Icon }) => {
         const isActive = pathname.startsWith(href)
         return (
           <Link

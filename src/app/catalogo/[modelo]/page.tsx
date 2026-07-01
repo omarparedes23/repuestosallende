@@ -39,17 +39,21 @@ export default async function CatalogoModeloPage({ params }: Props) {
   const { modelo: slug } = await params
   const supabase = createPublicClient()
 
-  const [{ data: modelo }, { data: repuestos }, { data: categorias }] = await Promise.all([
-    supabase
-      .from('ra_modelos_auto')
-      .select('*, marca:ra_marcas_auto(id, nombre)')
-      .eq('slug', slug)
-      .eq('activo', true)
-      .single(),
+  const { data: modelo } = await supabase
+    .from('ra_modelos_auto')
+    .select('*, marca:ra_marcas_auto(id, nombre)')
+    .eq('slug', slug)
+    .eq('activo', true)
+    .single()
+
+  if (!modelo) notFound()
+
+  const [{ data: repuestos }, { data: categorias }] = await Promise.all([
     supabase
       .from('ra_catalogo_repuestos')
-      .select('*, categoria:ra_categorias(id, nombre, slug, orden)')
+      .select('*, categoria:ra_categorias(id, nombre, slug, orden), ra_compatibilidades!inner(modelo_id)')
       .eq('activo', true)
+      .eq('ra_compatibilidades.modelo_id', (modelo as any).id)
       .order('nombre'),
     supabase
       .from('ra_categorias')
@@ -57,8 +61,6 @@ export default async function CatalogoModeloPage({ params }: Props) {
       .eq('activo', true)
       .order('orden'),
   ])
-
-  if (!modelo) notFound()
 
   return (
     <CatalogoPageClient
