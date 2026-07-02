@@ -1,7 +1,6 @@
 'use client'
 
 import { useActionState } from 'react'
-import { useRouter } from 'next/navigation'
 import { FormDialog } from '@/app/tablet/components/shared/FormDialog'
 import { updatePreciosArticulo, updateCompatibilidad, subirImagenArticulo } from '../actions'
 import type { ArticuloRow, ModeloOption } from '../actions'
@@ -9,12 +8,12 @@ import type { ArticuloRow, ModeloOption } from '../actions'
 type Props = {
   open: boolean
   onClose: () => void
+  onSaved: () => void
   articulo: ArticuloRow | null
   modelos: ModeloOption[]
 }
 
-export function ArticuloEditForm({ open, onClose, articulo, modelos }: Props) {
-  const router = useRouter()
+export function ArticuloEditForm({ open, onClose, onSaved, articulo, modelos }: Props) {
   const [error, formAction, isPending] = useActionState(
     async (prev: string | null, fd: FormData) => {
       const precioResult = await updatePreciosArticulo(prev, fd)
@@ -31,7 +30,7 @@ export function ArticuloEditForm({ open, onClose, articulo, modelos }: Props) {
       }
 
       onClose()
-      router.refresh()
+      onSaved()
       return null
     },
     null

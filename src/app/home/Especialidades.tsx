@@ -64,7 +64,8 @@ export function Especialidades({ modelos }: { modelos: ModeloConMarca[] }) {
             </span>
           </h2>
           <p className="text-white/70 max-w-2xl mx-auto text-lg font-light">
-            Selecciona tu modelo y encuentra el repuesto que necesitas con garantía y asesoría experta.
+            Selecciona tu modelo Mercedes Benz Sprinter y encuentra el repuesto que necesitas con
+            garantía y asesoría experta.
           </p>
         </motion.div>
 

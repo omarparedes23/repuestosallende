@@ -161,6 +161,11 @@ export interface FaqItem {
 
 export const faqItems: FaqItem[] = [
   {
+    pregunta: '¿Tienen repuestos para Mercedes Benz Sprinter?',
+    respuesta:
+      'Sí, somos especialistas en repuestos Mercedes Benz Sprinter: manejamos catálogo para los modelos 313, 315, 413, 415, 416, 514, 515, 516, 906 y 907, con piezas originales y alternativas certificadas.',
+  },
+  {
     pregunta: '¿Venden solo al por mayor?',
     respuesta:
       'No. Atendemos a mayoristas (talleres y flotas) y también a minoristas (choferes y público en general). Consulta por descuentos por volumen.',

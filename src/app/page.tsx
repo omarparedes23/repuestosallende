@@ -1,47 +1,11 @@
-import type { Metadata } from 'next'
 import { createPublicClient } from '@/lib/supabase/public'
 import type { MarcaAuto } from '@/lib/types/database'
 import { HomePageClient } from './HomePageClient'
 import type { ModeloConMarca } from './home/Especialidades'
 
-export const metadata: Metadata = {
-  title: 'Repuestos Allende | Repuestos Línea Pesada y Comercial en Lima',
-  description:
-    'Especialistas en repuestos para Mercedes Benz Sprinter, Peugeot, Hyundai, Renault e Iveco. Más de 10 años de experiencia atendiendo a transportistas y flotas en La Victoria, Lima. Cotiza por WhatsApp.',
-  keywords: [
-    'repuestos Allende',
-    'repuestos Sprinter Perú',
-    'repuestos Mercedes Benz Lima',
-    'repuestos línea pesada Perú',
-    'repuestos Iveco Lima',
-    'repuestos Hyundai',
-    'repuestos Renault',
-    'repuestos Peugeot Perú',
-    'repuestos camionetas Lima',
-    'repuestos transportistas Lima',
-    'repuestos flotas Perú',
-    'tienda de repuestos La Victoria',
-    'repuestos vehículos comerciales Lima',
-    'repuestos originales Lima',
-    'catálogo repuestos pesados',
-    'Autopartes Lima',
-    'repuestos automotrices Perú',
-    'repuestos camiones Lima',
-    'repuestos mecánica Lima',
-    'desarrollo motor Sprinter',
-    'repuestos línea comercial',
-    'repuestos confiables Lima',
-  ],
-  alternates: { canonical: '/' },
-  openGraph: {
-    type: 'website',
-    locale: 'es_PE',
-    title: 'Repuestos Allende | Repuestos Línea Pesada y Comercial en Lima',
-    description:
-      'Especialistas en repuestos para Mercedes Benz Sprinter, Peugeot, Hyundai, Renault e Iveco. Más de 10 años atendiendo a transportistas en Lima.',
-    siteName: 'Repuestos Allende',
-  },
-}
+// Sin metadata propia: hereda el title/description/keywords/openGraph de
+// layout.tsx, que ya prioriza "Repuestos Sprinter Mercedes Benz" — antes esta
+// página lo sobreescribía con un título genérico sin la palabra "Sprinter".
 
 /**
  * Datos públicos de la landing: marcas activas y modelos activos

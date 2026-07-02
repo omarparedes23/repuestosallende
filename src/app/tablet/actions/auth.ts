@@ -16,10 +16,19 @@ export async function signIn(
   const supabase = await createClient()
   const { error, data } = await supabase.auth.signInWithPassword({ email, password })
 
-  if (error) return 'Correo o contraseña incorrectos.'
+  if (error) {
+    console.error(
+      '[tablet/signIn] error completo:',
+      JSON.stringify(error, Object.getOwnPropertyNames(error)),
+      'email:', email
+    )
+    return 'Correo o contraseña incorrectos.'
+  }
 
   // Admins (sucursal_id = null) must pick their store before entering the POS
   const perfil = await getCachedPerfil(data.user.id)
+  console.log('[tablet/signIn] user.id:', data.user.id, 'perfil:', perfil)
+
   if (!perfil?.sucursal_id) {
     redirect('/tablet/sucursal')
   }

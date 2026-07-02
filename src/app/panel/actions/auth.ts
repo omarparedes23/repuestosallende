@@ -16,9 +16,14 @@ export async function signInPanel(
   const supabase = await createClient()
   const { error, data } = await supabase.auth.signInWithPassword({ email, password })
 
-  if (error) return 'Correo o contraseña incorrectos.'
+  if (error) {
+    console.error('[panel/signIn] error:', error.status, error.message, 'email:', email)
+    return 'Correo o contraseña incorrectos.'
+  }
 
   const perfil = await getCachedPerfil(data.user.id)
+  console.log('[panel/signIn] user.id:', data.user.id, 'perfil:', perfil)
+
   if (!perfil || !['administrador', 'superadmin'].includes(perfil.rol)) {
     await supabase.auth.signOut()
     return 'No tienes permisos para acceder al panel administrativo.'

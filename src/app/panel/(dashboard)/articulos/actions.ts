@@ -3,11 +3,13 @@
 import { revalidatePath } from 'next/cache'
 import { getSession, getSessionFast } from '@/lib/session'
 import { subirImagen, IMAGENES_TIPOS_PERMITIDOS, IMAGEN_MAX_BYTES } from '@/lib/r2'
+import { FILAS_POR_PAGINA } from './constants'
 
 export type ArticuloRow = {
   id: string
   catalogo_id: string
   codigo_oem: string | null
+  codigos_alternos: string | null
   nombre: string
   categoria: string | null
   imagen_url: string | null
@@ -35,39 +37,33 @@ export async function getModelosAuto(): Promise<ModeloOption[]> {
   return (data ?? []) as ModeloOption[]
 }
 
-export async function getArticulos() {
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
-  if (!perfil?.empresa_id) return { data: null, error: 'No autenticado' }
+const SELECT_ARTICULO = `
+  id,
+  catalogo_id,
+  stock_actual,
+  stock_minimo,
+  precio_venta,
+  precio_venta_dolar,
+  precio_mayorista,
+  precio_compra,
+  activo,
+  sucursal_id,
+  ra_catalogo_repuestos!inner (
+    codigo_oem,
+    codigos_alternos,
+    nombre,
+    imagen_url,
+    ra_categorias ( nombre ),
+    ra_compatibilidades ( modelo_id )
+  )
+`
 
-  const { data, error } = await supabase
-    .from('ra_productos')
-    .select(`
-      id,
-      catalogo_id,
-      stock_actual,
-      stock_minimo,
-      precio_venta,
-      precio_venta_dolar,
-      precio_mayorista,
-      precio_compra,
-      activo,
-      sucursal_id,
-      ra_catalogo_repuestos!inner (
-        codigo_oem,
-        nombre,
-        imagen_url,
-        ra_categorias ( nombre ),
-        ra_compatibilidades ( modelo_id )
-      )
-    `)
-    .eq('empresa_id', perfil.empresa_id)
-    .order('ra_catalogo_repuestos(nombre)')
-
-  const mapped = (data ?? []).map((row: any) => ({
+function mapArticuloRow(row: any): ArticuloRow {
+  return {
     id: row.id,
     catalogo_id: row.catalogo_id,
     codigo_oem: row.ra_catalogo_repuestos?.codigo_oem ?? null,
+    codigos_alternos: row.ra_catalogo_repuestos?.codigos_alternos ?? null,
     nombre: row.ra_catalogo_repuestos?.nombre ?? '',
     imagen_url: row.ra_catalogo_repuestos?.imagen_url ?? null,
     categoria: row.ra_catalogo_repuestos?.ra_categorias?.nombre ?? null,
@@ -82,9 +78,55 @@ export async function getArticulos() {
     modelos_compatibles: (row.ra_catalogo_repuestos?.ra_compatibilidades ?? []).map(
       (c: any) => c.modelo_id
     ),
-  }))
+  }
+}
 
-  return { data: mapped as ArticuloRow[], error: error?.message ?? null }
+/**
+ * Búsqueda server-side, paginada. Solo trae del catálogo (43k+ productos) las
+ * filas que matchean la búsqueda (o la página actual si no hay búsqueda) —
+ * nunca la tabla completa, para minimizar transferencia de datos de Supabase.
+ */
+export async function buscarArticulos(
+  query: string,
+  pagina: number
+): Promise<{ data: ArticuloRow[]; total: number; error: string | null }> {
+  const { supabase: raw, perfil } = await getSessionFast()
+  const supabase = raw as any
+  if (!perfil?.empresa_id) return { data: [], total: 0, error: 'No autenticado' }
+
+  const offset = Math.max(0, pagina - 1) * FILAS_POR_PAGINA
+  const term = query.trim().replace(/[,()]/g, ' ')
+
+  let q = supabase
+    .from('ra_productos')
+    .select(SELECT_ARTICULO, { count: 'exact' })
+    .eq('empresa_id', perfil.empresa_id)
+
+  if (term) {
+    q = q.or(
+      `nombre.ilike.%${term}%,codigo_oem.ilike.%${term}%,codigos_alternos.ilike.%${term}%`,
+      { foreignTable: 'ra_catalogo_repuestos' }
+    )
+  }
+
+  const { data, count, error } = await q
+    .order('ra_catalogo_repuestos(nombre)')
+    .range(offset, offset + FILAS_POR_PAGINA - 1)
+
+  if (error) return { data: [], total: 0, error: error.message }
+
+  return { data: (data ?? []).map(mapArticuloRow), total: count ?? 0, error: null }
+}
+
+export async function getStockBajoCount(): Promise<number> {
+  const { supabase: raw, perfil } = await getSessionFast()
+  const supabase = raw as any
+  if (!perfil?.empresa_id) return 0
+
+  const { data } = await supabase.rpc('ra_contar_stock_bajo', {
+    p_empresa_id: perfil.empresa_id,
+  })
+  return Number(data ?? 0)
 }
 
 const INVALID = Symbol('invalid')

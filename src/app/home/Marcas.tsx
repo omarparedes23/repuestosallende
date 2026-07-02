@@ -61,7 +61,8 @@ export function Marcas({ marcas }: { marcas: MarcaAuto[] }) {
             </span>
           </h2>
           <p className="text-gray-tech max-w-2xl mx-auto text-lg font-light">
-            Repuestos originales y de alta calidad para las principales marcas del mercado peruano.
+            Repuestos originales y de alta calidad para Mercedes Benz Sprinter y las principales
+            marcas de línea pesada y comercial del mercado peruano.
           </p>
         </motion.div>
 

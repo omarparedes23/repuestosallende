@@ -79,15 +79,15 @@ export function QuienesSomos() {
             <h2 className="text-3xl sm:text-4xl font-heading font-extrabold text-navy mb-6 leading-tight">
               Tu socio de confianza en{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-gold-dark to-yellow-500">
-                repuestos para transporte
+                repuestos Sprinter y transporte pesado
               </span>
             </h2>
             <div className="space-y-4 text-gray-tech text-lg font-light leading-relaxed mb-8">
               <p>
                 En <strong className="font-semibold text-navy">{siteConfig.razonSocial}</strong> nos
-                especializamos en repuestos para vehículos de línea pesada y comercial. Atendemos a
-                transportistas, talleres y flotas que necesitan piezas confiables para mantener sus
-                unidades siempre en ruta.
+                especializamos en repuestos para Mercedes Benz Sprinter y vehículos de línea pesada
+                y comercial. Atendemos a transportistas, talleres y flotas que necesitan piezas
+                confiables para mantener sus unidades siempre en ruta.
               </p>
               <p>
                 Más de una década de trabajo nos ha posicionado como referentes en{' '}

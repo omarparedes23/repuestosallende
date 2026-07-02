@@ -55,13 +55,13 @@ export function Hero() {
             variants={fadeInUp}
             className="text-5xl sm:text-6xl lg:text-7xl font-heading font-extrabold text-white leading-tight mb-6 tracking-tight drop-shadow-md"
           >
-            Expertos en Repuestos para{' '}
+            Expertos en Repuestos{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-gold to-yellow-200">
-              Línea Pesada
+              Sprinter Mercedes Benz
             </span>{' '}
             y{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-gold to-yellow-200">
-              Comercial
+              Línea Pesada
             </span>
           </motion.h1>
 
