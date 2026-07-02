@@ -60,6 +60,8 @@ const STOP_WORDS = new Set([
   'busca', 'necesito', 'tengo', 'quiero', 'dame', 'dime', 'ver',
   'sobre', 'del', 'repuesto', 'repuestos', 'pieza', 'piezas', 'parte', 'partes', 'producto', 'stock',
   'precio', 'costo', 'disponible', 'tienes', 'tienen', 'tengo',
+  'saber', 'quisiera', 'podria', 'puedo', 'porfavor', 'favor', 'gracias',
+  'hola', 'buenas', 'buenos', 'dias', 'tardes', 'noches', 'existe', 'existen',
 ])
 
 function buildMultiQuery(text: string): string {
@@ -96,16 +98,22 @@ function extractFastPathTerm(messages: ChatMessage[]): string | null {
     .sort((a, b) => b.length - a.length)[0] ?? null
 
   if (keyword) {
-    // Seguimiento del mismo producto si el keyword ya estaba en mensajes anteriores
-    const prevText = userMsgs.slice(0, -1).map((m) => m.content).join(' ').toLowerCase()
-    if (prevText.includes(keyword)) {
-      const lastUsedCode = [...userMsgs].reverse()
-        .slice(1)
-        .map((m) => m.content.match(CODE_REGEX))
-        .find((m) => m != null)?.[1]
-      if (lastUsedCode) {
-        console.log('[chat] extractFastPathTerm — follow-up, reusing code:', lastUsedCode.trim())
-        return lastUsedCode.trim()
+    // Seguimiento del mismo producto: buscar el mensaje anterior MÁS RECIENTE
+    // que mencione este mismo keyword, y reusar el código SOLO si ese mensaje
+    // puntual lo tenía. Antes buscaba cualquier código en todo el historial una
+    // vez confirmado que el keyword aparecía en algún lado — eso hacía que una
+    // pregunta nueva sin código (ej. "sensor de X") heredara el código de una
+    // conversación anterior no relacionada (ej. "pastillas de freno") solo
+    // porque ambas mencionaban una palabra en común más atrás en el historial.
+    const anteriores = [...userMsgs].reverse().slice(1) // excluye el mensaje actual, más reciente primero
+    for (const msg of anteriores) {
+      if (msg.content.toLowerCase().includes(keyword)) {
+        const codeMatch2 = msg.content.match(CODE_REGEX)
+        if (codeMatch2) {
+          console.log('[chat] extractFastPathTerm — follow-up, reusing code:', codeMatch2[1].trim())
+          return codeMatch2[1].trim()
+        }
+        break // el mensaje más reciente con este keyword no tenía código: no seguir buscando más atrás
       }
     }
   }
@@ -126,7 +134,7 @@ const INTENCION_SYSTEM_PROMPT = `Eres un extractor de intención para búsqueda 
   "tipo_repuesto": string o null — tipo específico de pieza mencionado (ej: "sensor", "pastilla de freno", "bujia", "filtro de aire"). Usa el término más específico y genérico posible, en español, sin tildes. null si no se menciona un tipo de pieza claro.
   "marca_repuesto": string o null — marca/fabricante del repuesto SOLO si se menciona explícitamente (ej: "bosch", "monroe", "ngk"). null si no se menciona.
   "tipo_vehiculo": "pesado" si menciona camión/bus/tráiler/línea pesada, "agricola" si menciona tractor/maquinaria agrícola, null en cualquier otro caso (incluye autos, camionetas, o si no se especifica).
-  "terminos_busqueda": array de 2 a 4 strings — palabras clave para buscar en el nombre del producto: marca/modelo de vehículo si se menciona (ej: "toyota", "hilux", "sprinter", "515"), lado ("derecho"/"izquierdo"/"delantero"/"trasero") si aplica, y cualquier otra palabra descriptiva relevante. NO repitas aquí el tipo_repuesto si ya lo pusiste en ese campo.
+  "terminos_busqueda": array de 2 a 4 strings — palabras clave para buscar en el nombre del producto. SIEMPRE incluye las palabras del tipo de repuesto de forma simple (ej: si tipo_repuesto es "pastilla de freno", incluye "pastilla" y "freno" aquí también — la categoría interna del catálogo no siempre coincide con el nombre, así que el texto libre es la red de seguridad). Suma también marca/modelo de vehículo si se menciona (ej: "toyota", "hilux", "sprinter", "515"), lado ("derecho"/"izquierdo"/"delantero"/"trasero") si aplica. Nunca lo dejes vacío si hay un repuesto mencionado.
 }
 
 Responde SOLO el JSON, nada más, sin explicaciones.`
@@ -140,6 +148,7 @@ async function extraerIntencion(texto: string): Promise<Intencion | null> {
         { role: 'user', content: texto },
       ],
       response_format: { type: 'json_object' },
+      temperature: 0,
       max_tokens: 200,
     })
     const raw = completion.choices[0]?.message?.content
