@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { createClient } from '@supabase/supabase-js'
-import fs from 'fs'
-import path from 'path'
 
 const SYSTEM_PROMPT = `Eres el asistente virtual de Repuestos Allende, especializada en repuestos para vehículos de línea pesada y comercial, ubicada en La Victoria, Lima, Perú.
 
@@ -11,6 +9,7 @@ Eres directo, técnico y profesional. Solo respondes sobre repuestos automotrice
 ## Cómo responder sobre productos
 - IMPORTANTE: IGNORA cualquier inventario o producto mostrado en mensajes anteriores. SOLO básate en la sección "[INVENTARIO ENCONTRADO]" que aparece en el ÚLTIMO mensaje del usuario. NUNCA mezcles o inventes repuestos basándote en el historial de chat.
 - Si recibes la sección "[INVENTARIO ENCONTRADO]", SIEMPRE muestra el nombre y precio del producto encontrado, aunque el stock sea 0 o diga "Sin stock".
+- SIEMPRE que el producto tenga "Código comercial" y/o "Códigos alternos", muestra TODOS los códigos disponibles, no solo uno — el cliente puede estar buscando por cualquiera de ellos.
 - "Sin stock" significa que el stock en sistema es 0, pero puede haber disponibilidad — indica el precio y sugiere confirmar por WhatsApp.
 - Si NO recibes la sección "[INVENTARIO ENCONTRADO]" y el usuario preguntó por un repuesto específico, indica que no lo encontraste y sugiere consultar al WhatsApp.
 - Si NO recibes "[INVENTARIO ENCONTRADO]" y el usuario hace una pregunta general (horarios, dirección, marcas, etc.), responde con la información del sistema.
@@ -74,16 +73,19 @@ function buildMultiQuery(text: string): string {
   return [...new Set(words)].slice(0, 4).join(' ')
 }
 
-function extractSearchTerm(messages: ChatMessage[]): string | null {
+// Camino rapido y barato (sin llamar al LLM): codigo exacto, o seguimiento de
+// una pregunta anterior que ya tenia un codigo. Si no matchea nada de esto,
+// el llamador recurre a extraerIntencion (Etapa 2, con LLM).
+function extractFastPathTerm(messages: ChatMessage[]): string | null {
   const userMsgs = messages.filter((m) => m.role === 'user')
   const lastMsg = userMsgs.at(-1)?.content ?? ''
 
-  console.log('[chat] extractSearchTerm — last msg:', JSON.stringify(lastMsg))
+  console.log('[chat] extractFastPathTerm — last msg:', JSON.stringify(lastMsg))
 
   // Código en el último mensaje → búsqueda exacta
   const codeMatch = lastMsg.match(CODE_REGEX)
   if (codeMatch) {
-    console.log('[chat] extractSearchTerm — code:', codeMatch[1].trim())
+    console.log('[chat] extractFastPathTerm — code:', codeMatch[1].trim())
     return codeMatch[1].trim()
   }
 
@@ -102,44 +104,113 @@ function extractSearchTerm(messages: ChatMessage[]): string | null {
         .map((m) => m.content.match(CODE_REGEX))
         .find((m) => m != null)?.[1]
       if (lastUsedCode) {
-        console.log('[chat] extractSearchTerm — follow-up, reusing code:', lastUsedCode.trim())
+        console.log('[chat] extractFastPathTerm — follow-up, reusing code:', lastUsedCode.trim())
         return lastUsedCode.trim()
       }
     }
-
-    // Búsqueda nueva: usar keyword canónico (singular, exacto) + extras del mensaje
-    // buildMultiQuery puede devolver plural ("cremalleras") — lo excluimos
-    const extras = buildMultiQuery(lastMsg)
-      .split(' ')
-      .filter((w) => !w.startsWith(keyword.slice(0, 5))) // excluir variantes del keyword
-    const multiQuery = [keyword, ...extras].filter(Boolean).join(' ')
-    console.log('[chat] extractSearchTerm — multi-query:', multiQuery)
-    return multiQuery
   }
 
-  // Sin keyword de producto: búsqueda por términos libres (marca, modelo, etc.)
-  const freeQuery = buildMultiQuery(lastMsg)
-  console.log('[chat] extractSearchTerm — free query:', freeQuery)
-  return freeQuery || null
+  return null
 }
 
-async function buscarProductosDB(term: string): Promise<string> {
-  console.log('[chat] buscarProductosDB — searching:', term)
+type Intencion = {
+  tipo_repuesto: string | null
+  marca_repuesto: string | null
+  tipo_vehiculo: 'pesado' | 'agricola' | null
+  terminos_busqueda: string[]
+}
+
+const INTENCION_SYSTEM_PROMPT = `Eres un extractor de intención para búsqueda de repuestos automotrices. Del mensaje del usuario, extrae SOLO estos campos y responde en JSON:
+
+{
+  "tipo_repuesto": string o null — tipo específico de pieza mencionado (ej: "sensor", "pastilla de freno", "bujia", "filtro de aire"). Usa el término más específico y genérico posible, en español, sin tildes. null si no se menciona un tipo de pieza claro.
+  "marca_repuesto": string o null — marca/fabricante del repuesto SOLO si se menciona explícitamente (ej: "bosch", "monroe", "ngk"). null si no se menciona.
+  "tipo_vehiculo": "pesado" si menciona camión/bus/tráiler/línea pesada, "agricola" si menciona tractor/maquinaria agrícola, null en cualquier otro caso (incluye autos, camionetas, o si no se especifica).
+  "terminos_busqueda": array de 2 a 4 strings — palabras clave para buscar en el nombre del producto: marca/modelo de vehículo si se menciona (ej: "toyota", "hilux", "sprinter", "515"), lado ("derecho"/"izquierdo"/"delantero"/"trasero") si aplica, y cualquier otra palabra descriptiva relevante. NO repitas aquí el tipo_repuesto si ya lo pusiste en ese campo.
+}
+
+Responde SOLO el JSON, nada más, sin explicaciones.`
+
+async function extraerIntencion(texto: string): Promise<Intencion | null> {
+  try {
+    const completion = await client.chat.completions.create({
+      model: isOpenAI ? 'gpt-4o-mini' : 'deepseek-chat',
+      messages: [
+        { role: 'system', content: INTENCION_SYSTEM_PROMPT },
+        { role: 'user', content: texto },
+      ],
+      response_format: { type: 'json_object' },
+      max_tokens: 200,
+    })
+    const raw = completion.choices[0]?.message?.content
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    const intencion: Intencion = {
+      tipo_repuesto: parsed.tipo_repuesto ?? null,
+      marca_repuesto: parsed.marca_repuesto ?? null,
+      tipo_vehiculo: parsed.tipo_vehiculo === 'pesado' || parsed.tipo_vehiculo === 'agricola' ? parsed.tipo_vehiculo : null,
+      terminos_busqueda: Array.isArray(parsed.terminos_busqueda) ? parsed.terminos_busqueda.filter((t: unknown) => typeof t === 'string') : [],
+    }
+    console.log('[chat] extraerIntencion:', JSON.stringify(intencion))
+    return intencion
+  } catch (err) {
+    console.error('[chat] extraerIntencion error:', err)
+    return null
+  }
+}
+
+type FiltrosBusqueda = {
+  tipo_repuesto?: string | null
+  marca_repuesto?: string | null
+  tipo_vehiculo?: string | null
+}
+
+type ResultadoBusqueda = { context: string; cantidadResultados: number }
+
+async function buscarProductosDB(term: string, filtros?: FiltrosBusqueda): Promise<ResultadoBusqueda> {
+  console.log('[chat] buscarProductosDB — searching:', term, 'filtros:', JSON.stringify(filtros ?? {}))
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
-    const { data, error } = await supabase.rpc('ra_chatbot_buscar', { q: term })
+
+    let { data, error } = await supabase.rpc('ra_chatbot_buscar', {
+      q: term,
+      p_tipo_repuesto: filtros?.tipo_repuesto ?? null,
+      p_marca_repuesto: filtros?.marca_repuesto ?? null,
+      p_tipo_vehiculo: filtros?.tipo_vehiculo ?? null,
+    })
 
     if (error) {
       console.error('[chat] rpc error:', JSON.stringify(error))
-      return ''
+      return { context: '', cantidadResultados: 0 }
+    }
+
+    // El LLM adivina tipo/marca en su propio vocabulario, que puede no coincidir
+    // con el texto exacto guardado en ra_tipos_repuesto/ra_marcas_repuesto (ej.
+    // adivinó "kit de palier" pero en la base está como "PALIERES CHINA"). Si el
+    // filtro estructurado no devuelve nada, reintenta sumando esas palabras al
+    // texto libre (en vez de descartarlas) — así "palier" sigue acotando la
+    // búsqueda aunque no matchee el nombre exacto de la categoría.
+    const huboFiltro = !!(filtros?.tipo_repuesto || filtros?.marca_repuesto || filtros?.tipo_vehiculo)
+    if (huboFiltro && (!data || !Array.isArray(data) || data.length === 0)) {
+      const termAmpliado = [term, filtros?.tipo_repuesto, filtros?.marca_repuesto]
+        .filter(Boolean)
+        .join(' ')
+      console.log('[chat] sin resultados con filtros, reintentando con texto ampliado:', termAmpliado)
+      const retry = await supabase.rpc('ra_chatbot_buscar', { q: termAmpliado })
+      data = retry.data
+      error = retry.error
+      if (error) {
+        console.error('[chat] rpc error (retry):', JSON.stringify(error))
+        return { context: '', cantidadResultados: 0 }
+      }
     }
 
     if (!data || !Array.isArray(data) || data.length === 0) {
       console.log('[chat] rpc returned empty — data:', data)
-      return ''
+      return { context: '', cantidadResultados: 0 }
     }
 
     console.log('[chat] rpc returned', data.length, 'rows')
@@ -152,6 +223,8 @@ async function buscarProductosDB(term: string): Promise<string> {
       precio_venta_dolar: number | null
       stock_actual: number
       modelos: string | null
+      marca_repuesto: string | null
+      tipo_repuesto: string | null
     }>).map((r, i) => {
       const precios: string[] = []
       if (r.precio_venta != null) precios.push(`S/ ${Number(r.precio_venta).toFixed(2)}`)
@@ -162,18 +235,47 @@ async function buscarProductosDB(term: string): Promise<string> {
       const oem = r.codigo_oem ? `Código comercial: ${r.codigo_oem}` : ''
       const alternos = r.codigos_alternos ? `Códigos alternos: ${r.codigos_alternos}` : ''
       const modelos = r.modelos ? `Vehículos: ${r.modelos}` : ''
-      const detalles = [oem, alternos, modelos].filter(Boolean).join(' | ')
+      const marca = r.marca_repuesto ? `Marca: ${r.marca_repuesto}` : ''
+      const detalles = [oem, alternos, modelos, marca].filter(Boolean).join(' | ')
       return `${i + 1}. ${r.nombre}\n   Precio: ${precio} | ${stock}${detalles ? `\n   ${detalles}` : ''}`
     })
 
-    return (
-      `\n\nPRODUCTOS EN INVENTARIO (${data.length} resultado${data.length > 1 ? 's' : ''}):\n\n` +
-      lines.join('\n\n') +
-      '\n\nPrecios sujetos a confirmación. Para más opciones consulta por WhatsApp.'
-    )
+    return {
+      context:
+        `\n\nPRODUCTOS EN INVENTARIO (${data.length} resultado${data.length > 1 ? 's' : ''}):\n\n` +
+        lines.join('\n\n') +
+        '\n\nPrecios sujetos a confirmación. Para más opciones consulta por WhatsApp.',
+      cantidadResultados: data.length,
+    }
   } catch (err) {
     console.error('[chat] buscarProductosDB exception:', err)
-    return ''
+    return { context: '', cantidadResultados: 0 }
+  }
+}
+
+async function registrarLog(datos: {
+  preguntaUsuario: string
+  respuestaBot: string
+  searchTerm: string | null
+  filtros: FiltrosBusqueda | undefined
+  cantidadResultados: number
+}) {
+  if (process.env.CHATBOT_LOGGING_ENABLED !== 'true') return
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    const { error } = await supabase.from('ra_chatbot_logs').insert({
+      pregunta_usuario: datos.preguntaUsuario,
+      respuesta_bot: datos.respuestaBot,
+      search_term: datos.searchTerm,
+      filtros: datos.filtros ?? null,
+      cantidad_resultados: datos.cantidadResultados,
+    })
+    if (error) console.error('[chat] registrarLog error:', JSON.stringify(error))
+  } catch (err) {
+    console.error('[chat] registrarLog exception:', err)
   }
 }
 
@@ -185,8 +287,33 @@ export async function POST(request: Request) {
 
     console.log('[chat] systemPrompt length:', SYSTEM_PROMPT.length)
 
-    const searchTerm = extractSearchTerm(messages)
-    const dbContext = searchTerm ? await buscarProductosDB(searchTerm) : ''
+    // 1) Camino rápido y barato: código exacto o seguimiento de un código previo.
+    let searchTerm = extractFastPathTerm(messages)
+    let filtros: FiltrosBusqueda | undefined
+
+    // 2) Sin match rápido: Etapa 2 — el LLM extrae intención estructurada
+    //    (tipo de repuesto, marca, tipo de vehículo) de la pregunta libre.
+    if (!searchTerm) {
+      const lastMsg = messages.filter((m) => m.role === 'user').at(-1)?.content ?? ''
+      const intencion = await extraerIntencion(lastMsg)
+
+      if (intencion) {
+        filtros = {
+          tipo_repuesto: intencion.tipo_repuesto,
+          marca_repuesto: intencion.marca_repuesto,
+          tipo_vehiculo: intencion.tipo_vehiculo,
+        }
+        searchTerm = intencion.terminos_busqueda.join(' ') || buildMultiQuery(lastMsg) || null
+      } else {
+        // Si el LLM de intención falla, no perdemos la búsqueda: fallback al
+        // extractor de palabras libres de siempre.
+        searchTerm = buildMultiQuery(lastMsg) || null
+      }
+    }
+
+    const { context: dbContext, cantidadResultados } = searchTerm
+      ? await buscarProductosDB(searchTerm, filtros)
+      : { context: '', cantidadResultados: 0 }
     console.log('[chat] dbContext length:', dbContext.length)
 
     // Inject inventory into the last user message so the model can't ignore it
@@ -226,17 +353,14 @@ export async function POST(request: Request) {
         }
         console.log('[chat] stream complete — chars sent:', totalChars)
 
-        if (process.env.NODE_ENV === 'development') {
-          try {
-            const logPath = path.join(process.cwd(), 'chat-log.txt')
-            const lastUser = messages.at(-1)?.content ?? ''
-            const ts = new Date().toLocaleTimeString('es-PE')
-            const entry = `\n[${ts}] USUARIO:\n${lastUser}\n\n[${ts}] ASISTENTE:\n${accumulated}\n\n${'─'.repeat(60)}\n`
-            fs.appendFileSync(logPath, entry, 'utf8')
-          } catch (e) {
-            console.error('[chat] log write error:', e)
-          }
-        }
+        const lastUser = messages.filter((m) => m.role === 'user').at(-1)?.content ?? ''
+        await registrarLog({
+          preguntaUsuario: lastUser,
+          respuestaBot: accumulated,
+          searchTerm,
+          filtros,
+          cantidadResultados,
+        })
 
         controller.close()
       },

@@ -53,7 +53,14 @@ function renderWithLinks(text: string) {
 }
 
 const STORAGE_KEY = 'ra_chat_history'
+// Cuánto se guarda/muestra en el navegador (scrollback del día del usuario) —
+// no cuesta tokens de OpenAI, puede ser generoso.
 const MAX_MESSAGES = 50
+// Cuánto se manda a OpenAI en cada llamada — esto sí cuesta tokens en cada
+// mensaje nuevo (se reenvía completo cada vez). El SYSTEM_PROMPT ya ignora
+// inventario de mensajes viejos, así que no hace falta mandar mucho historial
+// para mantener continuidad conversacional razonable.
+const MAX_MESSAGES_CONTEXTO = 12
 
 const INITIAL_MESSAGE: Message = {
   role: 'assistant',
@@ -117,7 +124,7 @@ export function ChatWidget() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: history.slice(-MAX_MESSAGES).map((m) => ({ role: m.role, content: m.content })),
+          messages: history.slice(-MAX_MESSAGES_CONTEXTO).map((m) => ({ role: m.role, content: m.content })),
         }),
       })
 
