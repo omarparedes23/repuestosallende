@@ -189,22 +189,31 @@ async function buscarProductosDB(term: string, filtros?: FiltrosBusqueda): Promi
 
     // El LLM adivina tipo/marca en su propio vocabulario, que puede no coincidir
     // con el texto exacto guardado en ra_tipos_repuesto/ra_marcas_repuesto (ej.
-    // adivinó "kit de palier" pero en la base está como "PALIERES CHINA"). Si el
-    // filtro estructurado no devuelve nada, reintenta sumando esas palabras al
-    // texto libre (en vez de descartarlas) — así "palier" sigue acotando la
-    // búsqueda aunque no matchee el nombre exacto de la categoría.
+    // adivinó "kit de palier" pero en la base está como "PALIERES CHINA", o
+    // "bomba" pero el producto real está categorizado como "BOMBIN"/"AUXILIAR").
+    // El filtro no solo puede devolver 0 — puede devolver 1 o 2 cuando en
+    // realidad hay más opciones relevantes categorizadas distinto. Si el
+    // resultado es escaso, se amplía con texto libre y se MEZCLAN ambos sets
+    // (los del filtro primero, más precisos; después los extra del texto
+    // ampliado) en vez de reemplazar — no se pierde precisión ni recall.
     const huboFiltro = !!(filtros?.tipo_repuesto || filtros?.marca_repuesto || filtros?.tipo_vehiculo)
-    if (huboFiltro && (!data || !Array.isArray(data) || data.length === 0)) {
+    const pocosResultados = !data || !Array.isArray(data) || data.length < 3
+    if (huboFiltro && pocosResultados) {
       const termAmpliado = [term, filtros?.tipo_repuesto, filtros?.marca_repuesto]
         .filter(Boolean)
         .join(' ')
-      console.log('[chat] sin resultados con filtros, reintentando con texto ampliado:', termAmpliado)
+      console.log('[chat] pocos resultados con filtros, ampliando con texto:', termAmpliado)
       const retry = await supabase.rpc('ra_chatbot_buscar', { q: termAmpliado })
-      data = retry.data
-      error = retry.error
-      if (error) {
-        console.error('[chat] rpc error (retry):', JSON.stringify(error))
-        return { context: '', cantidadResultados: 0 }
+      if (retry.error) {
+        console.error('[chat] rpc error (retry):', JSON.stringify(retry.error))
+      } else if (Array.isArray(retry.data)) {
+        const existentes = new Set(
+          (Array.isArray(data) ? data : []).map((r: { nombre: string; codigo_oem: string | null }) => `${r.nombre}|${r.codigo_oem}`)
+        )
+        const extras = retry.data.filter(
+          (r: { nombre: string; codigo_oem: string | null }) => !existentes.has(`${r.nombre}|${r.codigo_oem}`)
+        )
+        data = [...(Array.isArray(data) ? data : []), ...extras].slice(0, 6)
       }
     }
 
