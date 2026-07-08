@@ -47,6 +47,7 @@ claude.md
 # data migration (CSVs con datos sensibles)
 *.csv
 *.ps1
+*.bat
 sync_stock_checkpoint.json
 sync_stock.log
 sync_marcas_tipos.log
