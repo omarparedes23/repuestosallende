@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createPublicClient } from '@/lib/supabase/public'
+import { getIsAdminPublico } from '../actions'
 import { CatalogoPageClient } from './CatalogoPageClient'
 
 type Props = { params: Promise<{ modelo: string }> }
@@ -63,10 +64,13 @@ export default async function CatalogoModeloPage({ params }: Props) {
     .eq('ra_compatibilidades.modelo_id', (modelo as any).id)
     .order('nombre')
 
+  const isAdmin = await getIsAdminPublico()
+
   return (
     <CatalogoPageClient
       modelo={modelo}
       repuestos={repuestos ?? []}
+      isAdmin={isAdmin}
     />
   )
 }

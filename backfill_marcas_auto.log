@@ -80,3 +80,65 @@ en <ScriptBlock>, D:\tempo\claudecode\repuestosallende\my-app\backfill_marcas_au
 2026-07-09 06:34:23    PEUGEOT       |       641
 2026-07-09 06:34:23   (15 rows)
 2026-07-09 06:34:23 ===== Fin backfill_marcas_auto =====
+2026-07-09 18:00:57 ===== Inicio backfill_marcas_auto =====
+2026-07-09 18:00:57 Preparando esquema (columna marca_auto_id, indice, constraint unique)...
+2026-07-09 18:01:01 Leyendo Producto2.CA02 desde el ERP...
+2026-07-09 18:01:03 Leidos 39383 productos con CA02 no vacio
+2026-07-09 18:01:04 Productos con marca valida: 32104. Excluidos (VARIOS/OTROS/basura): 7279
+2026-07-09 18:01:04 Marcas distintas detectadas: 87
+2026-07-09 18:01:06 Marcas insertadas/existentes en ra_marcas_auto (INSERT ... ON CONFLICT DO NOTHING ejecutado)
+2026-07-09 18:01:08 Marcas totales en ra_marcas_auto (con id resuelto): 87
+2026-07-09 18:01:11 Lote 1: 1000 enviados, 0 actualizados
+2026-07-09 18:01:14 Lote 2: 1000 enviados, 0 actualizados
+2026-07-09 18:01:16 Lote 3: 1000 enviados, 0 actualizados
+2026-07-09 18:01:19 Lote 4: 1000 enviados, 0 actualizados
+2026-07-09 18:01:21 Lote 5: 1000 enviados, 0 actualizados
+2026-07-09 18:01:23 Lote 6: 1000 enviados, 0 actualizados
+2026-07-09 18:01:25 Lote 7: 1000 enviados, 0 actualizados
+2026-07-09 18:01:26 Lote 8: 1000 enviados, 0 actualizados
+2026-07-09 18:01:28 Lote 9: 1000 enviados, 0 actualizados
+2026-07-09 18:01:31 Lote 10: 1000 enviados, 0 actualizados
+2026-07-09 18:01:33 Lote 11: 1000 enviados, 0 actualizados
+2026-07-09 18:01:35 Lote 12: 1000 enviados, 0 actualizados
+2026-07-09 18:01:37 Lote 13: 1000 enviados, 0 actualizados
+2026-07-09 18:01:39 Lote 14: 1000 enviados, 0 actualizados
+2026-07-09 18:01:41 Lote 15: 1000 enviados, 0 actualizados
+2026-07-09 18:01:44 Lote 16: 1000 enviados, 0 actualizados
+2026-07-09 18:01:46 Lote 17: 1000 enviados, 0 actualizados
+2026-07-09 18:01:48 Lote 18: 1000 enviados, 0 actualizados
+2026-07-09 18:01:50 Lote 19: 1000 enviados, 0 actualizados
+2026-07-09 18:01:51 Lote 20: 1000 enviados, 0 actualizados
+2026-07-09 18:01:53 Lote 21: 1000 enviados, 0 actualizados
+2026-07-09 18:01:55 Lote 22: 1000 enviados, 0 actualizados
+2026-07-09 18:01:57 Lote 23: 1000 enviados, 0 actualizados
+2026-07-09 18:02:00 Lote 24: 1000 enviados, 0 actualizados
+2026-07-09 18:02:04 Lote 25: 1000 enviados, 0 actualizados
+2026-07-09 18:02:06 Lote 26: 1000 enviados, 0 actualizados
+2026-07-09 18:02:07 Lote 27: 1000 enviados, 0 actualizados
+2026-07-09 18:02:09 Lote 28: 1000 enviados, 0 actualizados
+2026-07-09 18:02:12 Lote 29: 1000 enviados, 0 actualizados
+2026-07-09 18:02:13 Lote 30: 1000 enviados, 0 actualizados
+2026-07-09 18:02:15 Lote 31: 1000 enviados, 0 actualizados
+2026-07-09 18:02:18 Lote 32: 1000 enviados, 0 actualizados
+2026-07-09 18:02:19 Lote 33: 104 enviados, 0 actualizados
+2026-07-09 18:02:19 Actualizados: 0 | Sin marca_id resuelta: 0
+2026-07-09 18:02:19 --- Verificacion en Supabase (top 15 marcas por cantidad de productos) ---
+2026-07-09 18:02:22       nombre     | productos 
+2026-07-09 18:02:22   ---------------+-----------
+2026-07-09 18:02:22    Volkswagen    |      5149
+2026-07-09 18:02:22    TOYOTA        |      5146
+2026-07-09 18:02:22    NISSAN        |      4361
+2026-07-09 18:02:22    Mercedes-Benz |      2485
+2026-07-09 18:02:22    MITSUBISHI    |      1851
+2026-07-09 18:02:22    HYUNDAI       |      1565
+2026-07-09 18:02:22    MAZDA         |      1002
+2026-07-09 18:02:22    FORD          |       984
+2026-07-09 18:02:22    HONDA         |       951
+2026-07-09 18:02:22    CHEVROLET     |       860
+2026-07-09 18:02:22    SUZUKI        |       789
+2026-07-09 18:02:22    KIA           |       745
+2026-07-09 18:02:22    RENAULT       |       699
+2026-07-09 18:02:22    VOLVO         |       658
+2026-07-09 18:02:22    PEUGEOT       |       641
+2026-07-09 18:02:22   (15 rows)
+2026-07-09 18:02:22 ===== Fin backfill_marcas_auto =====

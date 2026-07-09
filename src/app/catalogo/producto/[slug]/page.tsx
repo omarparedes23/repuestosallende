@@ -6,6 +6,8 @@ import { ChevronRight, Package, Phone } from 'lucide-react'
 import { createPublicClient } from '@/lib/supabase/public'
 import { siteConfig, whatsappUrl } from '@/lib/site.config'
 import { productoSlug, parseProductoId } from '@/lib/slug'
+import { getIsAdminPublico } from '../../actions'
+import { EditarRepuestoBoton } from '../../components/EditarRepuestoBoton'
 
 type Props = { params: Promise<{ slug: string }> }
 
@@ -50,6 +52,8 @@ export default async function ProductoDetallePage({ params }: Props) {
 
   const producto = await getProducto(id)
   if (!producto) notFound()
+
+  const isAdmin = await getIsAdminPublico()
 
   const modelos: { id: string; nombre: string; slug: string }[] = (
     producto.compatibilidades ?? []
@@ -134,9 +138,17 @@ export default async function ProductoDetallePage({ params }: Props) {
             </span>
           )}
 
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#002D62] mb-2">
-            {producto.nombre}
-          </h1>
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#002D62]">
+              {producto.nombre}
+            </h1>
+            {isAdmin && (
+              <EditarRepuestoBoton
+                catalogoId={producto.id}
+                className="shrink-0 flex items-center justify-center w-9 h-9 rounded-full border border-slate-200 hover:bg-slate-50 transition-colors"
+              />
+            )}
+          </div>
 
           {producto.codigo_oem && (
             <p className="text-slate-500 text-sm mb-1">

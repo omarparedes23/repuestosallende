@@ -41,8 +41,10 @@ function logoPara(nombre: string): string | null {
 }
 
 export function Marcas({ marcas }: { marcas: MarcaAuto[] }) {
-  // Fallback a un set mínimo si la base no devuelve marcas.
-  const lista = marcas.length > 0 ? marcas : []
+  // Solo mostramos las marcas que ya tienen logo en MARCA_LOGOS (hoy: Mercedes-Benz,
+  // Peugeot, Hyundai, Renault, Iveco) — ra_marcas_auto tiene 87 marcas activas y
+  // mostrarlas todas sin logo se veía como una lista genérica de texto.
+  const lista = marcas.filter((m) => logoPara(m.nombre) !== null)
 
   return (
     <section id="marcas" className="pt-32 pb-20 bg-gray-light">

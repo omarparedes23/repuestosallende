@@ -173,6 +173,14 @@ function parsePrecioOpcional(value: FormDataEntryValue | null): number | null | 
   return n
 }
 
+// ra_productos permite mutación a 'administrador' Y 'vendedor' vía RLS
+// (productos_mutate en 001_initial_schema.sql), a diferencia de
+// ra_catalogo_repuestos que ya restringe a admin/superadmin (catalogo_mutate
+// en 020_catalogo_mutate_administrador.sql). Como esta acción ahora también
+// se invoca desde el catálogo público (sin guardia de ruta), hace falta este
+// chequeo explícito de rol para no depender solo de la RLS de ra_productos.
+const ROLES_ADMIN = ['administrador', 'superadmin']
+
 export async function updatePreciosArticulo(
   _prevState: string | null,
   formData: FormData
@@ -202,6 +210,7 @@ export async function updatePreciosArticulo(
   const { supabase: raw, perfil } = await getSession()
   const supabase = raw as any
   if (!perfil?.empresa_id) return 'No autenticado.'
+  if (!ROLES_ADMIN.includes(perfil.rol)) return 'No tienes permisos para editar artículos.'
 
   const { error } = await supabase
     .from('ra_productos')
@@ -244,6 +253,7 @@ export async function subirImagenArticulo(
   const { supabase: raw, perfil } = await getSession()
   const supabase = raw as any
   if (!perfil?.empresa_id) return 'No autenticado.'
+  if (!ROLES_ADMIN.includes(perfil.rol)) return 'No tienes permisos para editar artículos.'
 
   const ext = EXT_POR_TIPO[file.type]
   const key = `productos/${catalogoId}.${ext}`
@@ -267,6 +277,33 @@ export async function subirImagenArticulo(
   return null
 }
 
+export async function actualizarInfoCatalogo(
+  _prevState: string | null,
+  formData: FormData
+): Promise<string | null> {
+  const catalogoId = formData.get('catalogo_id') as string
+  const nombre = (formData.get('nombre') as string ?? '').trim()
+  const descripcion = (formData.get('descripcion') as string ?? '').trim()
+
+  if (!nombre) return 'El nombre no puede estar vacío.'
+
+  const { supabase: raw, perfil } = await getSession()
+  const supabase = raw as any
+  if (!perfil?.empresa_id) return 'No autenticado.'
+  if (!ROLES_ADMIN.includes(perfil.rol)) return 'No tienes permisos para editar artículos.'
+
+  const { error } = await supabase
+    .from('ra_catalogo_repuestos')
+    .update({ nombre, descripcion: descripcion || null })
+    .eq('id', catalogoId)
+
+  if (error) return 'Error al actualizar el producto.'
+
+  revalidatePath('/panel/articulos')
+  revalidatePath('/catalogo', 'layout')
+  return null
+}
+
 export async function updateCompatibilidad(
   catalogoId: string,
   modeloIds: string[]
@@ -274,6 +311,7 @@ export async function updateCompatibilidad(
   const { supabase: raw, perfil } = await getSession()
   const supabase = raw as any
   if (!perfil?.empresa_id) return 'No autenticado.'
+  if (!ROLES_ADMIN.includes(perfil.rol)) return 'No tienes permisos para editar artículos.'
 
   const { error: deleteError } = await supabase
     .from('ra_compatibilidades')

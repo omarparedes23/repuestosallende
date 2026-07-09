@@ -7,6 +7,7 @@ import { Phone, Package, Filter, Search } from 'lucide-react'
 import type { ModeloAuto, CatalogoRepuesto, Categoria } from '@/lib/types/database'
 import { siteConfig, whatsappUrl } from '@/lib/site.config'
 import { productoSlug } from '@/lib/slug'
+import { EditarRepuestoBoton } from '../components/EditarRepuestoBoton'
 
 type MarcaRepuesto = { id: string; nombre: string }
 
@@ -27,11 +28,16 @@ const CATEGORIA_COLORS: Record<string, string> = {
   'Caja':       'bg-green-100 text-green-700',
 }
 
-function ProductoCard({ repuesto, priority = false }: { repuesto: RepuestoConCategoria; priority?: boolean }) {
+function ProductoCard({ repuesto, priority = false, isAdmin = false }: { repuesto: RepuestoConCategoria; priority?: boolean; isAdmin?: boolean }) {
   const categoriaNombre = repuesto.categoria?.nombre ?? ''
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col group">
+    <div className="relative bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col group">
+      {isAdmin && (
+        <div className="absolute top-2 right-2 z-10">
+          <EditarRepuestoBoton catalogoId={repuesto.id} />
+        </div>
+      )}
       <Link href={`/catalogo/producto/${productoSlug(repuesto.nombre, repuesto.id)}`}>
         <div className="bg-slate-50 p-4 flex items-center justify-center h-64 border-b border-slate-100">
           <div className="relative w-full h-full">
@@ -87,9 +93,11 @@ function ProductoCard({ repuesto, priority = false }: { repuesto: RepuestoConCat
 export function CatalogoPageClient({
   modelo,
   repuestos,
+  isAdmin = false,
 }: {
   modelo: ModeloConMarca
   repuestos: RepuestoConCategoria[]
+  isAdmin?: boolean
 }) {
   const [categoriaActiva, setCategoriaActiva] = useState('')
   const [marcaActiva, setMarcaActiva] = useState('')
@@ -330,7 +338,7 @@ export function CatalogoPageClient({
             {repuestosFiltrados.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                 {repuestosFiltrados.map((repuesto, i) => (
-                  <ProductoCard key={repuesto.id} repuesto={repuesto} priority={i === 0} />
+                  <ProductoCard key={repuesto.id} repuesto={repuesto} priority={i === 0} isAdmin={isAdmin} />
                 ))}
               </div>
             ) : (
