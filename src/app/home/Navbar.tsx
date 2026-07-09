@@ -102,6 +102,14 @@ export function Navbar() {
                   {link.label}
                 </a>
               ))}
+              <Link
+                href="/tablet/login"
+                onClick={() => setIsOpen(false)}
+                className="flex items-center gap-2 text-white/60 hover:text-gold py-2 text-sm font-medium transition-colors"
+              >
+                <Lock className="w-4 h-4" />
+                Sistema interno
+              </Link>
             </div>
           </motion.div>
         )}
