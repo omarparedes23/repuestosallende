@@ -37,6 +37,19 @@ export async function getModelosAuto(): Promise<ModeloOption[]> {
   return (data ?? []) as ModeloOption[]
 }
 
+export type MarcaOption = { id: string; nombre: string }
+
+export async function getMarcasRepuesto(): Promise<MarcaOption[]> {
+  const { supabase: raw } = await getSessionFast()
+  const supabase = raw as any
+  const { data } = await supabase
+    .from('ra_marcas_repuesto')
+    .select('id, nombre')
+    .eq('activo', true)
+    .order('nombre')
+  return (data ?? []) as MarcaOption[]
+}
+
 const SELECT_ARTICULO = `
   id,
   catalogo_id,
@@ -88,7 +101,8 @@ function mapArticuloRow(row: any): ArticuloRow {
  */
 export async function buscarArticulos(
   query: string,
-  pagina: number
+  pagina: number,
+  marcaId?: string | null
 ): Promise<{ data: ArticuloRow[]; total: number; error: string | null }> {
   const { supabase: raw, perfil } = await getSessionFast()
   const supabase = raw as any
@@ -107,6 +121,10 @@ export async function buscarArticulos(
       `nombre.ilike.%${term}%,codigo_oem.ilike.%${term}%,codigos_alternos.ilike.%${term}%`,
       { foreignTable: 'ra_catalogo_repuestos' }
     )
+  }
+
+  if (marcaId) {
+    q = q.eq('ra_catalogo_repuestos.marca_repuesto_id', marcaId)
   }
 
   const { data, count, error } = await q

@@ -51,6 +51,8 @@ claude.md
 sync_stock_checkpoint.json
 sync_stock.log
 sync_marcas_tipos.log
+sync_precios_checkpoint.json
+backfill_precios.log
 
 # local chat log (solo desarrollo)
 chat-log.txt
