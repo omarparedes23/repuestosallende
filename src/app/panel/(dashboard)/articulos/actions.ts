@@ -50,6 +50,17 @@ export async function getMarcasRepuesto(): Promise<MarcaOption[]> {
   return (data ?? []) as MarcaOption[]
 }
 
+export async function getMarcasAuto(): Promise<MarcaOption[]> {
+  const { supabase: raw } = await getSessionFast()
+  const supabase = raw as any
+  const { data } = await supabase
+    .from('ra_marcas_auto')
+    .select('id, nombre')
+    .eq('activo', true)
+    .order('nombre')
+  return (data ?? []) as MarcaOption[]
+}
+
 const SELECT_ARTICULO = `
   id,
   catalogo_id,
@@ -102,7 +113,8 @@ function mapArticuloRow(row: any): ArticuloRow {
 export async function buscarArticulos(
   query: string,
   pagina: number,
-  marcaId?: string | null
+  marcaId?: string | null,
+  marcaAutoId?: string | null
 ): Promise<{ data: ArticuloRow[]; total: number; error: string | null }> {
   const { supabase: raw, perfil } = await getSessionFast()
   const supabase = raw as any
@@ -125,6 +137,10 @@ export async function buscarArticulos(
 
   if (marcaId) {
     q = q.eq('ra_catalogo_repuestos.marca_repuesto_id', marcaId)
+  }
+
+  if (marcaAutoId) {
+    q = q.eq('ra_catalogo_repuestos.marca_auto_id', marcaAutoId)
   }
 
   const { data, count, error } = await q

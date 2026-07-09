@@ -12,22 +12,24 @@ type Props = {
   initialTotal: number
   modelos: ModeloOption[]
   marcas: MarcaOption[]
+  marcasAuto: MarcaOption[]
   stockBajoCount: number
 }
 
-export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas, stockBajoCount }: Props) {
+export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas, marcasAuto, stockBajoCount }: Props) {
   const [articulos, setArticulos] = useState(initialArticulos)
   const [total, setTotal] = useState(initialTotal)
   const [query, setQuery] = useState('')
   const [marcaId, setMarcaId] = useState('')
+  const [marcaAutoId, setMarcaAutoId] = useState('')
   const [pagina, setPagina] = useState(1)
   const [loading, setLoading] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<ArticuloRow | null>(null)
 
-  const refetch = useCallback(async (q: string, p: number, m: string) => {
+  const refetch = useCallback(async (q: string, p: number, m: string, ma: string) => {
     setLoading(true)
-    const res = await buscarArticulos(q, p, m || null)
+    const res = await buscarArticulos(q, p, m || null, ma || null)
     setArticulos(res.data)
     setTotal(res.total)
     setLoading(false)
@@ -40,13 +42,13 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
       montado.current = true
       return
     }
-    const timer = setTimeout(() => refetch(query, pagina, marcaId), 350)
+    const timer = setTimeout(() => refetch(query, pagina, marcaId, marcaAutoId), 350)
     return () => clearTimeout(timer)
-  }, [query, pagina, marcaId, refetch])
+  }, [query, pagina, marcaId, marcaAutoId, refetch])
 
   useEffect(() => {
     setPagina(1)
-  }, [query, marcaId])
+  }, [query, marcaId, marcaAutoId])
 
   const totalPaginas = Math.max(1, Math.ceil(total / FILAS_POR_PAGINA))
 
@@ -106,8 +108,19 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
             className="rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
             style={{ borderColor: '#D1D5DB', color: '#374151' }}
           >
-            <option value="">Todas las marcas</option>
+            <option value="">Marca de repuesto</option>
             {marcas.map((m) => (
+              <option key={m.id} value={m.id}>{m.nombre}</option>
+            ))}
+          </select>
+          <select
+            value={marcaAutoId}
+            onChange={(e) => setMarcaAutoId(e.target.value)}
+            className="rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
+            style={{ borderColor: '#D1D5DB', color: '#374151' }}
+          >
+            <option value="">Marca de vehículo</option>
+            {marcasAuto.map((m) => (
               <option key={m.id} value={m.id}>{m.nombre}</option>
             ))}
           </select>
@@ -229,7 +242,7 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
       <ArticuloEditForm
         open={formOpen}
         onClose={handleClose}
-        onSaved={() => refetch(query, pagina, marcaId)}
+        onSaved={() => refetch(query, pagina, marcaId, marcaAutoId)}
         articulo={editing}
         modelos={modelos}
       />

@@ -1,15 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Phone, Package, Filter } from 'lucide-react'
+import { Phone, Package, Filter, Search } from 'lucide-react'
 import type { ModeloAuto, CatalogoRepuesto, Categoria } from '@/lib/types/database'
 import { siteConfig, whatsappUrl } from '@/lib/site.config'
 import { productoSlug } from '@/lib/slug'
 
+type MarcaRepuesto = { id: string; nombre: string }
+
 type RepuestoConCategoria = CatalogoRepuesto & {
   categoria: Pick<Categoria, 'id' | 'nombre' | 'slug' | 'orden'> | null
+  marca_repuesto: MarcaRepuesto | null
 }
 
 /** Modelo con su marca relacionada (join desde page.tsx). */
@@ -84,21 +87,54 @@ function ProductoCard({ repuesto, priority = false }: { repuesto: RepuestoConCat
 export function CatalogoPageClient({
   modelo,
   repuestos,
-  categorias,
 }: {
   modelo: ModeloConMarca
   repuestos: RepuestoConCategoria[]
-  categorias: Pick<Categoria, 'id' | 'nombre' | 'slug' | 'orden'>[]
 }) {
-  const [categoriaActiva, setCategoriaActiva] = useState<string | null>(null)
+  const [categoriaActiva, setCategoriaActiva] = useState('')
+  const [marcaActiva, setMarcaActiva] = useState('')
+  const [busqueda, setBusqueda] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const repuestosFiltrados = categoriaActiva
-    ? repuestos.filter((r) => r.categoria?.nombre === categoriaActiva)
-    : repuestos
+  // Derivadas de los propios repuestos ya cargados (no de un select aparte a
+  // ra_categorias) - evita mostrar categorias en 0 (de otros modelos) y
+  // duplicados por nombre (ra_categorias tiene varias filas con el mismo
+  // nombre, ej. "MOTOR" x7, una por subcategoria del ERP).
+  const categorias = useMemo(() => {
+    const porNombre = new Map<string, Pick<Categoria, 'id' | 'nombre' | 'slug' | 'orden'>>()
+    for (const r of repuestos) {
+      if (r.categoria && !porNombre.has(r.categoria.nombre)) porNombre.set(r.categoria.nombre, r.categoria)
+    }
+    return Array.from(porNombre.values()).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+  }, [repuestos])
 
-  const conteo = (nombre: string) =>
+  const marcas = useMemo(() => {
+    const porNombre = new Map<string, MarcaRepuesto>()
+    for (const r of repuestos) {
+      if (r.marca_repuesto && !porNombre.has(r.marca_repuesto.nombre)) porNombre.set(r.marca_repuesto.nombre, r.marca_repuesto)
+    }
+    return Array.from(porNombre.values()).sort((a, b) => a.nombre.localeCompare(b.nombre))
+  }, [repuestos])
+
+  const busquedaNorm = busqueda.trim().toLowerCase()
+
+  const repuestosFiltrados = repuestos.filter((r) => {
+    if (categoriaActiva && r.categoria?.nombre !== categoriaActiva) return false
+    if (marcaActiva && r.marca_repuesto?.nombre !== marcaActiva) return false
+    if (busquedaNorm) {
+      const enNombre = r.nombre.toLowerCase().includes(busquedaNorm)
+      const enOem = (r.codigo_oem ?? '').toLowerCase().includes(busquedaNorm)
+      const enAlternos = ((r as any).codigos_alternos ?? '').toLowerCase().includes(busquedaNorm)
+      if (!enNombre && !enOem && !enAlternos) return false
+    }
+    return true
+  })
+
+  const conteoCategoria = (nombre: string) =>
     repuestos.filter((r) => r.categoria?.nombre === nombre).length
+
+  const conteoMarca = (nombre: string) =>
+    repuestos.filter((r) => r.marca_repuesto?.nombre === nombre).length
 
   const años =
     modelo.año_desde && modelo.año_hasta
@@ -160,44 +196,57 @@ export function CatalogoPageClient({
 
       {/* Main content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {/* Buscador */}
+        <div className="relative max-w-md mb-6">
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por nombre, código OEM o código alterno..."
+            className="w-full rounded-xl border-2 border-slate-200 pl-10 pr-4 py-3 text-sm outline-none focus:border-[#002D62]"
+          />
+        </div>
+
         <div className="flex gap-8">
 
           {/* Sidebar — desktop */}
-          <aside className="hidden lg:block w-56 shrink-0">
+          <aside className="hidden lg:block w-64 shrink-0">
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden sticky top-24">
               <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
                 <h2 className="text-[#002D62] font-bold text-sm uppercase tracking-wider">Filtrar por</h2>
               </div>
-              <div className="p-3 space-y-1">
-                <button
-                  onClick={() => setCategoriaActiva(null)}
-                  className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition-colors flex justify-between items-center ${
-                    categoriaActiva === null
-                      ? 'bg-[#002D62] text-white'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <span>Todos</span>
-                  <span className={`text-xs rounded-full px-2 py-0.5 ${categoriaActiva === null ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                    {repuestos.length}
-                  </span>
-                </button>
-                {categorias.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setCategoriaActiva(cat.nombre)}
-                    className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition-colors flex justify-between items-center ${
-                      categoriaActiva === cat.nombre
-                        ? 'bg-[#002D62] text-white'
-                        : 'text-slate-600 hover:bg-slate-100'
-                    }`}
+              <div className="p-4 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Categoría</label>
+                  <select
+                    value={categoriaActiva}
+                    onChange={(e) => setCategoriaActiva(e.target.value)}
+                    className="w-full rounded-xl border-2 border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#002D62]"
                   >
-                    <span>{cat.nombre}</span>
-                    <span className={`text-xs rounded-full px-2 py-0.5 ${categoriaActiva === cat.nombre ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                      {conteo(cat.nombre)}
-                    </span>
-                  </button>
-                ))}
+                    <option value="">Todas ({repuestos.length})</option>
+                    {categorias.map((cat) => (
+                      <option key={cat.id} value={cat.nombre}>
+                        {cat.nombre} ({conteoCategoria(cat.nombre)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Marca</label>
+                  <select
+                    value={marcaActiva}
+                    onChange={(e) => setMarcaActiva(e.target.value)}
+                    className="w-full rounded-xl border-2 border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#002D62]"
+                  >
+                    <option value="">Todas las marcas</option>
+                    {marcas.map((m) => (
+                      <option key={m.id} value={m.nombre}>
+                        {m.nombre} ({conteoMarca(m.nombre)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="p-4 border-t border-slate-100">
@@ -227,6 +276,9 @@ export function CatalogoPageClient({
                 {categoriaActiva && (
                   <span className="ml-1">· <span className="text-[#002D62] font-semibold">{categoriaActiva}</span></span>
                 )}
+                {marcaActiva && (
+                  <span className="ml-1">· <span className="text-[#002D62] font-semibold">{marcaActiva}</span></span>
+                )}
               </p>
 
               <button
@@ -238,28 +290,39 @@ export function CatalogoPageClient({
               </button>
             </div>
 
-            {/* Mobile filter pills */}
+            {/* Mobile filters */}
             {sidebarOpen && (
-              <div className="lg:hidden flex flex-wrap gap-2 mb-5 p-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
-                <button
-                  onClick={() => { setCategoriaActiva(null); setSidebarOpen(false) }}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    categoriaActiva === null ? 'bg-[#002D62] text-white' : 'bg-slate-100 text-slate-600'
-                  }`}
-                >
-                  Todos ({repuestos.length})
-                </button>
-                {categorias.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => { setCategoriaActiva(cat.nombre); setSidebarOpen(false) }}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                      categoriaActiva === cat.nombre ? 'bg-[#002D62] text-white' : 'bg-slate-100 text-slate-600'
-                    }`}
+              <div className="lg:hidden flex flex-col gap-3 mb-5 p-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Categoría</label>
+                  <select
+                    value={categoriaActiva}
+                    onChange={(e) => setCategoriaActiva(e.target.value)}
+                    className="w-full rounded-xl border-2 border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#002D62]"
                   >
-                    {cat.nombre} ({conteo(cat.nombre)})
-                  </button>
-                ))}
+                    <option value="">Todas ({repuestos.length})</option>
+                    {categorias.map((cat) => (
+                      <option key={cat.id} value={cat.nombre}>
+                        {cat.nombre} ({conteoCategoria(cat.nombre)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Marca</label>
+                  <select
+                    value={marcaActiva}
+                    onChange={(e) => setMarcaActiva(e.target.value)}
+                    className="w-full rounded-xl border-2 border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#002D62]"
+                  >
+                    <option value="">Todas las marcas</option>
+                    {marcas.map((m) => (
+                      <option key={m.id} value={m.nombre}>
+                        {m.nombre} ({conteoMarca(m.nombre)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             )}
 
@@ -273,7 +336,7 @@ export function CatalogoPageClient({
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <Package className="w-12 h-12 text-slate-300 mb-4" />
-                <p className="text-slate-500 font-medium">No hay repuestos en esta categoría aún.</p>
+                <p className="text-slate-500 font-medium">No se encontraron repuestos con estos filtros.</p>
                 <p className="text-slate-400 text-sm mt-1">Consúltenos directamente por WhatsApp.</p>
               </div>
             )}

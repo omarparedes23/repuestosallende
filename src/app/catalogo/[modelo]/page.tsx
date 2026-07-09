@@ -48,25 +48,25 @@ export default async function CatalogoModeloPage({ params }: Props) {
 
   if (!modelo) notFound()
 
-  const [{ data: repuestos }, { data: categorias }] = await Promise.all([
-    supabase
-      .from('ra_catalogo_repuestos')
-      .select('*, categoria:ra_categorias(id, nombre, slug, orden), ra_compatibilidades!inner(modelo_id)')
-      .eq('activo', true)
-      .eq('ra_compatibilidades.modelo_id', (modelo as any).id)
-      .order('nombre'),
-    supabase
-      .from('ra_categorias')
-      .select('id, nombre, slug, orden')
-      .eq('activo', true)
-      .order('orden'),
-  ])
+  // La lista de categorias/marcas para los filtros del sidebar se deriva en el
+  // cliente a partir de estos mismos repuestos (no de un select aparte a
+  // ra_categorias) - evita mostrar categorias en 0 (de otros modelos) y
+  // duplicados por nombre (ra_categorias tiene varias filas con el mismo
+  // nombre, ej. "MOTOR" x7, una por subcategoria del ERP).
+  // as any: marca_repuesto_id / ra_marcas_repuesto no estan en el tipo Database
+  // generado (quedo desactualizado desde la migracion 024) - mismo patron que
+  // ya usa el panel admin (articulos/actions.ts) para estos mismos campos.
+  const { data: repuestos } = await (supabase as any)
+    .from('ra_catalogo_repuestos')
+    .select('*, categoria:ra_categorias(id, nombre, slug, orden), marca_repuesto:ra_marcas_repuesto(id, nombre), ra_compatibilidades!inner(modelo_id)')
+    .eq('activo', true)
+    .eq('ra_compatibilidades.modelo_id', (modelo as any).id)
+    .order('nombre')
 
   return (
     <CatalogoPageClient
       modelo={modelo}
       repuestos={repuestos ?? []}
-      categorias={categorias ?? []}
     />
   )
 }

@@ -1,0 +1,82 @@
+2026-07-09 06:29:22 ===== Inicio backfill_marcas_auto =====
+2026-07-09 06:29:22 Preparando esquema (columna marca_auto_id, indice, constraint unique)...
+2026-07-09 06:29:25 Leyendo Producto2.CA02 desde el ERP...
+2026-07-09 06:29:26 Leidos 39383 productos con CA02 no vacio
+2026-07-09 06:29:27 Productos con marca valida: 32104. Excluidos (VARIOS/OTROS/basura): 7279
+2026-07-09 06:29:27 Marcas distintas detectadas: 87
+2026-07-09 06:29:28 Marcas insertadas/existentes en ra_marcas_auto (INSERT ... ON CONFLICT DO NOTHING ejecutado)
+2026-07-09 06:29:30 Marcas totales en ra_marcas_auto (con id resuelto): 0
+2026-07-09 06:29:30 Actualizados: 0 | Sin marca_id resuelta: 32104
+2026-07-09 06:29:30 --- Verificacion en Supabase (top 15 marcas por cantidad de productos) ---
+2026-07-09 06:29:31    nombre | productos 
+2026-07-09 06:29:31   --------+-----------
+2026-07-09 06:29:31   (0 rows)
+2026-07-09 06:29:31 ===== Fin backfill_marcas_auto =====
+2026-07-09 06:31:28 ===== Inicio backfill_marcas_auto =====
+2026-07-09 06:31:28 Preparando esquema (columna marca_auto_id, indice, constraint unique)...
+2026-07-09 06:31:30 ERROR FATAL: psql:C:/Users/omarp_v5mqor0/AppData/Local/Temp/tmp9CA8.tmp.sql:1: NOTICE:  column "marca_auto_id" of relation "ra_catalogo_repuestos" already exists, skipping
+psql:C:/Users/omarp_v5mqor0/AppData/Local/Temp/tmp9CA8.tmp.sql:2: NOTICE:  relation "idx_catalogo_marca_auto" already exists, skipping
+2026-07-09 06:31:30 en Invoke-Pg, D:\tempo\claudecode\repuestosallende\my-app\backfill_marcas_auto.ps1: línea 110
+en <ScriptBlock>, D:\tempo\claudecode\repuestosallende\my-app\backfill_marcas_auto.ps1: línea 123
+2026-07-09 06:33:10 ===== Inicio backfill_marcas_auto =====
+2026-07-09 06:33:10 Preparando esquema (columna marca_auto_id, indice, constraint unique)...
+2026-07-09 06:33:12 Leyendo Producto2.CA02 desde el ERP...
+2026-07-09 06:33:13 Leidos 39383 productos con CA02 no vacio
+2026-07-09 06:33:14 Productos con marca valida: 32104. Excluidos (VARIOS/OTROS/basura): 7279
+2026-07-09 06:33:14 Marcas distintas detectadas: 87
+2026-07-09 06:33:16 Marcas insertadas/existentes en ra_marcas_auto (INSERT ... ON CONFLICT DO NOTHING ejecutado)
+2026-07-09 06:33:17 Marcas totales en ra_marcas_auto (con id resuelto): 87
+2026-07-09 06:33:20 Lote 1: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:23 Lote 2: 1000 enviados, 999 actualizados
+2026-07-09 06:33:24 Lote 3: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:26 Lote 4: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:28 Lote 5: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:30 Lote 6: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:33 Lote 7: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:34 Lote 8: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:36 Lote 9: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:38 Lote 10: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:40 Lote 11: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:42 Lote 12: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:44 Lote 13: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:45 Lote 14: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:48 Lote 15: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:50 Lote 16: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:51 Lote 17: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:54 Lote 18: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:55 Lote 19: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:57 Lote 20: 1000 enviados, 1000 actualizados
+2026-07-09 06:33:59 Lote 21: 1000 enviados, 1000 actualizados
+2026-07-09 06:34:01 Lote 22: 1000 enviados, 1000 actualizados
+2026-07-09 06:34:03 Lote 23: 1000 enviados, 1000 actualizados
+2026-07-09 06:34:05 Lote 24: 1000 enviados, 1000 actualizados
+2026-07-09 06:34:07 Lote 25: 1000 enviados, 1000 actualizados
+2026-07-09 06:34:09 Lote 26: 1000 enviados, 1000 actualizados
+2026-07-09 06:34:11 Lote 27: 1000 enviados, 1000 actualizados
+2026-07-09 06:34:13 Lote 28: 1000 enviados, 1000 actualizados
+2026-07-09 06:34:15 Lote 29: 1000 enviados, 1000 actualizados
+2026-07-09 06:34:17 Lote 30: 1000 enviados, 1000 actualizados
+2026-07-09 06:34:18 Lote 31: 1000 enviados, 1000 actualizados
+2026-07-09 06:34:20 Lote 32: 1000 enviados, 998 actualizados
+2026-07-09 06:34:22 Lote 33: 104 enviados, 104 actualizados
+2026-07-09 06:34:22 Actualizados: 32101 | Sin marca_id resuelta: 0
+2026-07-09 06:34:22 --- Verificacion en Supabase (top 15 marcas por cantidad de productos) ---
+2026-07-09 06:34:23       nombre     | productos 
+2026-07-09 06:34:23   ---------------+-----------
+2026-07-09 06:34:23    Volkswagen    |      5149
+2026-07-09 06:34:23    TOYOTA        |      5146
+2026-07-09 06:34:23    NISSAN        |      4361
+2026-07-09 06:34:23    Mercedes-Benz |      2485
+2026-07-09 06:34:23    MITSUBISHI    |      1851
+2026-07-09 06:34:23    HYUNDAI       |      1565
+2026-07-09 06:34:23    MAZDA         |      1002
+2026-07-09 06:34:23    FORD          |       984
+2026-07-09 06:34:23    HONDA         |       951
+2026-07-09 06:34:23    CHEVROLET     |       860
+2026-07-09 06:34:23    SUZUKI        |       789
+2026-07-09 06:34:23    KIA           |       745
+2026-07-09 06:34:23    RENAULT       |       699
+2026-07-09 06:34:23    VOLVO         |       658
+2026-07-09 06:34:23    PEUGEOT       |       641
+2026-07-09 06:34:23   (15 rows)
+2026-07-09 06:34:23 ===== Fin backfill_marcas_auto =====
