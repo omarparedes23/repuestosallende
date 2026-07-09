@@ -84,8 +84,8 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
         </div>
 
         {/* Search */}
-        <div className="flex items-center gap-3">
-          <div className="relative max-w-sm flex-1">
+        <div className="flex flex-col md:flex-row md:items-center gap-3">
+          <div className="relative w-full md:max-w-sm md:flex-1">
             <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#9CA3AF' }} />
             <input
               value={query}
@@ -105,7 +105,7 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
           <select
             value={marcaId}
             onChange={(e) => setMarcaId(e.target.value)}
-            className="rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
+            className="w-full md:w-auto rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
             style={{ borderColor: '#D1D5DB', color: '#374151' }}
           >
             <option value="">Marca de repuesto</option>
@@ -116,7 +116,7 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
           <select
             value={marcaAutoId}
             onChange={(e) => setMarcaAutoId(e.target.value)}
-            className="rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
+            className="w-full md:w-auto rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
             style={{ borderColor: '#D1D5DB', color: '#374151' }}
           >
             <option value="">Marca de vehículo</option>
@@ -126,16 +126,80 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
           </select>
         </div>
 
-        {/* Table */}
-        <div className="rounded-2xl border overflow-hidden" style={{ borderColor: '#E5E7EB' }}>
-          {articulos.length === 0 ? (
+        {/* Empty state */}
+        {articulos.length === 0 && (
+          <div className="rounded-2xl border overflow-hidden" style={{ borderColor: '#E5E7EB' }}>
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <Package size={32} style={{ color: '#D1D5DB' }} />
               <p className="text-sm" style={{ color: '#9CA3AF' }}>
                 {query ? 'Sin resultados para tu búsqueda' : 'No hay artículos registrados'}
               </p>
             </div>
-          ) : (
+          </div>
+        )}
+
+        {/* Cards — mobile only */}
+        {articulos.length > 0 && (
+          <div className="md:hidden space-y-3">
+            {articulos.map((a) => {
+              const stockBajo = a.stock_actual < a.stock_minimo
+              return (
+                <div
+                  key={a.id}
+                  className="rounded-2xl border p-4 space-y-3"
+                  style={{ borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm truncate" style={{ color: '#111827' }}>
+                        {a.nombre}
+                      </p>
+                      <p className="text-xs font-mono mt-0.5" style={{ color: '#6B7280' }}>
+                        {a.codigo_oem ?? '—'}
+                      </p>
+                      {a.categoria && (
+                        <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>
+                          {a.categoria}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleEdit(a)}
+                      className="p-2 rounded-lg shrink-0"
+                      style={{ backgroundColor: '#F3F4F6' }}
+                      aria-label="Editar precios y stock mínimo"
+                    >
+                      <Pencil size={16} style={{ color: '#374151' }} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                      style={{
+                        backgroundColor: stockBajo ? '#FEF2F2' : '#F0FDF4',
+                        color: stockBajo ? '#DC2626' : '#059669',
+                      }}
+                    >
+                      {stockBajo && <AlertTriangle size={10} />}
+                      Stock {a.stock_actual} / {a.stock_minimo}
+                    </span>
+                    <div className="text-right text-xs" style={{ color: '#374151' }}>
+                      <p>{a.precio_venta != null ? `S/ ${a.precio_venta.toFixed(2)}` : '—'}</p>
+                      <p style={{ color: '#9CA3AF' }}>
+                        {a.precio_venta_dolar != null ? `USD ${a.precio_venta_dolar.toFixed(2)}` : '—'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Table — tablet/desktop only */}
+        {articulos.length > 0 && (
+          <div className="hidden md:block rounded-2xl border overflow-hidden" style={{ borderColor: '#E5E7EB' }}>
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#F9FAFB' }}>
@@ -206,8 +270,8 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
                 })}
               </tbody>
             </table>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Paginación */}
         {total > 0 && (
