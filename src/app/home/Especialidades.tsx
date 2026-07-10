@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 import { ChevronRight } from 'lucide-react'
 import type { ModeloAuto } from '@/lib/types/database'
 import { siteConfig } from '@/lib/site.config'
-import { fadeInUp, staggerContainer, viewportOnce } from './shared/animations'
+import { fadeInUp, viewportOnce } from './shared/animations'
 
 /** Modelo con su marca relacionada (viene del join en page.tsx). */
 export type ModeloConMarca = ModeloAuto & {
@@ -70,13 +70,7 @@ export function Especialidades({ modelos }: { modelos: ModeloConMarca[] }) {
         </motion.div>
 
         {modelos.length > 0 ? (
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={viewportOnce}
-            variants={staggerContainer}
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
-          >
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {modelos.map((modelo) => {
               const años =
                 modelo.año_desde && modelo.año_hasta
@@ -85,7 +79,14 @@ export function Especialidades({ modelos }: { modelos: ModeloConMarca[] }) {
               const logoMarca = logoPara(modelo.marca?.nombre)
 
               return (
-                <motion.div key={modelo.slug} variants={fadeInUp} className="h-full">
+                <motion.div
+                  key={modelo.slug}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={viewportOnce}
+                  variants={fadeInUp}
+                  className="h-full"
+                >
                   <Link href={`/catalogo/${modelo.slug}`} className="block h-full group">
                     <div className="bg-slate-50 rounded-2xl border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.2)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] hover:shadow-blue-900/50 transition-all duration-300 overflow-hidden h-full flex flex-col hover:-translate-y-2">
                       {/* Image area */}
@@ -163,7 +164,7 @@ export function Especialidades({ modelos }: { modelos: ModeloConMarca[] }) {
                 </motion.div>
               )
             })}
-          </motion.div>
+          </div>
         ) : (
           <div className="text-center py-16">
             <p className="text-white/70 font-light">

@@ -1,6 +1,6 @@
 'use server'
 
-import { getSession, getSessionFast } from '@/lib/session'
+import { getSessionFast } from '@/lib/session'
 
 const ROLES_ADMIN = ['administrador', 'superadmin']
 
@@ -37,7 +37,11 @@ export type ArticuloEdicionPublica = {
 export async function getArticuloParaEdicionPublico(
   catalogoId: string
 ): Promise<ArticuloEdicionPublica | null> {
-  const { supabase: raw, perfil } = await getSession()
+  // Lectura, no mutación -> getSessionFast() (JWT local, sin round-trip a
+  // Supabase Auth). Usar getSession() aquí solo agregaba latencia al abrir
+  // el modal (~1s extra medido en logs locales) sin ganancia real, ya que
+  // esta función no escribe nada.
+  const { supabase: raw, perfil } = await getSessionFast()
   const supabase = raw as any
   if (!perfil?.empresa_id || !ROLES_ADMIN.includes(perfil.rol)) return null
 
