@@ -17,7 +17,6 @@ export type ArticuloRow = {
   stock_minimo: number
   precio_venta: number | null
   precio_venta_dolar: number | null
-  precio_mayorista: number | null
   precio_compra: number | null
   activo: boolean
   sucursal_id: string
@@ -68,7 +67,6 @@ const SELECT_ARTICULO = `
   stock_minimo,
   precio_venta,
   precio_venta_dolar,
-  precio_mayorista,
   precio_compra,
   activo,
   sucursal_id,
@@ -95,7 +93,6 @@ function mapArticuloRow(row: any): ArticuloRow {
     stock_minimo: row.stock_minimo,
     precio_venta: row.precio_venta,
     precio_venta_dolar: row.precio_venta_dolar,
-    precio_mayorista: row.precio_mayorista,
     precio_compra: row.precio_compra,
     activo: row.activo,
     sucursal_id: row.sucursal_id,
@@ -188,14 +185,12 @@ export async function updatePreciosArticulo(
   const id = formData.get('id') as string
   const precioVenta = parsePrecioOpcional(formData.get('precio_venta'))
   const precioVentaDolar = parsePrecioOpcional(formData.get('precio_venta_dolar'))
-  const precioMayorista = parsePrecioOpcional(formData.get('precio_mayorista'))
   const precioCompra = parsePrecioOpcional(formData.get('precio_compra'))
   const stockMinimo = parseFloat(formData.get('stock_minimo') as string)
 
   if (
     precioVenta === INVALID ||
     precioVentaDolar === INVALID ||
-    precioMayorista === INVALID ||
     precioCompra === INVALID ||
     isNaN(stockMinimo) ||
     stockMinimo < 0
@@ -217,7 +212,6 @@ export async function updatePreciosArticulo(
     .update({
       precio_venta: precioVenta,
       precio_venta_dolar: precioVentaDolar,
-      precio_mayorista: precioMayorista,
       precio_compra: precioCompra,
       stock_minimo: stockMinimo,
     })

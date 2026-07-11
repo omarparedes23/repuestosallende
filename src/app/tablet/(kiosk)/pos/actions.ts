@@ -2,13 +2,14 @@
 
 import { after } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { z } from 'zod'
 import { Decimal } from 'decimal.js'
 import { getSession, getSessionFast } from '@/lib/session'
 import { calcularTotalesVenta } from '@/lib/calc/totales'
+import { simboloMoneda } from '@/lib/calc/moneda'
 import { emitirComprobante } from '@/lib/facturacion/ose'
+import { VentaInputSchema } from './actions.schema'
 import type { CartItem } from '@/app/tablet/stores/posStore'
-import type { RaTipoCliente, RaTipoComprobante } from '@/lib/types/database'
+import type { RaMoneda, RaTipoComprobante } from '@/lib/types/database'
 
 export type ProductoBuscado = {
   productoId: string
@@ -17,7 +18,7 @@ export type ProductoBuscado = {
   codigoOem: string | null
   imagenUrl: string | null
   precioMinorista: number
-  precioMayorista: number
+  precioDolar: number | null
   stockActual: number
   categoriaId: string
 }
@@ -33,31 +34,6 @@ export type VentaResult = {
   tipoComprobante: RaTipoComprobante
 }
 
-const VentaInputSchema = z.object({
-  tipoVenta: z.enum(['mayorista', 'minorista']),
-  tipoComprobante: z.enum(['ticket', 'boleta', 'factura']),
-  clienteId: z.string().min(1).nullable().optional(),
-  items: z
-    .array(
-      z.object({
-        productoId: z.string().min(1),
-        catalogoId: z.string().min(1),
-        cantidad: z.number().positive(),
-        descuento: z.number().min(0),
-      })
-    )
-    .min(1, { error: 'El carrito está vacío' }),
-  pagos: z
-    .array(
-      z.object({
-        metodoPago: z.enum(['efectivo', 'yape', 'tarjeta', 'transferencia', 'credito']),
-        monto: z.number().positive(),
-        referencia: z.string().optional(),
-      })
-    )
-    .min(1, { error: 'Agrega al menos un método de pago' }),
-})
-
 export async function buscarProductos(
   query: string,
   categoriaId?: string
@@ -72,7 +48,7 @@ export async function buscarProductos(
     .from('ra_catalogo_repuestos')
     .select(
       `id, nombre, codigo_oem, imagen_url, categoria_id,
-       ra_productos!inner ( id, precio_venta, precio_mayorista, stock_actual, empresa_id, sucursal_id, activo )`
+       ra_productos!inner ( id, precio_venta, precio_venta_dolar, stock_actual, empresa_id, sucursal_id, activo )`
     )
     .eq('activo', true)
     .eq('ra_productos.empresa_id', perfil.empresa_id)
@@ -103,7 +79,7 @@ export async function buscarProductos(
       codigoOem: row.codigo_oem,
       imagenUrl: row.imagen_url,
       precioMinorista: p.precio_venta ?? 0,
-      precioMayorista: p.precio_mayorista ?? p.precio_venta ?? 0,
+      precioDolar: p.precio_venta_dolar ?? null,
       stockActual: p.stock_actual,
       categoriaId: row.categoria_id,
     }))
@@ -126,7 +102,7 @@ export async function procesarVenta(
     return { data: null, error: parsed.error.issues[0]?.message ?? 'Datos inválidos' }
   }
 
-  const { tipoVenta, tipoComprobante, clienteId, items, pagos } = parsed.data
+  const { tipoComprobante, clienteId, items, pagos, moneda, tipoCambio } = parsed.data
   const productoIds = items.map((i) => i.productoId)
   const necesitaSunat = tipoComprobante === 'boleta' || tipoComprobante === 'factura'
 
@@ -141,7 +117,7 @@ export async function procesarVenta(
     supabase
       .from('ra_productos')
       .select(
-        `id, catalogo_id, precio_venta, precio_mayorista, stock_actual,
+        `id, catalogo_id, precio_venta, precio_venta_dolar, stock_actual,
          ra_catalogo_repuestos!inner ( id, nombre, codigo_oem, activo )`
       )
       .in('id', productoIds)
@@ -175,6 +151,13 @@ export async function procesarVenta(
         error: `Stock insuficiente para "${prod.ra_catalogo_repuestos.nombre}". Disponible: ${prod.stock_actual}`,
       }
     }
+    // Defensa en profundidad: el cliente ya debió bloquear esto, pero el server nunca confía en el cliente
+    if (moneda === 'USD' && prod.precio_venta_dolar == null) {
+      return {
+        data: null,
+        error: `"${prod.ra_catalogo_repuestos.nombre}" no tiene precio en dólares cargado. Cargalo en el panel admin.`,
+      }
+    }
   }
 
   const cartItems: CartItem[] = items.map((item) => {
@@ -187,7 +170,7 @@ export async function procesarVenta(
       imagenUrl: null,
       stockActual: prod.stock_actual,
       precioMinorista: prod.precio_venta ?? 0,
-      precioMayorista: prod.precio_mayorista ?? prod.precio_venta ?? 0,
+      precioDolar: prod.precio_venta_dolar ?? null,
       cantidad: item.cantidad,
       descuento: item.descuento,
     }
@@ -195,15 +178,16 @@ export async function procesarVenta(
 
   const totales = calcularTotalesVenta(
     cartItems,
-    tipoVenta as RaTipoCliente,
-    tipoComprobante as RaTipoComprobante
+    tipoComprobante as RaTipoComprobante,
+    moneda as RaMoneda
   )
 
+  const simbolo = simboloMoneda(moneda as RaMoneda)
   const totalPagado = pagos.reduce((acc, p) => acc.plus(p.monto), new Decimal(0))
   if (totalPagado.lt(new Decimal(totales.total).minus('0.01'))) {
     return {
       data: null,
-      error: `Pagado (S/. ${totalPagado.toFixed(2)}) no cubre el total (S/. ${totales.total.toFixed(2)})`,
+      error: `Pagado (${simbolo} ${totalPagado.toFixed(2)}) no cubre el total (${simbolo} ${totales.total.toFixed(2)})`,
     }
   }
 
@@ -226,12 +210,13 @@ export async function procesarVenta(
       caja_id: caja.id,
       cliente_id: clienteId ?? null,
       usuario_id: user.id,
-      tipo_venta: tipoVenta,
       tipo_comprobante: tipoComprobante,
       subtotal: totales.subtotal,
       igv: totales.igv,
       total: totales.total,
       estado: necesitaSunat ? 'pendiente' : 'completada',
+      moneda,
+      tipo_cambio: moneda === 'USD' ? tipoCambio : null,
       ...(serie && correlativo ? { serie, correlativo } : {}),
     } as never)
     .select('id, total, tipo_comprobante')
@@ -355,6 +340,8 @@ export async function procesarVenta(
         subtotal: totales.subtotal,
         igv: totales.igv,
         total: totales.total,
+        moneda: moneda as RaMoneda,
+        tipoCambio: moneda === 'USD' ? (tipoCambio ?? undefined) : undefined,
       })
 
       const adminBg = createAdminClient(

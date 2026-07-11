@@ -23,6 +23,9 @@ export type RaEstadoVenta    = 'pendiente' | 'completada' | 'anulada' | 'error_s
 export type RaTipoKardex     = 'entrada' | 'salida' | 'ajuste'
 export type RaMotivoKardex   = 'venta' | 'compra' | 'ajuste_manual' | 'devolucion' | 'merma'
 
+// ── Enums: migration 030 (Facturación multimoneda) ─────────
+export type RaMoneda = 'PEN' | 'USD'
+
 export interface Database {
   public: {
     Tables: {
@@ -280,7 +283,6 @@ export interface Database {
           codigo_interno: string | null
           precio_venta: number | null
           precio_venta_dolar: number | null
-          precio_mayorista: number | null
           precio_compra: number | null
           stock_actual: number
           stock_minimo: number
@@ -295,7 +297,6 @@ export interface Database {
           codigo_interno?: string | null
           precio_venta?: number | null
           precio_venta_dolar?: number | null
-          precio_mayorista?: number | null
           precio_compra?: number | null
           stock_actual?: number
           stock_minimo?: number
@@ -310,7 +311,6 @@ export interface Database {
           codigo_interno?: string | null
           precio_venta?: number | null
           precio_venta_dolar?: number | null
-          precio_mayorista?: number | null
           precio_compra?: number | null
           stock_actual?: number
           stock_minimo?: number
@@ -697,6 +697,8 @@ export interface Database {
           id_externo: string | null
           pdf_url: string | null
           xml_url: string | null
+          moneda: RaMoneda
+          tipo_cambio: number | null
           created_at: string
           updated_at: string
         }
@@ -717,6 +719,8 @@ export interface Database {
           correlativo?: number | null
           fecha_emision?: string | null
           sunat_estado?: string | null
+          moneda?: RaMoneda
+          tipo_cambio?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -740,6 +744,8 @@ export interface Database {
           id_externo?: string | null
           pdf_url?: string | null
           xml_url?: string | null
+          moneda?: RaMoneda
+          tipo_cambio?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -890,6 +896,7 @@ export interface Database {
       ra_motivo_kardex: RaMotivoKardex
       ra_estado_pago_compra: RaEstadoPagoCompra
       ra_estado_guia: RaEstadoGuia
+      ra_moneda: RaMoneda
     }
     CompositeTypes: {
       [_ in never]: never

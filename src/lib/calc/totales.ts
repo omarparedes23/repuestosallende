@@ -1,6 +1,6 @@
 import { Decimal } from 'decimal.js'
 import type { CartItem } from '@/app/tablet/stores/posStore'
-import type { RaTipoCliente, RaTipoComprobante } from '@/lib/types/database'
+import type { RaMoneda, RaTipoComprobante } from '@/lib/types/database'
 
 export type ItemCalculado = {
   productoId: string
@@ -22,15 +22,19 @@ export type TotalesVenta = {
 
 export function calcularTotalesVenta(
   items: CartItem[],
-  tipoVenta: RaTipoCliente,
-  tipoComprobante: RaTipoComprobante
+  tipoComprobante: RaTipoComprobante,
+  moneda: RaMoneda
 ): TotalesVenta {
   let subtotalAcc = new Decimal(0)
 
   const itemsCalc: ItemCalculado[] = items.map((item) => {
-    const precio = new Decimal(
-      tipoVenta === 'mayorista' ? item.precioMayorista : item.precioMinorista
-    )
+    if (moneda === 'USD' && item.precioDolar == null) {
+      throw new Error(
+        `El repuesto "${item.nombre}" no tiene precio en dólares cargado`
+      )
+    }
+
+    const precio = new Decimal(moneda === 'USD' ? item.precioDolar! : item.precioMinorista)
     const cantidad = new Decimal(item.cantidad)
     const descuento = new Decimal(item.descuento)
     const subtotalItem = precio.mul(cantidad).minus(descuento).toDecimalPlaces(2)

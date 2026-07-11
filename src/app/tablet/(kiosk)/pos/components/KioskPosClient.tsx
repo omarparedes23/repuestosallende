@@ -4,57 +4,27 @@ import { useState } from 'react'
 import { ShoppingBag, X } from 'lucide-react'
 import { usePosStore } from '@/app/tablet/stores/posStore'
 import { calcularTotalesVenta } from '@/lib/calc/totales'
+import { simboloMoneda } from '@/lib/calc/moneda'
 import { ProductGrid } from './ProductGrid'
 import { KioskCart } from './KioskCart'
 import type { Categoria } from '@/lib/types/database'
-import type { RaTipoCliente } from '@/lib/types/database'
 
 type Props = {
   categorias: Categoria[]
 }
 
-const TIPO_LABELS: Record<RaTipoCliente, string> = {
-  minorista: 'Minorista',
-  mayorista: 'Mayorista',
-}
-
 export function KioskPosClient({ categorias }: Props) {
-  const tipoVenta = usePosStore((s) => s.tipoVenta)
-  const setTipoVenta = usePosStore((s) => s.setTipoVenta)
   const tipoComprobante = usePosStore((s) => s.tipoComprobante)
   const items = usePosStore((s) => s.items)
   const [showCartMobile, setShowCartMobile] = useState(false)
 
   const cantidadItems = items.reduce((sum, item) => sum + item.cantidad, 0)
-  const totales = calcularTotalesVenta(items, tipoVenta, tipoComprobante)
+  // Previsualización siempre en soles — la moneda de cobro se elige en PaymentSheet.
+  const totales = calcularTotalesVenta(items, tipoComprobante, 'PEN')
+  const simbolo = simboloMoneda('PEN')
 
   return (
     <div className="flex flex-col h-full relative">
-      {/* Tipo venta toggle */}
-      <div
-        className="flex items-center justify-between px-4 py-2 border-b"
-        style={{ borderColor: '#001A3D', backgroundColor: '#002D62' }}
-      >
-        <span className="text-sm font-semibold" style={{ color: '#93B4D4' }}>
-          Tipo de venta:
-        </span>
-        <div className="flex rounded-xl overflow-hidden border-2" style={{ borderColor: '#002D62' }}>
-          {(['minorista', 'mayorista'] as RaTipoCliente[]).map((tipo) => (
-            <button
-              key={tipo}
-              onClick={() => setTipoVenta(tipo)}
-              className="px-4 py-1.5 text-sm font-semibold transition-colors"
-              style={{
-                backgroundColor: tipoVenta === tipo ? '#002D62' : '#FFFFFF',
-                color: tipoVenta === tipo ? '#FFD700' : '#002D62',
-              }}
-            >
-              {TIPO_LABELS[tipo]}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* 62/38 split — cart column collapses on mobile, product grid takes full width */}
       <div className="flex flex-1 overflow-hidden">
         {/* Product grid */}
@@ -98,7 +68,7 @@ export function KioskPosClient({ categorias }: Props) {
           )}
         </span>
         {cantidadItems > 0 && (
-          <span className="text-sm font-bold">S/. {totales.total.toFixed(2)}</span>
+          <span className="text-sm font-bold">{simbolo} {totales.total.toFixed(2)}</span>
         )}
       </button>
 

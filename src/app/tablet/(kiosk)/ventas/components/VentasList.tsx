@@ -4,6 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ChevronRight, User } from 'lucide-react'
 import type { VentaResumen } from '../actions'
+import type { RaMoneda } from '@/lib/types/database'
+import { simboloMoneda } from '@/lib/calc/moneda'
 
 type Props = {
   ventas: VentaResumen[]
@@ -26,13 +28,14 @@ export function VentasList({ ventas }: Props) {
 
   const ventasFiltradas = filtro ? ventas.filter((v) => v.estado === filtro) : ventas
 
-  const totalesDelDia = ventas.reduce(
-    (acc, v) => ({
-      total: acc.total + (v.estado !== 'anulada' ? v.total : 0),
-      count: acc.count + (v.estado !== 'anulada' ? 1 : 0),
-    }),
-    { total: 0, count: 0 }
-  )
+  const ventasValidas = ventas.filter((v) => v.estado !== 'anulada')
+
+  const totalesPorMoneda = ventasValidas.reduce<Partial<Record<RaMoneda, number>>>((acc, v) => {
+    acc[v.moneda] = (acc[v.moneda] ?? 0) + v.total
+    return acc
+  }, {})
+
+  const totalesDelDia = { count: ventasValidas.length }
 
   return (
     <div className="flex flex-col h-full">
@@ -53,9 +56,11 @@ export function VentasList({ ventas }: Props) {
           <p className="text-xs font-semibold" style={{ color: '#8BA7CC' }}>
             Total recaudado
           </p>
-          <p className="text-lg font-bold" style={{ color: '#FFD700' }}>
-            S/. {totalesDelDia.total.toFixed(2)}
-          </p>
+          {(Object.entries(totalesPorMoneda) as [RaMoneda, number][]).map(([moneda, total]) => (
+            <p key={moneda} className="text-lg font-bold" style={{ color: '#FFD700' }}>
+              {simboloMoneda(moneda)} {total.toFixed(2)}
+            </p>
+          ))}
         </div>
       </div>
 
@@ -134,7 +139,7 @@ export function VentasList({ ventas }: Props) {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-base font-bold" style={{ color: '#111827' }}>
-                      S/. {venta.total.toFixed(2)}
+                      {simboloMoneda(venta.moneda)} {venta.total.toFixed(2)}
                     </span>
                     <ChevronRight size={16} style={{ color: '#9CA3AF' }} />
                   </div>

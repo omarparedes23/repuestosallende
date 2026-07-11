@@ -112,37 +112,20 @@ export function ArticuloEditForm({ open, onClose, onSaved, articulo, modelos }: 
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="block text-sm font-semibold" style={{ color: '#374151' }}>
-              Precio mayorista
-            </label>
-            <input
-              name="precio_mayorista"
-              type="number"
-              step="0.01"
-              min="0"
-              defaultValue={articulo.precio_mayorista ?? ''}
-              placeholder="0.00"
-              className="w-full rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
-              style={{ borderColor: '#D1D5DB' }}
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="block text-sm font-semibold" style={{ color: '#374151' }}>
-              Precio compra
-            </label>
-            <input
-              name="precio_compra"
-              type="number"
-              step="0.01"
-              min="0"
-              defaultValue={articulo.precio_compra ?? ''}
-              placeholder="0.00"
-              className="w-full rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
-              style={{ borderColor: '#D1D5DB' }}
-            />
-          </div>
+        <div className="space-y-1">
+          <label className="block text-sm font-semibold" style={{ color: '#374151' }}>
+            Precio compra
+          </label>
+          <input
+            name="precio_compra"
+            type="number"
+            step="0.01"
+            min="0"
+            defaultValue={articulo.precio_compra ?? ''}
+            placeholder="0.00"
+            className="w-full rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
+            style={{ borderColor: '#D1D5DB' }}
+          />
         </div>
 
         <div className="space-y-1">

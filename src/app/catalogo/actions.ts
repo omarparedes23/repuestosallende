@@ -22,7 +22,6 @@ export type ArticuloEdicionPublica = {
   imagen_url: string | null
   precio_venta: number | null
   precio_venta_dolar: number | null
-  precio_mayorista: number | null
   precio_compra: number | null
   stock_minimo: number
   modelos_compatibles: string[]
@@ -53,7 +52,6 @@ export async function getArticuloParaEdicionPublico(
       catalogo_id,
       precio_venta,
       precio_venta_dolar,
-      precio_mayorista,
       precio_compra,
       stock_minimo,
       ra_catalogo_repuestos!inner (
@@ -78,7 +76,6 @@ export async function getArticuloParaEdicionPublico(
     imagen_url: data.ra_catalogo_repuestos?.imagen_url ?? null,
     precio_venta: data.precio_venta,
     precio_venta_dolar: data.precio_venta_dolar,
-    precio_mayorista: data.precio_mayorista,
     precio_compra: data.precio_compra,
     stock_minimo: data.stock_minimo,
     modelos_compatibles: (data.ra_catalogo_repuestos?.ra_compatibilidades ?? []).map(

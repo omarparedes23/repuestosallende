@@ -9,7 +9,7 @@ export type CartItem = {
   imagenUrl: string | null
   stockActual: number
   precioMinorista: number
-  precioMayorista: number
+  precioDolar: number | null
   cantidad: number
   descuento: number
 }
@@ -31,14 +31,12 @@ export type ClienteSnapshot = {
 interface PosState {
   cajaId: string | null
   cliente: ClienteSnapshot | null
-  tipoVenta: RaTipoCliente
   tipoComprobante: RaTipoComprobante
   items: CartItem[]
   pagos: PagoInput[]
 
   setCajaId: (id: string | null) => void
   setCliente: (cliente: ClienteSnapshot | null) => void
-  setTipoVenta: (tipo: RaTipoCliente) => void
   setTipoComprobante: (tipo: RaTipoComprobante) => void
   setPagos: (pagos: PagoInput[]) => void
 
@@ -58,14 +56,12 @@ interface PosState {
 export const usePosStore = create<PosState>()((set, get) => ({
   cajaId: null,
   cliente: null,
-  tipoVenta: 'minorista',
   tipoComprobante: 'ticket',
   items: [],
   pagos: [],
 
   setCajaId: (id) => set({ cajaId: id }),
   setCliente: (cliente) => set({ cliente }),
-  setTipoVenta: (tipo) => set({ tipoVenta: tipo }),
   setTipoComprobante: (tipo) => set({ tipoComprobante: tipo }),
   setPagos: (pagos) => set({ pagos }),
 
@@ -106,10 +102,9 @@ export const usePosStore = create<PosState>()((set, get) => ({
   clearCart: () => set({ items: [], pagos: [], cliente: null }),
 
   getSubtotal: () => {
-    const { items, tipoVenta } = get()
+    const { items } = get()
     return items.reduce((sum, item) => {
-      const precio = tipoVenta === 'mayorista' ? item.precioMayorista : item.precioMinorista
-      return sum + precio * item.cantidad - item.descuento
+      return sum + item.precioMinorista * item.cantidad - item.descuento
     }, 0)
   },
 
@@ -127,7 +122,6 @@ export const usePosStore = create<PosState>()((set, get) => ({
       items: [],
       pagos: [],
       cliente: null,
-      tipoVenta: 'minorista',
       tipoComprobante: 'ticket',
     }),
 }))

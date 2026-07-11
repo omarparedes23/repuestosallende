@@ -1,3 +1,5 @@
+import type { RaMoneda } from '@/lib/types/database'
+
 const TIPO_DOC_SUNAT: Record<string, string> = {
   DNI: '1',
   RUC: '6',
@@ -28,6 +30,8 @@ export type OseComprobanteInput = {
   subtotal: number  // total base sin IGV
   igv: number
   total: number
+  moneda: RaMoneda      // default 'PEN'
+  tipoCambio?: number   // solo se envía si moneda !== 'PEN'
 }
 
 export type OseComprobanteResult = {
@@ -53,6 +57,7 @@ export async function emitirComprobante(
   const sinCliente = !input.cliente.nroDocumento
   const tipoDocCodigo = TIPO_DOC_SUNAT[input.cliente.tipoDocumento ?? ''] ?? '1'
   const igvRate = input.subtotal > 0 ? input.igv / input.subtotal : 0.18
+  const moneda: RaMoneda = input.moneda || 'PEN'
 
   const payload = {
     tipo: input.tipo,
@@ -61,6 +66,8 @@ export async function emitirComprobante(
     rucEmisor: input.rucEmisor,
     razonSocialEmisor: input.razonSocial,
     fechaEmision: input.fechaEmision,
+    moneda,
+    ...(moneda !== 'PEN' ? { tipoCambio: input.tipoCambio } : {}),
     cliente: {
       nombre: sinCliente ? 'Consumidor Final' : input.cliente.nombre,
       tipoDocCodigo: sinCliente ? '1' : tipoDocCodigo,

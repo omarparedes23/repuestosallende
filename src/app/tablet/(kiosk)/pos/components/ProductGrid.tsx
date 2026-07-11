@@ -17,7 +17,6 @@ export function ProductGrid({ categorias }: Props) {
   const [productos, setProductos] = useState<ProductoBuscado[]>([])
   const [isPending, startTransition] = useTransition()
 
-  const tipoVenta = usePosStore((s) => s.tipoVenta)
   const addItem = usePosStore((s) => s.addItem)
 
   const fetchProductos = useCallback(
@@ -53,7 +52,7 @@ export function ProductGrid({ categorias }: Props) {
         imagenUrl: producto.imagenUrl,
         stockActual: producto.stockActual,
         precioMinorista: producto.precioMinorista,
-        precioMayorista: producto.precioMayorista,
+        precioDolar: producto.precioDolar,
       })
     },
     [addItem]
@@ -131,7 +130,6 @@ export function ProductGrid({ categorias }: Props) {
               <ProductCard
                 key={prod.productoId}
                 producto={prod}
-                tipoVenta={tipoVenta}
                 onAdd={handleAddItem}
               />
             ))}

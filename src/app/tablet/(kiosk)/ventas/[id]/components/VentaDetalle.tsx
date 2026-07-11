@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { ArrowLeft, User, Receipt } from 'lucide-react'
 import type { VentaDetalle as VentaDetalleType } from '../../actions'
+import { simboloMoneda } from '@/lib/calc/moneda'
 
 type Props = {
   venta: VentaDetalleType
@@ -100,12 +101,12 @@ export function VentaDetalle({ venta }: Props) {
                   </p>
                 )}
                 <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
-                  {item.cantidad} × S/. {item.precio_unitario.toFixed(2)}
-                  {item.descuento > 0 && ` − S/. ${item.descuento.toFixed(2)}`}
+                  {item.cantidad} × {simboloMoneda(venta.moneda)} {item.precio_unitario.toFixed(2)}
+                  {item.descuento > 0 && ` − ${simboloMoneda(venta.moneda)} ${item.descuento.toFixed(2)}`}
                 </p>
               </div>
               <span className="text-sm font-bold shrink-0" style={{ color: '#002D62' }}>
-                S/. {item.subtotal.toFixed(2)}
+                {simboloMoneda(venta.moneda)} {item.subtotal.toFixed(2)}
               </span>
             </div>
           ))}
@@ -120,12 +121,12 @@ export function VentaDetalle({ venta }: Props) {
         >
           <div className="flex justify-between text-sm" style={{ color: '#6B7280' }}>
             <span>Subtotal</span>
-            <span>S/. {venta.subtotal.toFixed(2)}</span>
+            <span>{simboloMoneda(venta.moneda)} {venta.subtotal.toFixed(2)}</span>
           </div>
           {venta.igv > 0 && (
             <div className="flex justify-between text-sm" style={{ color: '#6B7280' }}>
               <span>IGV (18%)</span>
-              <span>S/. {venta.igv.toFixed(2)}</span>
+              <span>{simboloMoneda(venta.moneda)} {venta.igv.toFixed(2)}</span>
             </div>
           )}
           <div
@@ -133,7 +134,7 @@ export function VentaDetalle({ venta }: Props) {
             style={{ borderColor: '#C7D2FE', color: '#002D62' }}
           >
             <span>Total</span>
-            <span>S/. {venta.total.toFixed(2)}</span>
+            <span>{simboloMoneda(venta.moneda)} {venta.total.toFixed(2)}</span>
           </div>
         </div>
       </div>
@@ -159,7 +160,7 @@ export function VentaDetalle({ venta }: Props) {
                 </span>
               )}
               <span className="text-sm font-bold" style={{ color: '#059669' }}>
-                S/. {pago.monto.toFixed(2)}
+                {simboloMoneda(venta.moneda)} {pago.monto.toFixed(2)}
               </span>
             </div>
           ))}

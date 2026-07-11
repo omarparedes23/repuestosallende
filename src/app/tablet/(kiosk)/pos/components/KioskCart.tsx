@@ -4,17 +4,20 @@ import { useState } from 'react'
 import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react'
 import { usePosStore } from '@/app/tablet/stores/posStore'
 import { calcularTotalesVenta } from '@/lib/calc/totales'
+import { simboloMoneda } from '@/lib/calc/moneda'
 import { PaymentSheet } from './PaymentSheet'
 
 export function KioskCart() {
   const [showPayment, setShowPayment] = useState(false)
   const items = usePosStore((s) => s.items)
-  const tipoVenta = usePosStore((s) => s.tipoVenta)
   const tipoComprobante = usePosStore((s) => s.tipoComprobante)
   const removeItem = usePosStore((s) => s.removeItem)
   const updateCantidad = usePosStore((s) => s.updateCantidad)
 
-  const totales = calcularTotalesVenta(items, tipoVenta, tipoComprobante)
+  // El carrito se arma y previsualiza siempre en soles — la moneda de cobro
+  // recién se elige dentro de PaymentSheet, al momento de cobrar.
+  const totales = calcularTotalesVenta(items, tipoComprobante, 'PEN')
+  const simbolo = simboloMoneda('PEN')
 
   if (items.length === 0) {
     return (
@@ -40,8 +43,7 @@ export function KioskCart() {
         {/* Items list */}
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {items.map((item) => {
-            const precio =
-              tipoVenta === 'mayorista' ? item.precioMayorista : item.precioMinorista
+            const precio = item.precioMinorista
             const subtotalItem = precio * item.cantidad - item.descuento
 
             return (
@@ -60,7 +62,7 @@ export function KioskCart() {
                     </p>
                   )}
                   <p className="text-sm font-bold mt-1" style={{ color: '#FFD700' }}>
-                    S/. {subtotalItem.toFixed(2)}
+                    {simbolo} {subtotalItem.toFixed(2)}
                   </p>
                 </div>
 
@@ -99,7 +101,7 @@ export function KioskCart() {
                   </div>
 
                   <p className="text-xs" style={{ color: '#93B4D4' }}>
-                    S/. {precio.toFixed(2)}
+                    {simbolo} {precio.toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -115,17 +117,17 @@ export function KioskCart() {
           <div className="space-y-1">
             <div className="flex justify-between text-sm" style={{ color: '#93B4D4' }}>
               <span>Subtotal</span>
-              <span>S/. {totales.subtotal.toFixed(2)}</span>
+              <span>{simbolo} {totales.subtotal.toFixed(2)}</span>
             </div>
             {totales.igv > 0 && (
               <div className="flex justify-between text-sm" style={{ color: '#93B4D4' }}>
                 <span>IGV (18%)</span>
-                <span>S/. {totales.igv.toFixed(2)}</span>
+                <span>{simbolo} {totales.igv.toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between text-lg font-bold pt-1 border-t" style={{ color: '#FFFFFF', borderColor: '#002D62' }}>
               <span>Total</span>
-              <span style={{ color: '#FFD700' }}>S/. {totales.total.toFixed(2)}</span>
+              <span style={{ color: '#FFD700' }}>{simbolo} {totales.total.toFixed(2)}</span>
             </div>
           </div>
 
@@ -134,13 +136,13 @@ export function KioskCart() {
             className="w-full py-4 rounded-xl text-base font-bold transition-opacity"
             style={{ backgroundColor: '#002D62', color: '#FFD700' }}
           >
-            COBRAR S/. {totales.total.toFixed(2)}
+            COBRAR {simbolo} {totales.total.toFixed(2)}
           </button>
         </div>
       </div>
 
       {showPayment && (
-        <PaymentSheet totales={totales} onClose={() => setShowPayment(false)} />
+        <PaymentSheet onClose={() => setShowPayment(false)} />
       )}
     </>
   )

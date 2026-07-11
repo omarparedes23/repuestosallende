@@ -6,11 +6,11 @@ type Props = {
   title: string
   onClose: () => void
   children: React.ReactNode
-  size?: 'sm' | 'md'
+  size?: 'sm' | 'md' | 'lg'
 }
 
 export function FormDialog({ title, onClose, children, size = 'sm' }: Props) {
-  const maxW = size === 'md' ? 'max-w-md' : 'max-w-sm'
+  const maxW = size === 'lg' ? 'max-w-3xl' : size === 'md' ? 'max-w-md' : 'max-w-sm'
 
   return (
     <div

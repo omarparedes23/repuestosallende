@@ -2,17 +2,15 @@
 
 import { Plus } from 'lucide-react'
 import type { ProductoBuscado } from '../actions'
-import type { RaTipoCliente } from '@/lib/types/database'
+import { simboloMoneda } from '@/lib/calc/moneda'
 
 type Props = {
   producto: ProductoBuscado
-  tipoVenta: RaTipoCliente
   onAdd: (producto: ProductoBuscado) => void
 }
 
-export function ProductCard({ producto, tipoVenta, onAdd }: Props) {
-  const precio =
-    tipoVenta === 'mayorista' ? producto.precioMayorista : producto.precioMinorista
+export function ProductCard({ producto, onAdd }: Props) {
+  const precio = producto.precioMinorista
 
   const stockBadgeColor =
     producto.stockActual <= 3 ? '#DC2626' : producto.stockActual <= 10 ? '#D97706' : '#059669'
@@ -60,7 +58,7 @@ export function ProductCard({ producto, tipoVenta, onAdd }: Props) {
 
         <div className="flex items-center justify-between gap-2 mt-1">
           <span className="text-lg font-bold" style={{ color: '#002D62' }}>
-            S/. {precio.toFixed(2)}
+            {simboloMoneda('PEN')} {precio.toFixed(2)}
           </span>
           <button
             onClick={() => onAdd(producto)}

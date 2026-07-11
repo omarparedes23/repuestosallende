@@ -1,6 +1,7 @@
 'use server'
 
 import { getSessionFast } from '@/lib/session'
+import type { RaMoneda } from '@/lib/types/database'
 
 export type VentaResumen = {
   id: string
@@ -11,6 +12,8 @@ export type VentaResumen = {
   igv: number
   total: number
   estado: string
+  moneda: RaMoneda
+  tipo_cambio: number | null
   cliente_nombre: string | null
   items_count: number
 }
@@ -24,6 +27,8 @@ export type VentaDetalle = {
   igv: number
   total: number
   estado: string
+  moneda: RaMoneda
+  tipo_cambio: number | null
   cliente_nombre: string | null
   items: {
     id: string
@@ -57,7 +62,7 @@ export async function getVentasDelDia(): Promise<{
   const { data, error } = await supabase
     .from('ra_ventas')
     .select(`
-      id, created_at, tipo_comprobante, tipo_venta, subtotal, igv, total, estado,
+      id, created_at, tipo_comprobante, tipo_venta, subtotal, igv, total, estado, moneda, tipo_cambio,
       ra_clientes ( nombre ),
       ra_venta_items ( id )
     `)
@@ -77,6 +82,8 @@ export async function getVentasDelDia(): Promise<{
     igv: v.igv,
     total: v.total,
     estado: v.estado,
+    moneda: v.moneda,
+    tipo_cambio: v.tipo_cambio,
     cliente_nombre: v.ra_clientes?.nombre ?? null,
     items_count: Array.isArray(v.ra_venta_items) ? v.ra_venta_items.length : 0,
   }))
@@ -96,7 +103,7 @@ export async function getVentaDetalle(id: string): Promise<{
   const { data, error } = await supabase
     .from('ra_ventas')
     .select(`
-      id, created_at, tipo_comprobante, tipo_venta, subtotal, igv, total, estado,
+      id, created_at, tipo_comprobante, tipo_venta, subtotal, igv, total, estado, moneda, tipo_cambio,
       ra_clientes ( nombre ),
       ra_venta_items ( id, nombre_producto, codigo_oem, cantidad, precio_unitario, descuento, subtotal ),
       ra_venta_pagos ( id, metodo_pago, monto, referencia )
@@ -117,6 +124,8 @@ export async function getVentaDetalle(id: string): Promise<{
     igv: data.igv,
     total: data.total,
     estado: data.estado,
+    moneda: data.moneda,
+    tipo_cambio: data.tipo_cambio,
     cliente_nombre: (data.ra_clientes as any)?.nombre ?? null,
     items: Array.isArray(data.ra_venta_items)
       ? data.ra_venta_items.map((i: any) => ({
