@@ -25,7 +25,14 @@ export const VentaInputSchema = z
       .min(1, { error: 'Agrega al menos un método de pago' }),
     moneda: z.enum(['PEN', 'USD']).default('PEN'),
     tipoCambio: z.number().positive().nullable(),
+    // Optional (no solo nullable): el schema test existente construye inputs
+    // sin esta clave y debe seguir pasando cuando no hay línea 'credito'.
+    fechaVencimiento: z.string().nullable().optional(),
   })
   .refine((v) => (v.moneda === 'USD' ? v.tipoCambio != null : v.tipoCambio == null), {
     error: 'USD exige tipo de cambio > 0; PEN no lleva tipo de cambio',
   })
+  .refine(
+    (v) => (v.pagos.some((p) => p.metodoPago === 'credito') ? v.fechaVencimiento != null : true),
+    { error: 'Las ventas a crédito requieren fecha de vencimiento' }
+  )

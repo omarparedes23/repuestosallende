@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   Truck,
   Calculator,
+  Landmark,
   LogOut,
   Smartphone,
   Menu,
@@ -44,7 +45,10 @@ const NAV: NavSection[] = [
   },
   {
     group: 'Caja',
-    items: [{ label: 'Liquidación', href: '/panel/liquidacion', icon: Calculator }],
+    items: [
+      { label: 'Liquidación', href: '/panel/liquidacion', icon: Calculator },
+      { label: 'Tesorería',   href: '/panel/tesoreria',   icon: Landmark },
+    ],
   },
 ]
 

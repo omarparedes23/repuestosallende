@@ -7,7 +7,16 @@ import type { RaCliente } from '@/lib/types/database'
 
 export type ClienteResumen = Pick<
   RaCliente,
-  'id' | 'nombre' | 'tipo_cliente' | 'tipo_documento' | 'nro_documento' | 'telefono' | 'activo'
+  | 'id'
+  | 'nombre'
+  | 'tipo_cliente'
+  | 'tipo_documento'
+  | 'nro_documento'
+  | 'telefono'
+  | 'activo'
+  | 'tiene_credito'
+  | 'limite_credito'
+  | 'saldo_deudor'
 >
 
 const ClienteSchema = z.object({
@@ -42,7 +51,9 @@ export async function buscarClientes(query: string): Promise<{
 
   let q = supabase
     .from('ra_clientes')
-    .select('id, nombre, tipo_cliente, tipo_documento, nro_documento, telefono, activo')
+    .select(
+      'id, nombre, tipo_cliente, tipo_documento, nro_documento, telefono, activo, tiene_credito, limite_credito, saldo_deudor'
+    )
     .eq('empresa_id', perfil.empresa_id)
     .eq('activo', true)
     .order('nombre')

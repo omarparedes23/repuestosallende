@@ -26,6 +26,9 @@ export type ClienteSnapshot = {
   tipo_documento: string | null
   nro_documento: string | null
   tipo_cliente: RaTipoCliente
+  tiene_credito: boolean
+  limite_credito: number
+  saldo_deudor: number
 }
 
 interface PosState {

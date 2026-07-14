@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useEffect, useMemo } from 'react'
-import { Plus, Trash2, CheckCircle, Search, UserCheck, UserX, X, AlertTriangle } from 'lucide-react'
+import { Plus, Minus, Trash2, CheckCircle, Search, UserCheck, UserX, X, AlertTriangle } from 'lucide-react'
 import { FormDialog } from '@/app/tablet/components/shared/FormDialog'
 import { usePosStore, type CartItem } from '@/app/tablet/stores/posStore'
 import { procesarVenta } from '../actions'
@@ -45,7 +45,9 @@ export function PaymentSheet({ onClose }: Props) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [avisoCredito, setAvisoCredito] = useState<string | null>(null)
   const [lineas, setLineas] = useState<LineaPago[]>([{ metodoPago: 'efectivo', monto: '' }])
+  const [fechaVencimiento, setFechaVencimiento] = useState('')
   const [clienteQuery, setClienteQuery] = useState('')
   const [clienteResults, setClienteResults] = useState<ClienteResumen[]>([])
   const [isSearchingCliente, setIsSearchingCliente] = useState(false)
@@ -71,6 +73,7 @@ export function PaymentSheet({ onClose }: Props) {
   const tipoComprobante = usePosStore((s) => s.tipoComprobante)
   const setTipoComprobante = usePosStore((s) => s.setTipoComprobante)
   const items = usePosStore((s) => s.items)
+  const updateCantidad = usePosStore((s) => s.updateCantidad)
   const resetPosState = usePosStore((s) => s.resetPosState)
   const cliente = usePosStore((s) => s.cliente)
   const setCliente = usePosStore((s) => s.setCliente)
@@ -133,6 +136,19 @@ export function PaymentSheet({ onClose }: Props) {
   }, new Decimal(0))
   const vuelto = totales ? totalPagado.minus(totales.total) : new Decimal(0)
 
+  const tieneLineaCredito = lineas.some((l) => l.metodoPago === 'credito')
+  const creditoInvalido = tieneLineaCredito && (!cliente || cliente.tiene_credito === false)
+  const hoy = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const montoLineaCredito = lineas
+    .filter((l) => l.metodoPago === 'credito')
+    .reduce((acc, l) => acc + (parseFloat(l.monto) || 0), 0)
+  const limiteExcedido =
+    tieneLineaCredito &&
+    !!cliente &&
+    cliente.tiene_credito &&
+    montoLineaCredito > 0 &&
+    cliente.saldo_deudor + montoLineaCredito > cliente.limite_credito
+
   const addLinea = () =>
     setLineas((prev) => [...prev, { metodoPago: 'efectivo', monto: '' }])
 
@@ -175,6 +191,7 @@ export function PaymentSheet({ onClose }: Props) {
         pagos: pagosValidos,
         moneda,
         tipoCambio: moneda === 'USD' ? tipoCambio : null,
+        fechaVencimiento: tieneLineaCredito ? fechaVencimiento || null : null,
       })
 
       if (result.error) {
@@ -183,11 +200,22 @@ export function PaymentSheet({ onClose }: Props) {
       }
 
       setSuccess(true)
-      setTimeout(() => {
-        resetPosState()
-        onClose()
-      }, 2000)
+      const aviso = result.data?.avisoCredito ?? null
+      setAvisoCredito(aviso)
+      // Si hubo un aviso (ej. fallo registrando el crédito), no cerramos solo —
+      // el cajero tiene que leerlo y cerrar a mano.
+      if (!aviso) {
+        setTimeout(() => {
+          resetPosState()
+          onClose()
+        }, 2000)
+      }
     })
+  }
+
+  const handleCerrarConAviso = () => {
+    resetPosState()
+    onClose()
   }
 
   if (success && totales) {
@@ -207,13 +235,32 @@ export function PaymentSheet({ onClose }: Props) {
           <p className="text-lg font-semibold" style={{ color: '#002D62' }}>
             Total: {simbolo} {totales.total.toFixed(2)}
           </p>
+          {avisoCredito && (
+            <>
+              <div
+                className="flex items-start gap-2 rounded-xl px-4 py-3 text-sm font-medium"
+                style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}
+                role="alert"
+              >
+                <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                <span>{avisoCredito}</span>
+              </div>
+              <button
+                onClick={handleCerrarConAviso}
+                className="px-6 py-3 rounded-xl text-sm font-bold"
+                style={{ backgroundColor: '#002D62', color: '#FFD700' }}
+              >
+                Entendido, cerrar
+              </button>
+            </>
+          )}
         </div>
       </div>
     )
   }
 
   return (
-    <FormDialog title="Procesar cobro" onClose={onClose} size="lg">
+    <FormDialog title="Procesar cobro" onClose={onClose} size="xl">
       <div className="flex flex-col md:flex-row">
         {/* Columna izquierda: cliente, comprobante, pago */}
         <div className="flex-1 p-5 space-y-5 md:border-r" style={{ borderColor: '#E5E7EB' }}>
@@ -322,6 +369,9 @@ export function PaymentSheet({ onClose }: Props) {
                                 tipo_documento: c.tipo_documento ?? null,
                                 nro_documento: c.nro_documento ?? null,
                                 tipo_cliente: c.tipo_cliente,
+                                tiene_credito: c.tiene_credito,
+                                limite_credito: c.limite_credito,
+                                saldo_deudor: c.saldo_deudor,
                               })
                               setShowClienteSearch(false)
                               setClienteQuery('')
@@ -446,6 +496,43 @@ export function PaymentSheet({ onClose }: Props) {
             </button>
           </div>
 
+          {/* Vencimiento (solo ventas a crédito) */}
+          {tieneLineaCredito && (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold" style={{ color: '#374151' }}>
+                Fecha de vencimiento
+              </p>
+              <input
+                type="date"
+                min={hoy}
+                value={fechaVencimiento}
+                onChange={(e) => setFechaVencimiento(e.target.value)}
+                className="w-full rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
+                style={{ borderColor: '#D1D5DB' }}
+              />
+              {creditoInvalido && (
+                <div
+                  className="flex items-start gap-2 rounded-xl px-4 py-3 text-sm font-medium"
+                  style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}
+                  role="alert"
+                >
+                  <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                  <span>Selecciona un cliente con crédito habilitado para vender a crédito.</span>
+                </div>
+              )}
+              {limiteExcedido && (
+                <div
+                  className="flex items-start gap-2 rounded-xl px-4 py-3 text-sm font-medium"
+                  style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}
+                  role="alert"
+                >
+                  <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                  <span>Esta venta hará que el saldo del cliente supere su límite de crédito.</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Vuelto */}
           {totales && vuelto.gt(0) && (
             <div className="rounded-2xl p-4" style={{ backgroundColor: '#F0FDF4' }}>
@@ -484,6 +571,8 @@ export function PaymentSheet({ onClose }: Props) {
               isPending ||
               !totales ||
               tipoCambioInvalido ||
+              creditoInvalido ||
+              (tieneLineaCredito && !fechaVencimiento) ||
               totalPagado.lt((totales?.total ?? 0) - 0.01)
             }
             className="w-full py-5 rounded-xl text-lg font-bold transition-opacity disabled:opacity-50"
@@ -493,8 +582,8 @@ export function PaymentSheet({ onClose }: Props) {
           </button>
         </div>
 
-        {/* Columna derecha: productos, precio editable */}
-        <div className="w-full md:w-80 shrink-0 p-5 space-y-3" style={{ backgroundColor: '#F9FAFB' }}>
+        {/* Columna derecha: productos, cantidad y precio editables */}
+        <div className="w-full md:w-[26rem] shrink-0 p-5 space-y-3" style={{ backgroundColor: '#F9FAFB' }}>
           <p className="text-sm font-semibold" style={{ color: '#374151' }}>
             Productos
           </p>
@@ -505,24 +594,44 @@ export function PaymentSheet({ onClose }: Props) {
             return (
               <div
                 key={item.productoId}
-                className="rounded-xl border p-3 space-y-1.5"
+                className="rounded-xl border p-3 space-y-2"
                 style={{ borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' }}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-semibold leading-tight" style={{ color: '#111827' }}>
-                    {item.nombre}
-                  </p>
-                  <span className="text-xs shrink-0" style={{ color: '#9CA3AF' }}>
-                    x{item.cantidad}
-                  </span>
-                </div>
+                <p className="text-sm font-semibold leading-tight" style={{ color: '#111827' }}>
+                  {item.nombre}
+                </p>
 
-                {lista == null ? (
-                  <p className="text-xs font-medium" style={{ color: '#DC2626' }}>
-                    Sin precio en {simbolo}
-                  </p>
-                ) : (
-                  <>
+                <div className="flex items-center justify-between gap-2">
+                  {/* Cantidad: mismo stepper que el carrito, clamp a stockActual */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => updateCantidad(item.productoId, item.cantidad - 1)}
+                      disabled={item.cantidad <= 1}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg border disabled:opacity-40"
+                      style={{ borderColor: '#D1D5DB', color: '#374151' }}
+                      aria-label={`Reducir cantidad de ${item.nombre}`}
+                    >
+                      <Minus size={12} />
+                    </button>
+                    <span className="w-6 text-center text-sm font-bold" style={{ color: '#111827' }}>
+                      {item.cantidad}
+                    </span>
+                    <button
+                      onClick={() => updateCantidad(item.productoId, item.cantidad + 1)}
+                      disabled={item.cantidad >= item.stockActual}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg border disabled:opacity-40"
+                      style={{ borderColor: '#D1D5DB', color: '#374151' }}
+                      aria-label={`Aumentar cantidad de ${item.nombre}`}
+                    >
+                      <Plus size={12} />
+                    </button>
+                  </div>
+
+                  {lista == null ? (
+                    <p className="text-xs font-medium" style={{ color: '#DC2626' }}>
+                      Sin precio en {simbolo}
+                    </p>
+                  ) : (
                     <div className="flex items-center gap-2">
                       {editado != null && editado < lista && (
                         <span
@@ -550,10 +659,13 @@ export function PaymentSheet({ onClose }: Props) {
                         />
                       </div>
                     </div>
-                    <p className="text-xs font-semibold" style={{ color: '#6B7280' }}>
-                      Subtotal: {simbolo} {((editado ?? lista) * item.cantidad).toFixed(2)}
-                    </p>
-                  </>
+                  )}
+                </div>
+
+                {lista != null && (
+                  <p className="text-xs font-semibold" style={{ color: '#6B7280' }}>
+                    Subtotal: {simbolo} {((editado ?? lista) * item.cantidad).toFixed(2)}
+                  </p>
                 )}
               </div>
             )

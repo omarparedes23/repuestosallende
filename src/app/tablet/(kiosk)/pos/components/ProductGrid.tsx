@@ -5,29 +5,49 @@ import { Search, Loader2 } from 'lucide-react'
 import { buscarProductos, type ProductoBuscado } from '../actions'
 import { usePosStore } from '@/app/tablet/stores/posStore'
 import { ProductCard } from './ProductCard'
-import type { Categoria } from '@/lib/types/database'
+
+export type MarcaOption = { id: string; nombre: string }
 
 type Props = {
-  categorias: Categoria[]
+  marcas: MarcaOption[]
 }
 
-export function ProductGrid({ categorias }: Props) {
+export function ProductGrid({ marcas }: Props) {
   const [query, setQuery] = useState('')
-  const [selectedCat, setSelectedCat] = useState<string | undefined>()
+  const [selectedMarca, setSelectedMarca] = useState<string | undefined>()
   const [productos, setProductos] = useState<ProductoBuscado[]>([])
+  const [hasMore, setHasMore] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
 
   const addItem = usePosStore((s) => s.addItem)
 
+  // Reemplaza la lista (nueva busqueda/filtro): siempre arranca desde offset 0.
   const fetchProductos = useCallback(
-    (q: string, catId?: string) => {
+    (q: string, marcaId?: string) => {
       startTransition(async () => {
-        const result = await buscarProductos(q, catId)
-        if (result.data) setProductos(result.data)
+        const result = await buscarProductos(q, marcaId, 0)
+        if (result.data) {
+          setProductos(result.data.productos)
+          setHasMore(result.data.hasMore)
+        }
       })
     },
     []
   )
+
+  // Cargar mas: pide la siguiente pagina y la agrega al final, no reemplaza.
+  const handleCargarMas = useCallback(() => {
+    setIsLoadingMore(true)
+    buscarProductos(query, selectedMarca, productos.length)
+      .then((result) => {
+        if (result.data) {
+          setProductos((prev) => [...prev, ...result.data!.productos])
+          setHasMore(result.data.hasMore)
+        }
+      })
+      .finally(() => setIsLoadingMore(false))
+  }, [query, selectedMarca, productos.length])
 
   // Initial load
   useEffect(() => {
@@ -37,10 +57,10 @@ export function ProductGrid({ categorias }: Props) {
   // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchProductos(query, selectedCat)
+      fetchProductos(query, selectedMarca)
     }, 300)
     return () => clearTimeout(timer)
-  }, [query, selectedCat, fetchProductos])
+  }, [query, selectedMarca, fetchProductos])
 
   const handleAddItem = useCallback(
     (producto: ProductoBuscado) => {
@@ -86,32 +106,32 @@ export function ProductGrid({ categorias }: Props) {
         </div>
       </div>
 
-      {/* Category bar */}
+      {/* Marca bar */}
       <div
         className="flex gap-2 px-3 py-2 overflow-x-auto border-b"
         style={{ borderColor: '#002D62', backgroundColor: '#001A3D' }}
       >
         <button
-          onClick={() => setSelectedCat(undefined)}
+          onClick={() => setSelectedMarca(undefined)}
           className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
           style={{
-            backgroundColor: !selectedCat ? '#FFD700' : '#002D62',
-            color: !selectedCat ? '#002D62' : '#93B4D4',
+            backgroundColor: !selectedMarca ? '#FFD700' : '#002D62',
+            color: !selectedMarca ? '#002D62' : '#93B4D4',
           }}
         >
           Todos
         </button>
-        {categorias.map((cat) => (
+        {marcas.map((marca) => (
           <button
-            key={cat.id}
-            onClick={() => setSelectedCat(cat.id === selectedCat ? undefined : cat.id)}
+            key={marca.id}
+            onClick={() => setSelectedMarca(marca.id === selectedMarca ? undefined : marca.id)}
             className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
             style={{
-              backgroundColor: selectedCat === cat.id ? '#FFD700' : '#002D62',
-              color: selectedCat === cat.id ? '#002D62' : '#93B4D4',
+              backgroundColor: selectedMarca === marca.id ? '#FFD700' : '#002D62',
+              color: selectedMarca === marca.id ? '#002D62' : '#93B4D4',
             }}
           >
-            {cat.nombre}
+            {marca.nombre}
           </button>
         ))}
       </div>
@@ -125,15 +145,36 @@ export function ProductGrid({ categorias }: Props) {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
-            {productos.map((prod) => (
-              <ProductCard
-                key={prod.productoId}
-                producto={prod}
-                onAdd={handleAddItem}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+              {productos.map((prod) => (
+                <ProductCard
+                  key={prod.productoId}
+                  producto={prod}
+                  onAdd={handleAddItem}
+                />
+              ))}
+            </div>
+            {hasMore && (
+              <div className="flex justify-center py-4">
+                <button
+                  onClick={handleCargarMas}
+                  disabled={isLoadingMore}
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
+                  style={{ backgroundColor: '#002D62', color: '#FFFFFF' }}
+                >
+                  {isLoadingMore ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 size={16} className="animate-spin" />
+                      Cargando...
+                    </span>
+                  ) : (
+                    'Cargar más'
+                  )}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

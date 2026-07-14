@@ -20,7 +20,6 @@ export type ProductoBuscado = {
   precioMinorista: number
   precioDolar: number | null
   stockActual: number
-  categoriaId: string
 }
 
 export type ActionResponse<T> = {
@@ -32,12 +31,21 @@ export type VentaResult = {
   id: string
   total: number
   tipoComprobante: RaTipoComprobante
+  avisoCredito: string | null
+}
+
+const PAGE_SIZE = 40
+
+export type BuscarProductosResult = {
+  productos: ProductoBuscado[]
+  hasMore: boolean
 }
 
 export async function buscarProductos(
   query: string,
-  categoriaId?: string
-): Promise<ActionResponse<ProductoBuscado[]>> {
+  marcaRepuestoId?: string,
+  offset = 0
+): Promise<ActionResponse<BuscarProductosResult>> {
   const { supabase: rawSupabase, user, perfil, sucursalId } = await getSessionFast()
   const supabase = rawSupabase as any
   if (!user || !perfil?.empresa_id) return { data: null, error: 'No autenticado' }
@@ -47,7 +55,7 @@ export async function buscarProductos(
   let q = supabase
     .from('ra_catalogo_repuestos')
     .select(
-      `id, nombre, codigo_oem, imagen_url, categoria_id,
+      `id, nombre, codigo_oem, imagen_url,
        ra_productos!inner ( id, precio_venta, precio_venta_dolar, stock_actual, empresa_id, sucursal_id, activo )`
     )
     .eq('activo', true)
@@ -55,22 +63,23 @@ export async function buscarProductos(
     .eq('ra_productos.sucursal_id', sucursalId)
     .eq('ra_productos.activo', true)
     .gt('ra_productos.stock_actual', 0)
-    .order('nombre')
-    .limit(40)
+    .order('stock_actual', { referencedTable: 'ra_productos', ascending: false })
+    .range(offset, offset + PAGE_SIZE - 1)
 
   if (query.trim()) {
     q = q.or(`nombre.ilike.%${query.trim()}%,codigo_oem.ilike.%${query.trim()}%`)
   }
 
-  if (categoriaId) {
-    q = q.eq('categoria_id', categoriaId)
+  if (marcaRepuestoId) {
+    q = q.eq('marca_repuesto_id', marcaRepuestoId)
   }
 
   const { data, error } = await q
 
   if (error) return { data: null, error: 'Error buscando productos' }
 
-  const productos: ProductoBuscado[] = (data ?? []).flatMap((row: any) => {
+  const filas = data ?? []
+  const productos: ProductoBuscado[] = filas.flatMap((row: any) => {
     const prods: any[] = Array.isArray(row.ra_productos) ? row.ra_productos : [row.ra_productos]
     return prods.map((p) => ({
       productoId: p.id,
@@ -81,11 +90,10 @@ export async function buscarProductos(
       precioMinorista: p.precio_venta ?? 0,
       precioDolar: p.precio_venta_dolar ?? null,
       stockActual: p.stock_actual,
-      categoriaId: row.categoria_id,
     }))
   })
 
-  return { data: productos, error: null }
+  return { data: { productos, hasMore: filas.length === PAGE_SIZE }, error: null }
 }
 
 export async function procesarVenta(
@@ -102,11 +110,12 @@ export async function procesarVenta(
     return { data: null, error: parsed.error.issues[0]?.message ?? 'Datos inválidos' }
   }
 
-  const { tipoComprobante, clienteId, items, pagos, moneda, tipoCambio } = parsed.data
+  const { tipoComprobante, clienteId, items, pagos, moneda, tipoCambio, fechaVencimiento } = parsed.data
   const productoIds = items.map((i) => i.productoId)
   const necesitaSunat = tipoComprobante === 'boleta' || tipoComprobante === 'factura'
+  const tieneLineaCredito = pagos.some((p) => p.metodoPago === 'credito')
 
-  const [cajaRes, prodRes, empresaRes] = await Promise.all([
+  const [cajaRes, prodRes, empresaRes, clienteCreditoRes] = await Promise.all([
     supabase
       .from('ra_cajas')
       .select('id')
@@ -128,10 +137,26 @@ export async function procesarVenta(
       .select('ruc, razon_social, serie_boleta, serie_factura')
       .eq('id', perfil.empresa_id)
       .single(),
+    tieneLineaCredito && clienteId
+      ? supabase.from('ra_clientes').select('tiene_credito').eq('id', clienteId).single()
+      : Promise.resolve({ data: null, error: null }),
   ])
 
   const caja = cajaRes.data
   if (!caja) return { data: null, error: 'No tienes una caja abierta' }
+
+  if (tieneLineaCredito) {
+    if (!clienteId) {
+      return { data: null, error: 'Selecciona un cliente con crédito habilitado para vender a crédito' }
+    }
+    if (!fechaVencimiento) {
+      return { data: null, error: 'La venta a crédito requiere fecha de vencimiento' }
+    }
+    const clienteCredito: any = clienteCreditoRes.data
+    if (!clienteCredito || !clienteCredito.tiene_credito) {
+      return { data: null, error: 'El cliente seleccionado no tiene crédito habilitado' }
+    }
+  }
 
   const productos: any[] = prodRes.data ?? []
   if (productos.length !== productoIds.length) {
@@ -225,6 +250,9 @@ export async function procesarVenta(
   if (ventaError || !venta) return { data: null, error: 'Error al registrar la venta' }
 
   const concepto = `Venta ${venta.id.slice(0, 8).toUpperCase()}`
+  // El pago 'credito' no entra a caja como ingreso — se contabiliza aparte
+  // en el ledger de cuenta corriente (ver rpc ra_registrar_cargo_credito).
+  const pagosCaja = pagos.filter((p) => p.metodoPago !== 'credito')
 
   await Promise.all([
     supabase.from('ra_venta_items').insert(
@@ -247,17 +275,38 @@ export async function procesarVenta(
         referencia: p.referencia ?? null,
       }))
     ),
-    supabase.from('ra_movimientos_caja').insert(
-      pagos.map((p) => ({
-        caja_id: caja.id,
-        tipo: 'ingreso' as const,
-        concepto,
-        monto: new Decimal(p.monto).toDecimalPlaces(2).toNumber(),
-        metodo_pago: p.metodoPago,
-        referencia_id: venta.id,
-      }))
-    ),
+    ...(pagosCaja.length > 0
+      ? [
+          supabase.from('ra_movimientos_caja').insert(
+            pagosCaja.map((p) => ({
+              caja_id: caja.id,
+              tipo: 'ingreso' as const,
+              concepto,
+              monto: new Decimal(p.monto).toDecimalPlaces(2).toNumber(),
+              metodo_pago: p.metodoPago,
+              referencia_id: venta.id,
+            }))
+          ),
+        ]
+      : []),
   ])
+
+  // procesarVenta no es transaccional (los inserts de arriba y este RPC son
+  // llamadas sueltas, sin BEGIN/COMMIT único) — si el RPC falla acá, la venta
+  // ya quedó creada. Deuda técnica conocida, diferida fuera de esta v1.
+  // El aviso al cajero (avisoCredito) es la mitigación mínima: no resuelve la
+  // atomicidad, pero evita que el fallo pase 100% desapercibido.
+  let avisoCredito: string | null = null
+  if (tieneLineaCredito) {
+    const { error: cargoError } = await supabase.rpc('ra_registrar_cargo_credito', {
+      p_venta_id: venta.id,
+      p_fecha_vencimiento: fechaVencimiento,
+    })
+    if (cargoError) {
+      console.error(`[cuentas-corrientes] Error registrando cargo para venta ${venta.id}:`, cargoError)
+      avisoCredito = 'La venta se registró, pero hubo un error guardando el crédito en cuenta corriente. Avisá al administrador con el número de venta.'
+    }
+  }
 
   // Stock y kardex vía service role
   const admin = createAdminClient(
@@ -377,6 +426,7 @@ export async function procesarVenta(
       id: venta.id,
       total: venta.total,
       tipoComprobante: venta.tipo_comprobante as RaTipoComprobante,
+      avisoCredito,
     },
     error: null,
   }

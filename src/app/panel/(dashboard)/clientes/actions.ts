@@ -2,7 +2,19 @@
 
 import { revalidatePath } from 'next/cache'
 import { getSession, getSessionFast } from '@/lib/session'
-import type { RaClienteInsert, RaClienteUpdate } from '@/lib/types/database'
+import type {
+  RaClienteInsert,
+  RaClienteUpdate,
+  RaCuentaCorrienteMovimiento,
+  RaMetodoPago,
+  RaMoneda,
+  RaVenta,
+} from '@/lib/types/database'
+
+export type MovimientoConVenta = RaCuentaCorrienteMovimiento & {
+  ra_ventas: Pick<RaVenta, 'id' | 'numero_completo' | 'moneda' | 'total' | 'created_at'> | null
+  usuario_nombre: string | null
+}
 
 export async function getClientes() {
   const { supabase: raw, perfil } = await getSessionFast()
@@ -74,6 +86,73 @@ export async function upsertCliente(
 
   revalidatePath('/panel/clientes')
   return null
+}
+
+export async function getEstadoCuenta(clienteId: string): Promise<{
+  data: MovimientoConVenta[] | null
+  error: string | null
+}> {
+  const { supabase: raw, perfil } = await getSessionFast()
+  const supabase = raw as any
+  if (!perfil?.empresa_id) return { data: null, error: 'No autenticado' }
+
+  const { data: movimientos, error } = await supabase
+    .from('ra_cuenta_corriente_movimientos')
+    .select(
+      `id, empresa_id, cliente_id, venta_id, tipo, monto, fecha, fecha_vencimiento,
+       moneda_cobro, tipo_cambio_cobro, metodo_pago, referencia, usuario_id, created_at,
+       ra_ventas ( id, numero_completo, moneda, total, created_at )`
+    )
+    .eq('cliente_id', clienteId)
+    .eq('empresa_id', perfil.empresa_id)
+    .order('fecha', { ascending: false })
+
+  if (error) return { data: null, error: 'Error al obtener el estado de cuenta' }
+
+  const filas = movimientos ?? []
+  const usuarioIds = [...new Set(filas.map((m: any) => m.usuario_id))]
+  const { data: perfiles } = usuarioIds.length
+    ? await supabase.from('ra_perfiles').select('id, nombre').in('id', usuarioIds)
+    : { data: [] }
+  const nombrePorUsuario: Record<string, string> = Object.fromEntries(
+    (perfiles ?? []).map((p: any) => [p.id, p.nombre])
+  )
+
+  const data: MovimientoConVenta[] = filas.map((m: any) => ({
+    ...m,
+    usuario_nombre: nombrePorUsuario[m.usuario_id] ?? null,
+  }))
+
+  return { data, error: null }
+}
+
+export async function registrarCobro(
+  ventaId: string,
+  monto: number,
+  fecha: string,
+  metodoPago: RaMetodoPago,
+  moneda: RaMoneda,
+  referencia: string | null
+): Promise<{ error: string | null }> {
+  const { supabase: raw, perfil } = await getSession()
+  const supabase = raw as any
+  if (!perfil?.empresa_id) return { error: 'No autenticado' }
+  if (!['administrador', 'superadmin'].includes(perfil.rol)) return { error: 'Sin permisos.' }
+
+  const { error } = await supabase.rpc('ra_registrar_cobro', {
+    p_venta_id: ventaId,
+    p_monto: monto,
+    p_fecha: fecha,
+    p_metodo_pago: metodoPago,
+    p_moneda_cobro: moneda,
+    p_tipo_cambio_cobro: null,
+    p_referencia: referencia,
+  })
+
+  if (error) return { error: error.message ?? 'Error al registrar el cobro' }
+
+  revalidatePath('/panel/clientes')
+  return { error: null }
 }
 
 export async function toggleActivoCliente(id: string, activo: boolean): Promise<string | null> {

@@ -26,6 +26,9 @@ export type RaMotivoKardex   = 'venta' | 'compra' | 'ajuste_manual' | 'devolucio
 // ── Enums: migration 030 (Facturación multimoneda) ─────────
 export type RaMoneda = 'PEN' | 'USD'
 
+// ── Enums: migration 032 (Cuentas corrientes / cobranzas) ──
+export type RaCcTipoMovimiento = 'cargo' | 'abono'
+
 export interface Database {
   public: {
     Tables: {
@@ -861,6 +864,57 @@ export interface Database {
           created_at?: string
         }
       }
+      // ── Cuentas corrientes / cobranzas (migration 032) ─────
+      ra_cuenta_corriente_movimientos: {
+        Row: {
+          id: string
+          empresa_id: string
+          cliente_id: string
+          venta_id: string
+          tipo: RaCcTipoMovimiento
+          monto: number
+          fecha: string
+          fecha_vencimiento: string | null
+          moneda_cobro: RaMoneda | null
+          tipo_cambio_cobro: number | null
+          metodo_pago: RaMetodoPago | null
+          referencia: string | null
+          usuario_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          empresa_id: string
+          cliente_id: string
+          venta_id: string
+          tipo: RaCcTipoMovimiento
+          monto: number
+          fecha?: string
+          fecha_vencimiento?: string | null
+          moneda_cobro?: RaMoneda | null
+          tipo_cambio_cobro?: number | null
+          metodo_pago?: RaMetodoPago | null
+          referencia?: string | null
+          usuario_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          empresa_id?: string
+          cliente_id?: string
+          venta_id?: string
+          tipo?: RaCcTipoMovimiento
+          monto?: number
+          fecha?: string
+          fecha_vencimiento?: string | null
+          moneda_cobro?: RaMoneda | null
+          tipo_cambio_cobro?: number | null
+          metodo_pago?: RaMetodoPago | null
+          referencia?: string | null
+          usuario_id?: string
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -897,6 +951,7 @@ export interface Database {
       ra_estado_pago_compra: RaEstadoPagoCompra
       ra_estado_guia: RaEstadoGuia
       ra_moneda: RaMoneda
+      ra_cc_tipo_movimiento: RaCcTipoMovimiento
     }
     CompositeTypes: {
       [_ in never]: never
@@ -936,6 +991,10 @@ export type RaVenta           = Tables<'ra_ventas'>
 export type RaVentaItem       = Tables<'ra_venta_items'>
 export type RaVentaPago       = Tables<'ra_venta_pagos'>
 export type RaKardex          = Tables<'ra_kardex'>
+
+// ── Tipos derivados: migration 032 (Cuentas corrientes) ─────
+export type RaCuentaCorrienteMovimiento = Tables<'ra_cuenta_corriente_movimientos'>
+export type RaCuentaCorrienteMovimientoInsert = TablesInsert<'ra_cuenta_corriente_movimientos'>
 
 // Insert helpers para las tablas POS
 export type RaClienteInsert        = TablesInsert<'ra_clientes'>

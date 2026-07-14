@@ -7,13 +7,13 @@ import { calcularTotalesVenta } from '@/lib/calc/totales'
 import { simboloMoneda } from '@/lib/calc/moneda'
 import { ProductGrid } from './ProductGrid'
 import { KioskCart } from './KioskCart'
-import type { Categoria } from '@/lib/types/database'
+import type { MarcaOption } from './ProductGrid'
 
 type Props = {
-  categorias: Categoria[]
+  marcas: MarcaOption[]
 }
 
-export function KioskPosClient({ categorias }: Props) {
+export function KioskPosClient({ marcas }: Props) {
   const tipoComprobante = usePosStore((s) => s.tipoComprobante)
   const items = usePosStore((s) => s.items)
   const [showCartMobile, setShowCartMobile] = useState(false)
@@ -29,7 +29,7 @@ export function KioskPosClient({ categorias }: Props) {
       <div className="flex flex-1 overflow-hidden">
         {/* Product grid */}
         <div className="flex flex-col w-full md:w-[62%] md:border-r" style={{ borderColor: '#002D62' }}>
-          <ProductGrid categorias={categorias} />
+          <ProductGrid marcas={marcas} />
         </div>
 
         {/* Cart — hidden on mobile, 38% on tablet/desktop */}

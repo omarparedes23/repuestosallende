@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { Plus, Search, Pencil, ToggleLeft, ToggleRight, Users } from 'lucide-react'
 import { ClienteForm } from './ClienteForm'
 import { toggleActivoCliente } from '../actions'
@@ -134,13 +135,18 @@ export function ClientesView({ initialClientes }: Props) {
                       {c.tiene_credito ? `S/ ${c.limite_credito.toFixed(2)}` : '—'}
                     </td>
                     <td className="px-5 py-4">
-                      {c.saldo_deudor > 0 ? (
-                        <span
-                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold"
-                          style={{ backgroundColor: '#FEF2F2', color: '#DC2626' }}
+                      {c.saldo_deudor > 0 || c.tiene_credito ? (
+                        <Link
+                          href={`/panel/clientes/${c.id}`}
+                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold hover:opacity-80"
+                          style={
+                            c.saldo_deudor > 0
+                              ? { backgroundColor: '#FEF2F2', color: '#DC2626' }
+                              : { backgroundColor: '#F3F4F6', color: '#374151' }
+                          }
                         >
                           S/ {c.saldo_deudor.toFixed(2)}
-                        </span>
+                        </Link>
                       ) : (
                         <span style={{ color: '#9CA3AF' }}>—</span>
                       )}
