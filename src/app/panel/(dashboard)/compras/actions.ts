@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { getSession, getSessionFast } from '@/lib/session'
-import type { RaCompraUpdate } from '@/lib/types/database'
+import type { RaCompraUpdate, RaMoneda } from '@/lib/types/database'
 
 export type CompraRow = {
   id: string
@@ -20,6 +20,21 @@ export type ItemCompra = {
   nombre_producto: string
   cantidad: number
   precio_unitario: number
+}
+
+export type ItemOrdenCompraPendiente = {
+  catalogo_id: string
+  nombre_producto: string
+  cantidad_pendiente: number
+  precio_unitario: number
+}
+
+export type OrdenCompraParaRecepcion = {
+  id: string
+  proveedorId: string
+  proveedorNombre: string
+  referencia: string | null
+  items: ItemOrdenCompraPendiente[]
 }
 
 export async function getCompras() {
@@ -77,26 +92,27 @@ export async function buscarProductosParaCompra(q: string) {
   const supabase = raw as any
   if (!perfil?.empresa_id) return []
 
+  // El filtro de texto va en la consulta SQL (contra la tabla embebida
+  // ra_catalogo_repuestos, vía `!inner` para forzar el join y poder
+  // filtrar por sus columnas) — NO se puede traer un `.limit(20)` de
+  // ra_productos sin filtrar primero y recién ahí buscar el texto: con
+  // decenas de miles de productos, esos 20 arbitrarios casi nunca
+  // contienen el término buscado (bug real detectado en QA manual,
+  // mismo fix aplicado en ordenes-compra/actions.ts).
   const { data } = await supabase
     .from('ra_productos')
     .select(`
       id,
       catalogo_id,
       precio_compra,
-      ra_catalogo_repuestos ( nombre, codigo_oem )
+      ra_catalogo_repuestos!inner ( nombre, codigo_oem )
     `)
     .eq('empresa_id', perfil.empresa_id)
     .eq('activo', true)
+    .or(`nombre.ilike.%${q}%,codigo_oem.ilike.%${q}%`, { foreignTable: 'ra_catalogo_repuestos' })
     .limit(20)
 
-  const filtered = (data ?? []).filter((row: any) => {
-    const nombre = row.ra_catalogo_repuestos?.nombre ?? ''
-    const codigo = row.ra_catalogo_repuestos?.codigo_oem ?? ''
-    const term = q.toLowerCase()
-    return nombre.toLowerCase().includes(term) || codigo.toLowerCase().includes(term)
-  })
-
-  return filtered.map((row: any) => ({
+  return (data ?? []).map((row: any) => ({
     catalogo_id: row.catalogo_id,
     nombre: row.ra_catalogo_repuestos?.nombre ?? '',
     codigo_oem: row.ra_catalogo_repuestos?.codigo_oem ?? null,
@@ -104,13 +120,73 @@ export async function buscarProductosParaCompra(q: string) {
   }))
 }
 
+// NOTA: se consulta ra_ordenes_compra/ra_orden_compra_items directamente acá
+// (en vez de reexportar una función de `ordenes-compra/actions.ts`) porque ese
+// módulo lo está construyendo otro agente en paralelo (Phase 4) — no debe haber
+// dependencia cruzada entre ambos mientras los dos están en construcción. Mismo
+// criterio que la nota espejo que dejó ese módulo sobre buscarProveedores/
+// buscarProductosParaCompra.
+export async function getOrdenCompra(
+  id: string
+): Promise<{ data: OrdenCompraParaRecepcion | null; error: string | null }> {
+  const { supabase: raw, perfil } = await getSessionFast()
+  const supabase = raw as any
+  if (!perfil?.empresa_id) return { data: null, error: 'No autenticado' }
+
+  const { data, error } = await supabase
+    .from('ra_ordenes_compra')
+    .select(`
+      id,
+      proveedor_id,
+      referencia,
+      estado,
+      ra_proveedores ( nombre ),
+      ra_orden_compra_items ( catalogo_id, nombre_producto, cantidad, precio_unitario, cantidad_recibida )
+    `)
+    .eq('id', id)
+    .eq('empresa_id', perfil.empresa_id)
+    .single()
+
+  if (error || !data) return { data: null, error: 'Orden de compra no encontrada.' }
+  if (!data.proveedor_id) return { data: null, error: 'La orden de compra no tiene proveedor asociado.' }
+  if (data.estado !== 'confirmada') {
+    return { data: null, error: 'Solo se pueden recibir órdenes de compra confirmadas.' }
+  }
+
+  const items: ItemOrdenCompraPendiente[] = (data.ra_orden_compra_items ?? [])
+    .map((i: any) => ({
+      catalogo_id: i.catalogo_id,
+      nombre_producto: i.nombre_producto,
+      cantidad_pendiente: i.cantidad - i.cantidad_recibida,
+      precio_unitario: i.precio_unitario,
+    }))
+    .filter((i: ItemOrdenCompraPendiente) => i.cantidad_pendiente > 0)
+
+  return {
+    data: {
+      id: data.id,
+      proveedorId: data.proveedor_id,
+      proveedorNombre: data.ra_proveedores?.nombre ?? '—',
+      referencia: data.referencia,
+      items,
+    },
+    error: null,
+  }
+}
+
 export async function registrarCompra(
   proveedorId: string,
   nroDocumento: string | null,
   notas: string | null,
-  items: ItemCompra[]
+  items: ItemCompra[],
+  ordenCompraId?: string | null,
+  moneda: RaMoneda = 'PEN',
+  tipoCambio?: number | null
 ): Promise<{ id: string | null; error: string | null }> {
   if (items.length === 0) return { id: null, error: 'Debes agregar al menos un artículo.' }
+  if (moneda === 'USD' && (!tipoCambio || tipoCambio <= 0)) {
+    return { id: null, error: 'Ingresa un tipo de cambio válido para una compra en dólares.' }
+  }
 
   const { supabase: raw, perfil, sucursalId: resolvedSucursalId } = await getSession()
   const supabase = raw as any
@@ -137,6 +213,9 @@ export async function registrarCompra(
     p_nro_documento: nroDocumento || null,
     p_notas: notas || null,
     p_items: items,
+    p_orden_compra_id: ordenCompraId || null,
+    p_moneda: moneda,
+    p_tipo_cambio: moneda === 'USD' ? tipoCambio : null,
   })
 
   if (error) {
@@ -144,8 +223,44 @@ export async function registrarCompra(
     return { id: null, error: 'Error al registrar la compra.' }
   }
 
+  const compraId = data as string
+
+  // Wiring del cargo a cuentas por pagar: RPC aparte a propósito — mismo
+  // patrón que procesarVenta -> ra_registrar_cargo_credito (ver
+  // src/app/tablet/(kiosk)/pos/actions.ts). ra_registrar_compra NO genera el
+  // cargo automáticamente. Si esta segunda llamada falla, la compra ya quedó
+  // registrada (stock/kardex/costeo ya aplicados) y NO se revierte — mismo
+  // gap de atomicidad ya aceptado en sdd/cuentas-corrientes/design (Open
+  // Questions): se loguea para diagnóstico, no se bloquea al usuario.
+  if (proveedorId) {
+    const { error: cargoError } = await supabase.rpc('ra_registrar_cargo_compra', {
+      p_compra_id: compraId,
+    })
+    if (cargoError) {
+      console.error(`[cuentas-por-pagar] Error registrando cargo para compra ${compraId}:`, cargoError)
+    }
+  }
+
   revalidatePath('/panel/compras')
-  return { id: data as string, error: null }
+  if (ordenCompraId) revalidatePath('/panel/ordenes-compra')
+  return { id: compraId, error: null }
+}
+
+export async function anularCompra(id: string): Promise<string | null> {
+  const { supabase: raw, perfil } = await getSession()
+  const supabase = raw as any
+  if (!perfil?.empresa_id) return 'No autenticado.'
+
+  const { error } = await supabase.rpc('ra_anular_compra', { p_compra_id: id })
+  if (error) {
+    console.error('[anularCompra] RPC error:', error)
+    // El mensaje de la excepción de Postgres es el motivo real (sin cargo vs.
+    // stock negativo) — se devuelve tal cual en vez de un genérico.
+    return error.message ?? 'Error al anular la compra.'
+  }
+
+  revalidatePath('/panel/compras')
+  return null
 }
 
 export async function actualizarEstadoPago(

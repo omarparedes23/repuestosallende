@@ -9,6 +9,7 @@ import {
   Users,
   Building2,
   ShoppingBag,
+  ClipboardList,
   Truck,
   Calculator,
   Landmark,
@@ -39,8 +40,9 @@ const NAV: NavSection[] = [
   {
     group: 'Operaciones',
     items: [
-      { label: 'Compras',           href: '/panel/compras', icon: ShoppingBag },
-      { label: 'Guías de remisión', href: '/panel/guias',   icon: Truck },
+      { label: 'Órdenes de compra', href: '/panel/ordenes-compra', icon: ClipboardList },
+      { label: 'Compras',           href: '/panel/compras',        icon: ShoppingBag },
+      { label: 'Guías de remisión', href: '/panel/guias',          icon: Truck },
     ],
   },
   {

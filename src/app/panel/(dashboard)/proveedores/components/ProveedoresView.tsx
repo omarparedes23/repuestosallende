@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { Plus, Search, Pencil, ToggleLeft, ToggleRight, Building2 } from 'lucide-react'
 import { ProveedorForm } from './ProveedorForm'
 import { toggleActivoProveedor } from '../actions'
@@ -98,7 +99,7 @@ export function ProveedoresView({ initialProveedores }: Props) {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#F9FAFB' }}>
-                  {['Nombre', 'RUC', 'Teléfono', 'Contacto', 'Estado', 'Acciones'].map((h) => (
+                  {['Nombre', 'RUC', 'Teléfono', 'Contacto', 'Saldo', 'Estado', 'Acciones'].map((h) => (
                     <th
                       key={h}
                       className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
@@ -130,6 +131,19 @@ export function ProveedoresView({ initialProveedores }: Props) {
                     </td>
                     <td className="px-5 py-4" style={{ color: '#6B7280' }}>
                       {p.contacto ?? '—'}
+                    </td>
+                    <td className="px-5 py-4">
+                      {p.saldo_deudor > 0 ? (
+                        <Link
+                          href={`/panel/proveedores/${p.id}`}
+                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold hover:opacity-80"
+                          style={{ backgroundColor: '#FEF2F2', color: '#DC2626' }}
+                        >
+                          S/ {p.saldo_deudor.toFixed(2)}
+                        </Link>
+                      ) : (
+                        <span style={{ color: '#9CA3AF' }}>—</span>
+                      )}
                     </td>
                     <td className="px-5 py-4">
                       <span

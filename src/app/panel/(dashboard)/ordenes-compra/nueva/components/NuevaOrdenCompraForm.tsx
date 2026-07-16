@@ -1,17 +1,10 @@
 'use client'
 
-import { useState, useTransition, useRef, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, Plus, Trash2, ChevronLeft, AlertTriangle } from 'lucide-react'
-import {
-  buscarProveedores,
-  buscarProductosParaCompra,
-  registrarCompra,
-  getOrdenCompra,
-} from '../../actions'
-import type { ItemCompra } from '../../actions'
-import { MonedaSelector } from '@/app/tablet/(kiosk)/pos/components/MonedaSelector'
-import type { RaMoneda } from '@/lib/types/database'
+import { useState, useTransition, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import { Search, Plus, Trash2, ChevronLeft } from 'lucide-react'
+import { buscarProveedores, buscarProductosParaCompra, crearOrdenCompra } from '../../actions'
+import type { ItemOrdenCompra } from '../../actions'
 
 type Proveedor = { id: string; nombre: string }
 type ProductoSugerido = {
@@ -21,12 +14,10 @@ type ProductoSugerido = {
   precio_compra: number | null
 }
 
-type ItemForm = ItemCompra & { key: string }
+type ItemForm = ItemOrdenCompra & { key: string }
 
-export function NuevaCompraForm() {
+export function NuevaOrdenCompraForm() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const ordenCompraId = searchParams.get('ordenCompraId')
   const [isPending, startTransition] = useTransition()
 
   // Proveedor
@@ -40,48 +31,12 @@ export function NuevaCompraForm() {
   const [items, setItems] = useState<ItemForm[]>([])
 
   // Extras
-  const [nroDocumento, setNroDocumento] = useState('')
+  const [referencia, setReferencia] = useState('')
   const [notas, setNotas] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  // Moneda — mismo patrón que MonedaSelector/PaymentSheet.tsx del POS
-  const [moneda, setMonedaState] = useState<RaMoneda>('PEN')
-  const [tipoCambio, setTipoCambio] = useState<number | null>(null)
-  const setMoneda = (m: RaMoneda) => setMonedaState(m)
-  const tipoCambioInvalido = moneda === 'USD' && (!tipoCambio || tipoCambio <= 0)
-
-  // Precarga desde una orden de compra confirmada (recepción vinculada)
-  const [ordenCargando, setOrdenCargando] = useState(false)
-  const [ordenError, setOrdenError] = useState<string | null>(null)
-  const [ordenReferencia, setOrdenReferencia] = useState<string | null>(null)
-
   const proveedorTimer = useRef<NodeJS.Timeout | null>(null)
   const productoTimer = useRef<NodeJS.Timeout | null>(null)
-
-  useEffect(() => {
-    if (!ordenCompraId) return
-    setOrdenCargando(true)
-    getOrdenCompra(ordenCompraId).then(({ data, error: err }) => {
-      setOrdenCargando(false)
-      if (err || !data) {
-        setOrdenError(err ?? 'No se pudo cargar la orden de compra.')
-        return
-      }
-      setProveedorSeleccionado({ id: data.proveedorId, nombre: data.proveedorNombre })
-      setProveedorQuery(data.proveedorNombre)
-      setOrdenReferencia(data.referencia)
-      setItems(
-        data.items.map((i) => ({
-          key: `${i.catalogo_id}-${Date.now()}`,
-          catalogo_id: i.catalogo_id,
-          nombre_producto: i.nombre_producto,
-          cantidad: i.cantidad_pendiente,
-          precio_unitario: i.precio_unitario,
-        }))
-      )
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ordenCompraId])
 
   function onProveedorInput(q: string) {
     setProveedorQuery(q)
@@ -143,31 +98,24 @@ export function NuevaCompraForm() {
     setItems((prev) => prev.filter((i) => i.key !== key))
   }
 
-  const subtotal = items.reduce((acc, i) => acc + i.cantidad * i.precio_unitario, 0)
-  const igv = subtotal * 0.18
-  const total = subtotal + igv
-  const simbolo = moneda === 'USD' ? '$' : 'S/'
+  const total = items.reduce((acc, i) => acc + i.cantidad * i.precio_unitario, 0)
 
   function handleSubmit() {
     if (!proveedorSeleccionado) { setError('Selecciona un proveedor.'); return }
     if (items.length === 0) { setError('Agrega al menos un artículo.'); return }
-    if (tipoCambioInvalido) { setError('Ingresa un tipo de cambio válido.'); return }
 
     setError(null)
     startTransition(async () => {
-      const result = await registrarCompra(
+      const result = await crearOrdenCompra(
         proveedorSeleccionado.id,
-        nroDocumento.trim() || null,
+        referencia.trim() || null,
         notas.trim() || null,
-        items.map(({ key: _key, ...rest }) => rest),
-        ordenCompraId,
-        moneda,
-        moneda === 'USD' ? tipoCambio : null
+        items.map(({ key: _key, ...rest }) => rest)
       )
       if (result.error) {
         setError(result.error)
       } else {
-        router.push('/panel/compras')
+        router.push(`/panel/ordenes-compra/${result.id}`)
       }
     })
   }
@@ -183,35 +131,10 @@ export function NuevaCompraForm() {
           <ChevronLeft size={20} style={{ color: '#374151' }} />
         </button>
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#002D62' }}>Nueva compra</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#6B7280' }}>
-            {ordenCompraId ? 'Recepción vinculada a una orden de compra' : 'Registra una compra a proveedor'}
-          </p>
+          <h1 className="text-2xl font-bold" style={{ color: '#002D62' }}>Nueva orden de compra</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#6B7280' }}>Crea una orden de compra en borrador</p>
         </div>
       </div>
-
-      {ordenCargando && (
-        <div className="rounded-xl px-4 py-3 text-sm font-medium" style={{ backgroundColor: '#F0F4FF', color: '#002D62' }}>
-          Cargando orden de compra...
-        </div>
-      )}
-
-      {ordenError && (
-        <div className="flex items-start gap-2 rounded-xl px-4 py-3 text-sm font-medium" style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}>
-          <AlertTriangle size={18} className="shrink-0 mt-0.5" />
-          <span>{ordenError}</span>
-        </div>
-      )}
-
-      {ordenCompraId && !ordenCargando && !ordenError && (
-        <div className="flex items-start gap-2 rounded-xl px-4 py-3 text-sm font-medium" style={{ backgroundColor: '#FFFBEB', color: '#92400E' }}>
-          <AlertTriangle size={18} className="shrink-0 mt-0.5" />
-          <span>
-            Esta recepción está vinculada a la orden de compra {ordenReferencia ?? ordenCompraId.slice(0, 8).toUpperCase()}.
-            Las cantidades se precargaron como pendiente por línea — ajustalas si la recepción es parcial.
-          </span>
-        </div>
-      )}
 
       {/* Sección 1: Proveedor */}
       <div className="rounded-2xl border p-6 space-y-4" style={{ borderColor: '#E5E7EB' }}>
@@ -225,8 +148,7 @@ export function NuevaCompraForm() {
               value={proveedorQuery}
               onChange={(e) => onProveedorInput(e.target.value)}
               placeholder="Buscar proveedor..."
-              disabled={!!ordenCompraId}
-              className="w-full rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62] disabled:bg-gray-50 disabled:text-gray-500"
+              className="w-full rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
               style={{ borderColor: '#D1D5DB' }}
             />
             {proveedorSugerencias.length > 0 && (
@@ -249,27 +171,16 @@ export function NuevaCompraForm() {
             )}
           </div>
           <div className="space-y-1">
-            <label className="block text-sm font-semibold" style={{ color: '#374151' }}>Nro. documento / factura</label>
+            <label className="block text-sm font-semibold" style={{ color: '#374151' }}>Referencia</label>
             <input
-              value={nroDocumento}
-              onChange={(e) => setNroDocumento(e.target.value)}
-              placeholder="F001-00123"
+              value={referencia}
+              onChange={(e) => setReferencia(e.target.value)}
+              placeholder="OC-00123"
               className="w-full rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
               style={{ borderColor: '#D1D5DB' }}
             />
           </div>
         </div>
-
-        <div className="space-y-2">
-          <label className="block text-sm font-semibold" style={{ color: '#374151' }}>Moneda</label>
-          <MonedaSelector
-            moneda={moneda}
-            setMoneda={setMoneda}
-            tipoCambio={tipoCambio}
-            setTipoCambio={setTipoCambio}
-          />
-        </div>
-
         <div className="space-y-1">
           <label className="block text-sm font-semibold" style={{ color: '#374151' }}>Notas</label>
           <textarea
@@ -377,7 +288,7 @@ export function NuevaCompraForm() {
                     />
                   </td>
                   <td className="px-4 py-3 font-semibold" style={{ color: '#111827' }}>
-                    {simbolo} {(item.cantidad * item.precio_unitario).toFixed(2)}
+                    S/ {(item.cantidad * item.precio_unitario).toFixed(2)}
                   </td>
                   <td className="px-4 py-3">
                     <button
@@ -395,31 +306,17 @@ export function NuevaCompraForm() {
         )}
       </div>
 
-      {/* Totales + Submit */}
+      {/* Total + Submit */}
       <div className="rounded-2xl border p-6 space-y-4" style={{ borderColor: '#E5E7EB' }}>
         <div className="space-y-2 text-sm">
-          <div className="flex justify-between" style={{ color: '#6B7280' }}>
-            <span>Subtotal</span>
-            <span>{simbolo} {subtotal.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between" style={{ color: '#6B7280' }}>
-            <span>IGV (18%)</span>
-            <span>{simbolo} {igv.toFixed(2)}</span>
-          </div>
           <div
-            className="flex justify-between text-base font-bold pt-2 border-t"
-            style={{ borderColor: '#E5E7EB', color: '#002D62' }}
+            className="flex justify-between text-base font-bold pt-2"
+            style={{ color: '#002D62' }}
           >
-            <span>Total</span>
-            <span>{simbolo} {total.toFixed(2)}</span>
+            <span>Total estimado</span>
+            <span>S/ {total.toFixed(2)}</span>
           </div>
         </div>
-
-        {tipoCambioInvalido && (
-          <div className="rounded-xl px-4 py-3 text-sm font-medium" style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}>
-            Ingresá un tipo de cambio válido (mayor a 0) para continuar.
-          </div>
-        )}
 
         {error && (
           <p className="text-sm font-medium" style={{ color: '#DC2626' }}>{error}</p>
@@ -441,7 +338,7 @@ export function NuevaCompraForm() {
             className="flex-1 py-3 rounded-xl text-sm font-bold disabled:opacity-50"
             style={{ backgroundColor: '#002D62', color: '#FFD700' }}
           >
-            {isPending ? 'Registrando...' : 'Registrar compra'}
+            {isPending ? 'Creando...' : 'Crear orden de compra'}
           </button>
         </div>
       </div>

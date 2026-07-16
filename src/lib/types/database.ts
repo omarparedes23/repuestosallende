@@ -29,6 +29,15 @@ export type RaMoneda = 'PEN' | 'USD'
 // ── Enums: migration 032 (Cuentas corrientes / cobranzas) ──
 export type RaCcTipoMovimiento = 'cargo' | 'abono'
 
+// ── Enums: migration 033 (Órdenes de compra) ────────────────
+export type RaEstadoOrdenCompra = 'borrador' | 'confirmada' | 'recibida' | 'anulada'
+
+// ── Enums: migration 034 (Compras v2) ───────────────────────
+export type RaEstadoCompra = 'confirmada' | 'anulada'
+
+// ── Enums: migration 035 (Cuentas por pagar) ────────────────
+export type RaCxpTipoMovimiento = 'cargo' | 'abono'
+
 export interface Database {
   public: {
     Tables: {
@@ -382,6 +391,10 @@ export interface Database {
           total: number
           estado_pago: RaEstadoPagoCompra
           notas: string | null
+          orden_compra_id: string | null
+          moneda: RaMoneda
+          tipo_cambio: number | null
+          estado: RaEstadoCompra
           created_at: string
           updated_at: string
         }
@@ -398,6 +411,10 @@ export interface Database {
           total?: number
           estado_pago?: RaEstadoPagoCompra
           notas?: string | null
+          orden_compra_id?: string | null
+          moneda?: RaMoneda
+          tipo_cambio?: number | null
+          estado?: RaEstadoCompra
           created_at?: string
           updated_at?: string
         }
@@ -410,6 +427,10 @@ export interface Database {
           total?: number
           estado_pago?: RaEstadoPagoCompra
           notas?: string | null
+          orden_compra_id?: string | null
+          moneda?: RaMoneda
+          tipo_cambio?: number | null
+          estado?: RaEstadoCompra
           updated_at?: string
         }
       }
@@ -915,6 +936,105 @@ export interface Database {
           created_at?: string
         }
       }
+      // ── Órdenes de compra (migration 033) ──────────────────
+      ra_ordenes_compra: {
+        Row: {
+          id: string
+          empresa_id: string
+          sucursal_id: string
+          proveedor_id: string | null
+          usuario_id: string
+          referencia: string | null
+          fecha: string
+          estado: RaEstadoOrdenCompra
+          notas: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          empresa_id: string
+          sucursal_id: string
+          proveedor_id?: string | null
+          usuario_id: string
+          referencia?: string | null
+          fecha?: string
+          estado?: RaEstadoOrdenCompra
+          notas?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          proveedor_id?: string | null
+          referencia?: string | null
+          fecha?: string
+          estado?: RaEstadoOrdenCompra
+          notas?: string | null
+          updated_at?: string
+        }
+      }
+      ra_orden_compra_items: {
+        Row: {
+          id: string
+          orden_compra_id: string
+          catalogo_id: string
+          nombre_producto: string
+          cantidad: number
+          precio_unitario: number
+          subtotal: number
+          cantidad_recibida: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          orden_compra_id: string
+          catalogo_id: string
+          nombre_producto: string
+          cantidad: number
+          precio_unitario: number
+          subtotal: number
+          cantidad_recibida?: number
+          created_at?: string
+        }
+        Update: {
+          cantidad?: number
+          precio_unitario?: number
+          subtotal?: number
+          cantidad_recibida?: number
+        }
+      }
+      ra_cuentas_por_pagar_movimientos: {
+        Row: {
+          id: string
+          empresa_id: string
+          proveedor_id: string
+          compra_id: string
+          tipo: RaCxpTipoMovimiento
+          monto: number
+          fecha: string
+          metodo_pago: RaMetodoPago | null
+          referencia: string | null
+          usuario_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          empresa_id: string
+          proveedor_id: string
+          compra_id: string
+          tipo: RaCxpTipoMovimiento
+          monto: number
+          fecha?: string
+          metodo_pago?: RaMetodoPago | null
+          referencia?: string | null
+          usuario_id: string
+          created_at?: string
+        }
+        Update: {
+          fecha?: string
+          referencia?: string | null
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -936,6 +1056,14 @@ export interface Database {
           modelos: string | null
         }>
       }
+      ra_confirmar_orden_compra: {
+        Args: { p_orden_compra_id: string }
+        Returns: void
+      }
+      ra_anular_orden_compra: {
+        Args: { p_orden_compra_id: string }
+        Returns: void
+      }
     }
     Enums: {
       ra_rol: RaRol
@@ -952,6 +1080,9 @@ export interface Database {
       ra_estado_guia: RaEstadoGuia
       ra_moneda: RaMoneda
       ra_cc_tipo_movimiento: RaCcTipoMovimiento
+      ra_estado_orden_compra: RaEstadoOrdenCompra
+      ra_estado_compra: RaEstadoCompra
+      ra_cxp_tipo_movimiento: RaCxpTipoMovimiento
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1031,3 +1162,15 @@ export type RaGuiaItemInsert     = TablesInsert<'ra_guia_items'>
 
 export type RaLiquidacion        = Tables<'ra_liquidaciones'>
 export type RaLiquidacionInsert  = TablesInsert<'ra_liquidaciones'>
+
+// ── Tipos derivados: migration 033 (Órdenes de compra) ──────
+export type RaOrdenCompra        = Tables<'ra_ordenes_compra'>
+export type RaOrdenCompraInsert  = TablesInsert<'ra_ordenes_compra'>
+export type RaOrdenCompraUpdate  = TablesUpdate<'ra_ordenes_compra'>
+
+export type RaOrdenCompraItem       = Tables<'ra_orden_compra_items'>
+export type RaOrdenCompraItemInsert = TablesInsert<'ra_orden_compra_items'>
+
+// ── Tipos derivados: migration 035 (Cuentas por pagar) ──────
+export type RaCuentaPorPagarMovimiento       = Tables<'ra_cuentas_por_pagar_movimientos'>
+export type RaCuentaPorPagarMovimientoInsert = TablesInsert<'ra_cuentas_por_pagar_movimientos'>
