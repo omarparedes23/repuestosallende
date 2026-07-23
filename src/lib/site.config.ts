@@ -67,7 +67,7 @@ export interface SiteConfig {
 }
 
 export const siteConfig: SiteConfig = {
-  dominio: 'https://repuestosallende.com',
+  dominio: 'https://repuestosallende.pe',
   marcaCorta: 'Repuestos Allende',
   razonSocial: 'Repuestos Allende E.I.R.L.',
   ruc: '20610105280',
