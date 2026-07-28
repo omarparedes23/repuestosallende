@@ -1,0 +1,19 @@
+2026-07-16 18:35:52 ===== Inicio import_clientes_proveedores =====
+2026-07-16 18:35:54 [GUARD] ra_clientes y ra_proveedores estan vacias para esta empresa - OK para continuar
+2026-07-16 18:35:54 [CLIENTES] Leidos desde FastERP (filtrado por venta >= 2025-01-01): 964
+2026-07-16 18:35:56 [CLIENTES] Lote 1: 200 insertados (acumulado: 200)
+2026-07-16 18:35:58 [CLIENTES] Lote 2: 200 insertados (acumulado: 400)
+2026-07-16 18:35:59 [CLIENTES] Lote 3: 200 insertados (acumulado: 600)
+2026-07-16 18:36:01 [CLIENTES] Lote 4: 200 insertados (acumulado: 800)
+2026-07-16 18:36:02 [CLIENTES] Lote 5: 164 insertados (acumulado: 964)
+2026-07-16 18:36:02 [CLIENTES] Total insertados: 964 / 964
+2026-07-16 18:36:03 [PROVEEDORES] Leidos desde FastERP (filtrado por compra >= 2025-01-01): 169
+2026-07-16 18:36:04 ERROR FATAL: psql:C:/Users/omarp_v5mqor0/AppData/Local/Temp/tmp7878.tmp.sql:172: ERROR:  there is no unique or exclusion constraint matching the ON CONFLICT specification
+2026-07-16 18:36:04 en Invoke-Pg, D:\tempo\claudecode\repuestosallende\my-app\scripts\import_clientes_proveedores.ps1: línea 98
+en <ScriptBlock>, D:\tempo\claudecode\repuestosallende\my-app\scripts\import_clientes_proveedores.ps1: línea 251
+2026-07-16 18:36:59 ===== Inicio import_clientes_proveedores =====
+2026-07-16 18:37:01 [GUARD] ra_clientes ya tiene 964 filas para esta empresa - se salta PARTE 1
+2026-07-16 18:37:02 [PROVEEDORES] Leidos desde FastERP (filtrado por compra >= 2025-01-01): 169
+2026-07-16 18:37:04 [PROVEEDORES] Lote 1: 169 procesados (acumulado: 169)
+2026-07-16 18:37:04 [PROVEEDORES] Total procesados: 169 / 169
+2026-07-16 18:37:04 ===== Fin import_clientes_proveedores =====
