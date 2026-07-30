@@ -39,11 +39,11 @@ export function HomePageClient({ marcas, modelos }: HomePageClientProps) {
       <main id="contenido">
         <Hero />
         <TrustBar />
+        <Especialidades modelos={modelos} />
         <Metricas />
         <QuienesSomos />
         <Marcas marcas={marcas} />
         <PorQueElegirnos />
-        <Especialidades modelos={modelos} />
         <Proceso />
         <Testimonios />
         <SocialMedia />

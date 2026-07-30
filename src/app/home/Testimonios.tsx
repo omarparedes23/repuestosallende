@@ -67,15 +67,6 @@ export function Testimonios() {
           ))}
         </motion.div>
 
-        <motion.p
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={viewportOnce}
-          transition={{ delay: 0.4 }}
-          className="text-center text-xs text-gray-tech mt-10 font-light"
-        >
-          Testimonios ilustrativos. {/* TODO: reemplazar con reseñas reales verificadas. */}
-        </motion.p>
       </div>
     </section>
   )

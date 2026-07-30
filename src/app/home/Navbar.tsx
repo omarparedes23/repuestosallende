@@ -10,9 +10,10 @@ import { siteConfig } from '@/lib/site.config'
 
 const NAV_LINKS = [
   { label: 'Inicio', href: '#hero' },
+  { label: 'Especialidades', href: '#especialidades' },
   { label: 'Nosotros', href: '#quienes-somos' },
   { label: 'Marcas', href: '#marcas' },
-  { label: 'Especialidades', href: '#especialidades' },
+  { label: 'Catálogo', href: '/catalogo' },
   { label: 'Contacto', href: '#ubicacion' },
 ]
 
@@ -37,7 +38,6 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <a href="#hero" className="flex items-center group" aria-label={siteConfig.razonSocial}>
-            {/* PERFORMANCE: el archivo original pesa ~4MB. Comprimir a <100KB mejora el LCP. */}
             <Image
               src={siteConfig.imagenes.logo}
               alt={`${siteConfig.razonSocial} — logo`}
@@ -50,15 +50,25 @@ export function Navbar() {
           </a>
 
           <div className="hidden md:flex items-center gap-8">
-            {NAV_LINKS.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="text-white/90 hover:text-gold text-sm font-medium transition-colors relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-0.5 after:bottom-0 after:left-0 after:bg-gold after:origin-bottom-right after:transition-transform after:duration-300 hover:after:scale-x-100 hover:after:origin-bottom-left"
-              >
-                {link.label}
-              </a>
-            ))}
+            {NAV_LINKS.map((link) =>
+              link.href.startsWith('/') ? (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-white/90 hover:text-gold text-sm font-medium transition-colors relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-0.5 after:bottom-0 after:left-0 after:bg-gold after:origin-bottom-right after:transition-transform after:duration-300 hover:after:scale-x-100 hover:after:origin-bottom-left"
+                >
+                  {link.label}
+                </Link>
+              ) : (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className="text-white/90 hover:text-gold text-sm font-medium transition-colors relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-0.5 after:bottom-0 after:left-0 after:bg-gold after:origin-bottom-right after:transition-transform after:duration-300 hover:after:scale-x-100 hover:after:origin-bottom-left"
+                >
+                  {link.label}
+                </a>
+              )
+            )}
           </div>
 
           <div className="hidden md:flex items-center gap-3">
@@ -92,16 +102,27 @@ export function Navbar() {
             className="md:hidden bg-navy/95 backdrop-blur-xl border-t border-white/10 overflow-hidden"
           >
             <div className="px-4 py-4 space-y-3">
-              {NAV_LINKS.map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setIsOpen(false)}
-                  className="block text-white/90 hover:text-gold py-2 text-sm font-medium transition-colors"
-                >
-                  {link.label}
-                </a>
-              ))}
+              {NAV_LINKS.map((link) =>
+                link.href.startsWith('/') ? (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setIsOpen(false)}
+                    className="block text-white/90 hover:text-gold py-2 text-sm font-medium transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                ) : (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setIsOpen(false)}
+                    className="block text-white/90 hover:text-gold py-2 text-sm font-medium transition-colors"
+                  >
+                    {link.label}
+                  </a>
+                )
+              )}
               <Link
                 href="/tablet/login"
                 onClick={() => setIsOpen(false)}

@@ -31,7 +31,7 @@ export default function CatalogoLayout({ children }: { children: React.ReactNode
             </Link>
 
             <Link
-              href="/#especialidades"
+              href="/catalogo"
               className="flex items-center gap-2 text-white/80 hover:text-[#FFD700] text-sm font-medium transition-colors"
             >
               ← Volver a modelos

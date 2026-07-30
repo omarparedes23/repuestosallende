@@ -6,7 +6,7 @@ import { siteConfig } from '@/lib/site.config'
 
 export function TrustBar() {
   return (
-    <section className="relative z-20 -mt-20 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="relative z-20 -mt-20 mb-16 sm:mb-20 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}

@@ -116,8 +116,8 @@ export const siteConfig: SiteConfig = {
   },
 
   imagenes: {
-    logo: '/images/repuestosallendelogo.png',
-    portada: '/images/portada.jpg',
+    logo: '/images/repuestosallendelogo.webp',
+    portada: '/images/portada.webp',
     modulos: '/images/modulos.jpg',
   },
 }

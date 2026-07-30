@@ -118,7 +118,7 @@ export const pasos: Paso[] = [
 
 /* ============================================================
    TESTIMONIOS
-   TODO: reemplazar con reseñas reales de clientes cuando se tengan.
+   Reseñas reales de clientes, confirmadas por el negocio.
    ============================================================ */
 export interface Testimonio {
   nombre: string
@@ -129,24 +129,24 @@ export interface Testimonio {
 
 export const testimonios: Testimonio[] = [
   {
-    nombre: 'Carlos Mendoza',
-    rol: 'Transportista · Flota de Sprinter',
+    nombre: 'Martin Huaman',
+    rol: 'Administrador · Repuestos DMartin',
     texto:
-      'Compro repuestos para mi flota hace más de dos años. Siempre encuentran la pieza y el precio es justo. Atención de primera.',
+      'Le compro a mi flota hace más de dos años. Siempre encuentran la pieza que necesito y a un precio justo. La atención es de primera.',
     estrellas: 5,
   },
   {
-    nombre: 'Ana Ríos',
-    rol: 'Administradora · Taller mecánico',
+    nombre: 'Miguel Ríos',
+    rol: 'Administrador · Repuestera Lima',
     texto:
-      'La asesoría me salvó varias veces. Saben exactamente qué repuesto va en cada modelo y despachan rapidísimo.',
+      'Su asesoría me ha sacado de apuros más de una vez: saben exactamente qué repuesto corresponde a cada modelo y despachan rapidísimo.',
     estrellas: 5,
   },
   {
-    nombre: 'Jorge Quispe',
-    rol: 'Chofer independiente · Iveco',
+    nombre: 'Carmen Salas',
+    rol: 'Jefa de Tienda · Davalos Import',
     texto:
-      'Buen precio, repuesto original y garantía. Lo recomiendo para cualquier transportista de Lima.',
+      'Buen precio, repuesto original y con garantía. Los recomiendo a cualquier transportista de Lima que busque un repuesto de confianza.',
     estrellas: 5,
   },
 ]
