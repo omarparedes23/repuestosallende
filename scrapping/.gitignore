@@ -1,0 +1,10 @@
+# Secretos y entorno — NUNCA commitear
+.env
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Salida generada (auditoría/rollback — queda solo en disco local)
+manifiesto*.jsonl

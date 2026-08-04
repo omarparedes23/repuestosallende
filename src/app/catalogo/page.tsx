@@ -1,9 +1,16 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import type { Metadata } from 'next'
 import { ChevronRight } from 'lucide-react'
 import { createPublicClient } from '@/lib/supabase/public'
 import { siteConfig } from '@/lib/site.config'
 import type { ModeloConMarca } from '../home/Especialidades'
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: '/catalogo',
+  },
+}
 
 async function fetchModelos(): Promise<ModeloConMarca[]> {
   const supabase = createPublicClient()

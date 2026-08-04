@@ -42,6 +42,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description:
       producto.descripcion?.slice(0, 155) ??
       `Repuesto ${producto.nombre} disponible en Repuestos Allende. Consulte stock y precio por WhatsApp.`,
+    alternates: {
+      canonical: `/catalogo/producto/${slug}`,
+    },
   }
 }
 

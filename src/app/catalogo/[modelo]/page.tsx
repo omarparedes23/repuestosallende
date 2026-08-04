@@ -33,6 +33,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `Repuestos ${brand} ${modelName} | Repuestos Allende`,
     description: `Repuestos de suspensión, dirección, motor y caja para ${brand} ${modelName}. Stock disponible con garantía en La Victoria, Lima. Envíos a nivel nacional.`,
+    alternates: {
+      canonical: `/catalogo/${slug}`,
+    },
   }
 }
 
