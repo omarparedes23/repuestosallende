@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Phone, Package, Filter, Search } from 'lucide-react'
@@ -20,6 +20,8 @@ type RepuestoConCategoria = CatalogoRepuesto & {
 type ModeloConMarca = ModeloAuto & {
   marca?: { id: string; nombre: string } | null
 }
+
+const PRODUCTOS_POR_TANDA = 24
 
 const CATEGORIA_COLORS: Record<string, string> = {
   'Suspensión': 'bg-blue-100 text-blue-700',
@@ -103,6 +105,7 @@ export function CatalogoPageClient({
   const [marcaActiva, setMarcaActiva] = useState('')
   const [busqueda, setBusqueda] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [visibleCount, setVisibleCount] = useState(PRODUCTOS_POR_TANDA)
 
   // Derivadas de los propios repuestos ya cargados (no de un select aparte a
   // ra_categorias) - evita mostrar categorias en 0 (de otros modelos) y
@@ -137,6 +140,14 @@ export function CatalogoPageClient({
     }
     return true
   })
+
+  // Vuelve a la primera tanda cada vez que cambian los filtros o la búsqueda.
+  useEffect(() => {
+    setVisibleCount(PRODUCTOS_POR_TANDA)
+  }, [categoriaActiva, marcaActiva, busquedaNorm])
+
+  const repuestosVisibles = repuestosFiltrados.slice(0, visibleCount)
+  const hayMas = visibleCount < repuestosFiltrados.length
 
   const conteoCategoria = (nombre: string) =>
     repuestos.filter((r) => r.categoria?.nombre === nombre).length
@@ -279,7 +290,8 @@ export function CatalogoPageClient({
             <div className="flex items-center justify-between mb-5">
               <p className="text-slate-500 text-sm">
                 Mostrando{' '}
-                <span className="font-bold text-[#002D62]">{repuestosFiltrados.length}</span>{' '}
+                <span className="font-bold text-[#002D62]">{repuestosVisibles.length}</span>{' '}
+                de <span className="font-bold text-[#002D62]">{repuestosFiltrados.length}</span>{' '}
                 {repuestosFiltrados.length === 1 ? 'repuesto' : 'repuestos'}
                 {categoriaActiva && (
                   <span className="ml-1">· <span className="text-[#002D62] font-semibold">{categoriaActiva}</span></span>
@@ -336,11 +348,24 @@ export function CatalogoPageClient({
 
             {/* Product grid */}
             {repuestosFiltrados.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                {repuestosFiltrados.map((repuesto, i) => (
-                  <ProductoCard key={repuesto.id} repuesto={repuesto} priority={i === 0} isAdmin={isAdmin} />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                  {repuestosVisibles.map((repuesto, i) => (
+                    <ProductoCard key={repuesto.id} repuesto={repuesto} priority={i === 0} isAdmin={isAdmin} />
+                  ))}
+                </div>
+
+                {hayMas && (
+                  <div className="flex justify-center mt-8">
+                    <button
+                      onClick={() => setVisibleCount((c) => c + PRODUCTOS_POR_TANDA)}
+                      className="bg-white border-2 border-[#002D62] text-[#002D62] text-sm font-bold px-8 py-3 rounded-xl hover:bg-[#002D62] hover:text-white transition-colors"
+                    >
+                      Cargar más ({repuestosFiltrados.length - visibleCount} restantes)
+                    </button>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <Package className="w-12 h-12 text-slate-300 mb-4" />
