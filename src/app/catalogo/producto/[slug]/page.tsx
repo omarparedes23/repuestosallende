@@ -36,12 +36,29 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!producto) return {}
 
   const oem = producto.codigo_oem ? ` (OEM: ${producto.codigo_oem})` : ''
+  const modeloPrincipal = (producto.compatibilidades ?? [])
+    .map((c: any) => c.modelo)
+    .filter(Boolean)[0]
+  const modeloYaEnNombre =
+    modeloPrincipal &&
+    producto.nombre.toUpperCase().includes(modeloPrincipal.nombre.toUpperCase())
+  const sufijoModelo = modeloPrincipal && !modeloYaEnNombre ? ` — ${modeloPrincipal.nombre}` : ''
+
+  // El nombre crudo del ERP se repite en cientos de productos (ej. "CORREAS" x1268);
+  // sintetizamos siempre desde nombre+modelo+oem en vez de confiar solo en
+  // `descripcion`, que también se recicla entre productos distintos.
+  const description = [
+    `${producto.nombre}${sufijoModelo}${oem}`,
+    producto.descripcion,
+    'Consulte disponibilidad y precio por WhatsApp en Repuestos Allende.',
+  ]
+    .filter(Boolean)
+    .join('. ')
+    .slice(0, 155)
 
   return {
-    title: `${producto.nombre}${oem} | Repuestos Allende`,
-    description:
-      producto.descripcion?.slice(0, 155) ??
-      `Repuesto ${producto.nombre} disponible en Repuestos Allende. Consulte stock y precio por WhatsApp.`,
+    title: `${producto.nombre}${sufijoModelo}${oem} | Repuestos Allende`,
+    description,
     alternates: {
       canonical: `/catalogo/producto/${slug}`,
     },
@@ -63,6 +80,11 @@ export default async function ProductoDetallePage({ params }: Props) {
   )
     .map((c: any) => c.modelo)
     .filter(Boolean)
+
+  const modeloPrincipal = modelos[0]
+  const modeloYaEnNombre =
+    modeloPrincipal &&
+    producto.nombre.toUpperCase().includes(modeloPrincipal.nombre.toUpperCase())
 
   const supabase = createPublicClient()
   const modeloIds = modelos.map((m) => m.id)
@@ -144,6 +166,7 @@ export default async function ProductoDetallePage({ params }: Props) {
           <div className="flex items-start justify-between gap-3 mb-2">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-[#002D62]">
               {producto.nombre}
+              {modeloPrincipal && !modeloYaEnNombre && ` — ${modeloPrincipal.nombre}`}
             </h1>
             {isAdmin && (
               <EditarRepuestoBoton
