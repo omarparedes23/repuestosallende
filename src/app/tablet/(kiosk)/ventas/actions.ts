@@ -29,7 +29,25 @@ export type VentaDetalle = {
   estado: string
   moneda: RaMoneda
   tipo_cambio: number | null
+  serie: string | null
+  correlativo: number | null
+  numero_completo: string | null
+  sunat_hash: string | null
+  pdf_url: string | null
   cliente_nombre: string | null
+  cliente_tipo_documento: string | null
+  cliente_nro_documento: string | null
+  empresa: {
+    nombre: string
+    razon_social: string | null
+    ruc: string | null
+    direccion: string | null
+    telefono: string | null
+  }
+  sucursal: {
+    nombre: string
+    direccion: string | null
+  }
   items: {
     id: string
     nombre_producto: string
@@ -104,7 +122,10 @@ export async function getVentaDetalle(id: string): Promise<{
     .from('ra_ventas')
     .select(`
       id, created_at, tipo_comprobante, tipo_venta, subtotal, igv, total, estado, moneda, tipo_cambio,
-      ra_clientes ( nombre ),
+      serie, correlativo, numero_completo, sunat_hash, pdf_url, sucursal_id,
+      ra_clientes ( nombre, tipo_documento, nro_documento ),
+      ra_sucursales ( nombre, direccion ),
+      ra_empresas ( nombre, razon_social, ruc, direccion, telefono ),
       ra_venta_items ( id, nombre_producto, codigo_oem, cantidad, precio_unitario, descuento, subtotal ),
       ra_venta_pagos ( id, metodo_pago, monto, referencia )
     `)
@@ -126,7 +147,25 @@ export async function getVentaDetalle(id: string): Promise<{
     estado: data.estado,
     moneda: data.moneda,
     tipo_cambio: data.tipo_cambio,
+    serie: data.serie,
+    correlativo: data.correlativo,
+    numero_completo: data.numero_completo,
+    sunat_hash: data.sunat_hash,
+    pdf_url: data.pdf_url,
     cliente_nombre: (data.ra_clientes as any)?.nombre ?? null,
+    cliente_tipo_documento: (data.ra_clientes as any)?.tipo_documento ?? null,
+    cliente_nro_documento: (data.ra_clientes as any)?.nro_documento ?? null,
+    empresa: {
+      nombre: (data.ra_empresas as any)?.nombre ?? '',
+      razon_social: (data.ra_empresas as any)?.razon_social ?? null,
+      ruc: (data.ra_empresas as any)?.ruc ?? null,
+      direccion: (data.ra_empresas as any)?.direccion ?? null,
+      telefono: (data.ra_empresas as any)?.telefono ?? null,
+    },
+    sucursal: {
+      nombre: (data.ra_sucursales as any)?.nombre ?? 'Principal',
+      direccion: (data.ra_sucursales as any)?.direccion ?? null,
+    },
     items: Array.isArray(data.ra_venta_items)
       ? data.ra_venta_items.map((i: any) => ({
           id: i.id,

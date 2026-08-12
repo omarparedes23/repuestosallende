@@ -63,3 +63,42 @@ html {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* ============================================================
+   Impresión de ticket térmico
+   ============================================================ */
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+
+  /* Oculta toda la app salvo el portal de impresión (display: none,
+     no visibility — Chromium no pinta elementos visibles anidados
+     en contenedores con overflow cuando el padre está oculto) */
+  body > *:not(.ticket-print-root) {
+    display: none !important;
+  }
+
+  .ticket-print-root {
+    position: static !important;
+    overflow: visible !important;
+    background: #fff;
+  }
+
+  .ticket-print-root .no-print {
+    display: none !important;
+  }
+
+  .ticket-print-root .ticket-print-area {
+    position: static !important;
+    max-width: 80mm;
+    margin: 0 auto;
+  }
+
+  html,
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

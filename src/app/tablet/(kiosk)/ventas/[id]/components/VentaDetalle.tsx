@@ -1,9 +1,14 @@
 'use client'
 
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, User, Receipt } from 'lucide-react'
+import { ArrowLeft, User, Receipt, Printer } from 'lucide-react'
 import type { VentaDetalle as VentaDetalleType } from '../../actions'
+import type { RaTipoComprobante } from '@/lib/types/database'
 import { simboloMoneda } from '@/lib/calc/moneda'
+import { calcularVuelto } from '@/lib/calc/vuelto'
+import { TicketPrintPortal } from '@/app/tablet/components/ticket/TicketPrintPortal'
+import type { TicketReceiptData } from '@/app/tablet/components/ticket/TicketReceipt'
 
 type Props = {
   venta: VentaDetalleType
@@ -27,14 +32,85 @@ const ESTADO_CONFIG: Record<string, { label: string; bg: string; text: string }>
   completada: { label: 'Completada', bg: '#F0FDF4', text: '#059669' },
   pendiente: { label: 'Pendiente', bg: '#FFFBEB', text: '#D97706' },
   anulada: { label: 'Anulada', bg: '#FEF2F2', text: '#DC2626' },
+  error_sunat: { label: 'Error SUNAT', bg: '#FEF2F2', text: '#DC2626' },
 }
 
 export function VentaDetalle({ venta }: Props) {
+  const [showPrint, setShowPrint] = useState(false)
   const estadoCfg = ESTADO_CONFIG[venta.estado] ?? ESTADO_CONFIG.pendiente
   const fecha = new Date(venta.created_at)
 
+  const vuelto = useMemo(
+    () => calcularVuelto(venta.pagos.map((p) => ({ monto: p.monto })), venta.total),
+    [venta.pagos, venta.total]
+  )
+
+  const handleReimprimir = () => setShowPrint(true)
+  const handleCerrarPrint = () => setShowPrint(false)
+
+  const idVenta = venta.numero_completo ?? `#${venta.id.slice(0, 8).toUpperCase()}`
+  const esTicket = venta.tipo_comprobante === 'ticket'
+  const esBoletaFactura = venta.tipo_comprobante === 'boleta' || venta.tipo_comprobante === 'factura'
+  const puedeReimprimir = (esTicket || esBoletaFactura) && (venta.estado === 'completada' || venta.estado === 'pendiente')
+  const esAnulada = venta.estado === 'anulada'
+  const esErrorSunat = venta.estado === 'error_sunat'
+
+  const ticketData: TicketReceiptData | null = puedeReimprimir
+    ? {
+        width: 80,
+        tipoComprobante: venta.tipo_comprobante as RaTipoComprobante,
+        empresa: {
+          razonSocial: venta.empresa.razon_social ?? venta.empresa.nombre,
+          ruc: venta.empresa.ruc ?? '',
+          direccion: venta.empresa.direccion ?? '',
+          telefono: venta.empresa.telefono ?? '',
+        },
+        sucursal: {
+          nombre: venta.sucursal.nombre,
+          direccion: venta.sucursal.direccion ?? '',
+        },
+        numeroCompleto: idVenta,
+        serie: venta.serie,
+        correlativo: venta.correlativo,
+        fecha,
+        moneda: venta.moneda,
+        simbolo: simboloMoneda(venta.moneda),
+        tipoCambio: venta.tipo_cambio,
+        items: venta.items.map((i) => ({
+          nombre: i.nombre_producto,
+          cantidad: i.cantidad,
+          precioUnitario: i.precio_unitario,
+          descuento: i.descuento,
+          subtotal: i.subtotal,
+        })),
+        subtotal: venta.subtotal,
+        igv: venta.igv,
+        total: venta.total,
+        pagos: venta.pagos.map((p) => ({
+          metodoPago: p.metodo_pago,
+          monto: p.monto,
+          referencia: p.referencia,
+        })),
+        vuelto,
+        cliente:
+          venta.cliente_nombre && venta.cliente_nombre !== 'Consumidor Final'
+            ? {
+                nombre: venta.cliente_nombre,
+                tipoDocumento: venta.cliente_tipo_documento ?? '',
+                nroDocumento: venta.cliente_nro_documento ?? '',
+              }
+            : undefined,
+        sunatHash: venta.sunat_hash ?? null,
+      }
+    : null
+
   return (
     <div className="flex flex-col h-full overflow-y-auto">
+      {/* Print overlay */}
+      {showPrint && ticketData && (
+        <TicketPrintPortal data={ticketData} onClose={handleCerrarPrint} />
+      )}
+
       {/* Header */}
       <div
         className="flex items-center gap-3 px-4 py-3 border-b"
@@ -49,10 +125,11 @@ export function VentaDetalle({ venta }: Props) {
         </Link>
         <div className="flex-1">
           <h2 className="text-base font-bold" style={{ color: '#002D62' }}>
-            #{venta.id.slice(0, 8).toUpperCase()}
+            {idVenta}
           </h2>
           <p className="text-xs" style={{ color: '#6B7280' }}>
-            {fecha.toLocaleDateString('es-PE')} {fecha.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+            {fecha.toLocaleDateString('es-PE')}{' '}
+            {fecha.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
           </p>
         </div>
         <span
@@ -102,7 +179,8 @@ export function VentaDetalle({ venta }: Props) {
                 )}
                 <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
                   {item.cantidad} × {simboloMoneda(venta.moneda)} {item.precio_unitario.toFixed(2)}
-                  {item.descuento > 0 && ` − ${simboloMoneda(venta.moneda)} ${item.descuento.toFixed(2)}`}
+                  {item.descuento > 0 &&
+                    ` − ${simboloMoneda(venta.moneda)} ${item.descuento.toFixed(2)}`}
                 </p>
               </div>
               <span className="text-sm font-bold shrink-0" style={{ color: '#002D62' }}>
@@ -115,18 +193,19 @@ export function VentaDetalle({ venta }: Props) {
 
       {/* Totales */}
       <div className="px-4 pt-4 pb-2">
-        <div
-          className="rounded-2xl p-4 space-y-2"
-          style={{ backgroundColor: '#F0F4FF' }}
-        >
+        <div className="rounded-2xl p-4 space-y-2" style={{ backgroundColor: '#F0F4FF' }}>
           <div className="flex justify-between text-sm" style={{ color: '#6B7280' }}>
             <span>Subtotal</span>
-            <span>{simboloMoneda(venta.moneda)} {venta.subtotal.toFixed(2)}</span>
+            <span>
+              {simboloMoneda(venta.moneda)} {venta.subtotal.toFixed(2)}
+            </span>
           </div>
           {venta.igv > 0 && (
             <div className="flex justify-between text-sm" style={{ color: '#6B7280' }}>
               <span>IGV (18%)</span>
-              <span>{simboloMoneda(venta.moneda)} {venta.igv.toFixed(2)}</span>
+              <span>
+                {simboloMoneda(venta.moneda)} {venta.igv.toFixed(2)}
+              </span>
             </div>
           )}
           <div
@@ -134,7 +213,9 @@ export function VentaDetalle({ venta }: Props) {
             style={{ borderColor: '#C7D2FE', color: '#002D62' }}
           >
             <span>Total</span>
-            <span>{simboloMoneda(venta.moneda)} {venta.total.toFixed(2)}</span>
+            <span>
+              {simboloMoneda(venta.moneda)} {venta.total.toFixed(2)}
+            </span>
           </div>
         </div>
       </div>
@@ -151,20 +232,60 @@ export function VentaDetalle({ venta }: Props) {
               className="flex items-center justify-between p-3 rounded-xl"
               style={{ backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB' }}
             >
-              <span className="text-sm font-semibold" style={{ color: '#374151' }}>
-                {METODO_LABELS[pago.metodo_pago] ?? pago.metodo_pago}
-              </span>
-              {pago.referencia && (
-                <span className="text-xs" style={{ color: '#9CA3AF' }}>
-                  {pago.referencia}
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold" style={{ color: '#374151' }}>
+                  {METODO_LABELS[pago.metodo_pago] ?? pago.metodo_pago}
                 </span>
-              )}
+                {pago.referencia && (
+                  <span className="text-xs" style={{ color: '#9CA3AF' }}>
+                    ref: {pago.referencia}
+                  </span>
+                )}
+              </div>
               <span className="text-sm font-bold" style={{ color: '#059669' }}>
                 {simboloMoneda(venta.moneda)} {pago.monto.toFixed(2)}
               </span>
             </div>
           ))}
         </div>
+
+        {/* Vuelto recomputado */}
+        {vuelto > 0 && (
+          <div className="mt-3 rounded-2xl p-4" style={{ backgroundColor: '#F0FDF4' }}>
+            <div className="flex justify-between text-lg font-bold" style={{ color: '#059669' }}>
+              <span>Vuelto</span>
+              <span>
+                {simboloMoneda(venta.moneda)} {vuelto.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Botones de acción */}
+        {!esAnulada && (
+          <div className="mt-4 space-y-2">
+            {puedeReimprimir && (
+              <button
+                onClick={handleReimprimir}
+                className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold"
+                style={{ backgroundColor: '#002D62', color: '#FFD700' }}
+              >
+                <Printer size={16} />
+                {esTicket ? 'Reimprimir ticket' : 'Imprimir / Reimprimir'}
+              </button>
+            )}
+            {puedeReimprimir && esBoletaFactura && !venta.sunat_hash && (
+              <p className="text-sm text-center" style={{ color: '#D97706' }}>
+                El comprobante se imprime sin QR hasta que SUNAT confirme la emisión.
+              </p>
+            )}
+            {esErrorSunat && (
+              <p className="text-sm text-center" style={{ color: '#DC2626' }}>
+                No hay documento legal disponible para esta venta.
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

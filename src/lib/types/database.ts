@@ -228,6 +228,7 @@ export interface Database {
           razon_social: string | null
           serie_boleta: string | null
           serie_factura: string | null
+          serie_ticket: string | null
         }
         Insert: {
           id?: string
@@ -243,6 +244,7 @@ export interface Database {
           razon_social?: string | null
           serie_boleta?: string | null
           serie_factura?: string | null
+          serie_ticket?: string | null
         }
         Update: {
           id?: string
@@ -258,6 +260,7 @@ export interface Database {
           razon_social?: string | null
           serie_boleta?: string | null
           serie_factura?: string | null
+          serie_ticket?: string | null
         }
       }
       ra_perfiles: {

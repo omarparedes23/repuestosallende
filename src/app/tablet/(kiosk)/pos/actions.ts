@@ -31,6 +31,20 @@ export type VentaResult = {
   id: string
   total: number
   tipoComprobante: RaTipoComprobante
+  moneda: RaMoneda
+  serie: string | null
+  correlativo: number | null
+  numero_completo: string | null
+  empresa: {
+    razon_social: string | null
+    ruc: string | null
+    direccion: string | null
+    telefono: string | null
+  }
+  sucursal: {
+    nombre: string
+    direccion: string | null
+  }
   avisoCredito: string | null
 }
 
@@ -115,7 +129,7 @@ export async function procesarVenta(
   const necesitaSunat = tipoComprobante === 'boleta' || tipoComprobante === 'factura'
   const tieneLineaCredito = pagos.some((p) => p.metodoPago === 'credito')
 
-  const [cajaRes, prodRes, empresaRes, clienteCreditoRes] = await Promise.all([
+  const [cajaRes, prodRes, empresaRes, sucursalRes, clienteCreditoRes] = await Promise.all([
     supabase
       .from('ra_cajas')
       .select('id')
@@ -134,8 +148,13 @@ export async function procesarVenta(
       .eq('activo', true),
     supabase
       .from('ra_empresas' as never)
-      .select('ruc, razon_social, serie_boleta, serie_factura')
+      .select('ruc, razon_social, direccion, telefono, serie_boleta, serie_factura, serie_ticket')
       .eq('id', perfil.empresa_id)
+      .single(),
+    supabase
+      .from('ra_sucursales')
+      .select('nombre, direccion')
+      .eq('id', sucursalId)
       .single(),
     tieneLineaCredito && clienteId
       ? supabase.from('ra_clientes').select('tiene_credito').eq('id', clienteId).single()
@@ -216,12 +235,18 @@ export async function procesarVenta(
     }
   }
 
-  // Determinar serie y correlativo si aplica SUNAT
+  // Determinar serie y correlativo para todo comprobante (ticket incluido)
   let serie: string | null = null
   let correlativo: number | null = null
 
-  if (necesitaSunat && empresa) {
-    serie = tipoComprobante === 'factura' ? (empresa.serie_factura ?? 'F001') : (empresa.serie_boleta ?? 'B001')
+  if (empresa) {
+    if (tipoComprobante === 'ticket') {
+      serie = empresa.serie_ticket ?? 'T001'
+    } else if (tipoComprobante === 'factura') {
+      serie = empresa.serie_factura ?? 'F001'
+    } else {
+      serie = empresa.serie_boleta ?? 'B001'
+    }
     const { data: corrData } = await supabase
       .rpc('ra_siguiente_correlativo', { p_empresa_id: perfil.empresa_id, p_serie: serie })
     correlativo = corrData as number
@@ -244,7 +269,7 @@ export async function procesarVenta(
       tipo_cambio: moneda === 'USD' ? tipoCambio : null,
       ...(serie && correlativo ? { serie, correlativo } : {}),
     } as never)
-    .select('id, total, tipo_comprobante')
+    .select('id, total, tipo_comprobante, moneda, serie, correlativo, numero_completo')
     .single()
 
   if (ventaError || !venta) return { data: null, error: 'Error al registrar la venta' }
@@ -426,6 +451,20 @@ export async function procesarVenta(
       id: venta.id,
       total: venta.total,
       tipoComprobante: venta.tipo_comprobante as RaTipoComprobante,
+      moneda: venta.moneda as RaMoneda,
+      serie: venta.serie,
+      correlativo: venta.correlativo,
+      numero_completo: venta.numero_completo,
+      empresa: {
+        razon_social: empresa?.razon_social ?? null,
+        ruc: empresa?.ruc ?? null,
+        direccion: empresa?.direccion ?? null,
+        telefono: empresa?.telefono ?? null,
+      },
+      sucursal: {
+        nombre: sucursalRes?.data?.nombre ?? 'Principal',
+        direccion: sucursalRes?.data?.direccion ?? null,
+      },
       avisoCredito,
     },
     error: null,

@@ -55,4 +55,31 @@ describe('VentaInputSchema — moneda/tipoCambio', () => {
     const result = VentaInputSchema.safeParse(inputBase())
     expect(result.success).toBe(true)
   })
+
+  it('yape con referencia pasa el schema', () => {
+    const result = VentaInputSchema.safeParse(
+      inputBase({
+        pagos: [{ metodoPago: 'yape', monto: 200, referencia: '987654321' }],
+      })
+    )
+    expect(result.success).toBe(true)
+  })
+
+  it('transferencia con referencia pasa el schema', () => {
+    const result = VentaInputSchema.safeParse(
+      inputBase({
+        pagos: [{ metodoPago: 'transferencia', monto: 150, referencia: 'OP-001' }],
+      })
+    )
+    expect(result.success).toBe(true)
+  })
+
+  it('efectivo sin referencia pasa el schema (referencia opcional)', () => {
+    const result = VentaInputSchema.safeParse(
+      inputBase({
+        pagos: [{ metodoPago: 'efectivo', monto: 100 }],
+      })
+    )
+    expect(result.success).toBe(true)
+  })
 })

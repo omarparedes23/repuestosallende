@@ -4,13 +4,17 @@ import { useState, useTransition, useEffect, useMemo } from 'react'
 import { Plus, Minus, Trash2, CheckCircle, Search, UserCheck, UserX, X, AlertTriangle } from 'lucide-react'
 import { FormDialog } from '@/app/tablet/components/shared/FormDialog'
 import { usePosStore, type CartItem } from '@/app/tablet/stores/posStore'
-import { procesarVenta } from '../actions'
+import { procesarVenta, type VentaResult } from '../actions'
 import { buscarClientes } from '../../clientes/actions'
 import type { ClienteResumen } from '../../clientes/actions'
+import { getVentaDetalle } from '../../ventas/actions'
+import type { VentaDetalle as VentaDetalleType } from '../../ventas/actions'
 import { calcularTotalesVenta } from '@/lib/calc/totales'
 import type { RaMetodoPago, RaMoneda, RaTipoComprobante } from '@/lib/types/database'
 import { simboloMoneda } from '@/lib/calc/moneda'
 import { MonedaSelector } from './MonedaSelector'
+import type { TicketReceiptData } from '@/app/tablet/components/ticket/TicketReceipt'
+import { TicketPrintPortal } from '@/app/tablet/components/ticket/TicketPrintPortal'
 import { Decimal } from 'decimal.js'
 
 const METODOS: { value: RaMetodoPago; label: string }[] = [
@@ -34,6 +38,7 @@ type Props = {
 type LineaPago = {
   metodoPago: RaMetodoPago
   monto: string
+  referencia: string
 }
 
 // Precio de lista del ítem en la moneda dada — la referencia que nunca se edita.
@@ -46,7 +51,11 @@ export function PaymentSheet({ onClose }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [avisoCredito, setAvisoCredito] = useState<string | null>(null)
-  const [lineas, setLineas] = useState<LineaPago[]>([{ metodoPago: 'efectivo', monto: '' }])
+  const [ventaResultState, setVentaResultState] = useState<VentaResult | null>(null)
+  const [ventaDetalleState, setVentaDetalleState] = useState<VentaDetalleType | null>(null)
+  const [isPrinting, setIsPrinting] = useState(false)
+  const [showPrint, setShowPrint] = useState(false)
+  const [lineas, setLineas] = useState<LineaPago[]>([{ metodoPago: 'efectivo', monto: '', referencia: '' }])
   const [fechaVencimiento, setFechaVencimiento] = useState('')
   const [clienteQuery, setClienteQuery] = useState('')
   const [clienteResults, setClienteResults] = useState<ClienteResumen[]>([])
@@ -112,7 +121,7 @@ export function PaymentSheet({ onClose }: Props) {
   // Resync first linea cuando cambia el total (comprobante, moneda o precios editados cambian el monto a cobrar)
   useEffect(() => {
     if (!totales) return
-    setLineas([{ metodoPago: 'efectivo', monto: totales.total.toFixed(2) }])
+    setLineas([{ metodoPago: 'efectivo', monto: totales.total.toFixed(2), referencia: '' }])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totales?.total])
 
@@ -150,7 +159,7 @@ export function PaymentSheet({ onClose }: Props) {
     cliente.saldo_deudor + montoLineaCredito > cliente.limite_credito
 
   const addLinea = () =>
-    setLineas((prev) => [...prev, { metodoPago: 'efectivo', monto: '' }])
+    setLineas((prev) => [...prev, { metodoPago: 'efectivo', monto: '', referencia: '' }])
 
   const removeLinea = (idx: number) =>
     setLineas((prev) => prev.filter((_, i) => i !== idx))
@@ -176,7 +185,11 @@ export function PaymentSheet({ onClose }: Props) {
     setError(null)
     startTransition(async () => {
       const pagosValidos = lineas
-        .map((l) => ({ metodoPago: l.metodoPago, monto: parseFloat(l.monto) || 0 }))
+        .map((l) => ({
+          metodoPago: l.metodoPago,
+          monto: parseFloat(l.monto) || 0,
+          referencia: l.referencia.trim() || undefined,
+        }))
         .filter((p) => p.monto > 0)
 
       const result = await procesarVenta({
@@ -202,13 +215,8 @@ export function PaymentSheet({ onClose }: Props) {
       setSuccess(true)
       const aviso = result.data?.avisoCredito ?? null
       setAvisoCredito(aviso)
-      // Si hubo un aviso (ej. fallo registrando el crédito), no cerramos solo —
-      // el cajero tiene que leerlo y cerrar a mano.
-      if (!aviso) {
-        setTimeout(() => {
-          resetPosState()
-          onClose()
-        }, 2000)
+      if (result.data) {
+        setVentaResultState(result.data)
       }
     })
   }
@@ -218,43 +226,161 @@ export function PaymentSheet({ onClose }: Props) {
     onClose()
   }
 
+  const handleImprimir = () => {
+    setShowPrint(true)
+  }
+
+  const handleImprimirBoletaFactura = async () => {
+    if (!ventaResultState) return
+    setIsPrinting(true)
+    try {
+      const { data } = await getVentaDetalle(ventaResultState.id)
+      if (data) setVentaDetalleState(data)
+    } finally {
+      setIsPrinting(false)
+    }
+    setShowPrint(true)
+  }
+
+  const handleCerrarPrint = () => {
+    setShowPrint(false)
+  }
+
   if (success && totales) {
+    const ticketData: TicketReceiptData | null = ventaResultState
+      ? {
+          width: 80,
+          tipoComprobante,
+          empresa: {
+            razonSocial: ventaResultState.empresa.razon_social ?? ventaResultState.empresa.ruc ?? '',
+            ruc: ventaResultState.empresa.ruc ?? '',
+            direccion: ventaResultState.empresa.direccion ?? '',
+            telefono: ventaResultState.empresa.telefono ?? '',
+          },
+          sucursal: {
+            nombre: ventaResultState.sucursal.nombre,
+            direccion: ventaResultState.sucursal.direccion ?? '',
+          },
+          numeroCompleto: ventaResultState.numero_completo ?? '',
+          serie: ventaResultState.serie,
+          correlativo: ventaResultState.correlativo,
+          fecha: new Date(),
+          moneda: ventaResultState.moneda,
+          simbolo,
+          tipoCambio,
+          items: totales.items.map((i) => ({
+            nombre: i.nombre,
+            cantidad: i.cantidad,
+            precioUnitario: i.precioUnitario,
+            descuento: i.descuento,
+            subtotal: i.subtotal,
+          })),
+          subtotal: totales.subtotal,
+          igv: totales.igv,
+          total: totales.total,
+          pagos: lineas
+            .filter((l) => (parseFloat(l.monto) || 0) > 0)
+            .map((l) => ({
+              metodoPago: l.metodoPago,
+              monto: parseFloat(l.monto) || 0,
+              referencia: l.referencia.trim() || null,
+            })),
+          vuelto: vuelto.toNumber(),
+          cliente: cliente
+            ? {
+                nombre: cliente.nombre,
+                tipoDocumento: cliente.tipo_documento ?? '',
+                nroDocumento: cliente.nro_documento ?? '',
+              }
+            : undefined,
+          sunatHash: ventaDetalleState?.sunat_hash ?? null,
+        }
+      : null
+
     return (
       <div
         className="fixed inset-0 z-50 flex items-center justify-center"
         style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
       >
-        <div
-          className="flex flex-col items-center gap-4 p-10 rounded-3xl"
-          style={{ backgroundColor: '#FFFFFF' }}
-        >
-          <CheckCircle size={64} style={{ color: '#059669' }} />
-          <h2 className="text-2xl font-bold" style={{ color: '#111827' }}>
-            Venta registrada
-          </h2>
-          <p className="text-lg font-semibold" style={{ color: '#002D62' }}>
-            Total: {simbolo} {totales.total.toFixed(2)}
-          </p>
-          {avisoCredito && (
-            <>
-              <div
-                className="flex items-start gap-2 rounded-xl px-4 py-3 text-sm font-medium"
-                style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}
-                role="alert"
-              >
-                <AlertTriangle size={18} className="shrink-0 mt-0.5" />
-                <span>{avisoCredito}</span>
-              </div>
-              <button
-                onClick={handleCerrarConAviso}
-                className="px-6 py-3 rounded-xl text-sm font-bold"
-                style={{ backgroundColor: '#002D62', color: '#FFD700' }}
-              >
-                Entendido, cerrar
-              </button>
-            </>
-          )}
-        </div>
+        {showPrint && ticketData ? (
+          <TicketPrintPortal data={ticketData} onClose={handleCerrarPrint} />
+        ) : (
+          <div
+            className="flex flex-col items-center gap-4 p-10 rounded-3xl"
+            style={{ backgroundColor: '#FFFFFF' }}
+          >
+            <CheckCircle size={64} style={{ color: '#059669' }} />
+            <h2 className="text-2xl font-bold" style={{ color: '#111827' }}>
+              Venta registrada
+            </h2>
+            <p className="text-lg font-semibold" style={{ color: '#002D62' }}>
+              Total: {simbolo} {totales.total.toFixed(2)}
+            </p>
+            {avisoCredito ? (
+              <>
+                <div
+                  className="flex items-start gap-2 rounded-xl px-4 py-3 text-sm font-medium"
+                  style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}
+                  role="alert"
+                >
+                  <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                  <span>{avisoCredito}</span>
+                </div>
+                <button
+                  onClick={handleCerrarConAviso}
+                  className="px-6 py-3 rounded-xl text-sm font-bold"
+                  style={{ backgroundColor: '#002D62', color: '#FFD700' }}
+                >
+                  Entendido, cerrar
+                </button>
+              </>
+            ) : (
+              <>
+                {tipoComprobante === 'ticket' ? (
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleImprimir}
+                      className="px-6 py-3 rounded-xl text-sm font-bold"
+                      style={{ backgroundColor: '#002D62', color: '#FFD700' }}
+                    >
+                      Imprimir
+                    </button>
+                    <button
+                      onClick={handleCerrarConAviso}
+                      className="px-6 py-3 rounded-xl text-sm font-bold border-2"
+                      style={{ borderColor: '#002D62', color: '#002D62' }}
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleImprimirBoletaFactura}
+                        disabled={isPrinting}
+                        className="px-6 py-3 rounded-xl text-sm font-bold disabled:opacity-60"
+                        style={{ backgroundColor: '#002D62', color: '#FFD700' }}
+                      >
+                        {isPrinting ? 'Cargando...' : 'Imprimir'}
+                      </button>
+                      <button
+                        onClick={handleCerrarConAviso}
+                        className="px-6 py-3 rounded-xl text-sm font-bold border-2"
+                        style={{ borderColor: '#002D62', color: '#002D62' }}
+                      >
+                        Cerrar
+                      </button>
+                    </div>
+                    <p className="text-sm text-center" style={{ color: '#6B7280', maxWidth: 280 }}>
+                      El documento legal se emite vía SUNAT. Si el QR aún no aparece, vuelve a imprimir desde el detalle de la venta.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
     )
   }
@@ -451,38 +577,50 @@ export function PaymentSheet({ onClose }: Props) {
               Métodos de pago
             </p>
             {lineas.map((linea, idx) => (
-              <div key={idx} className="flex gap-2 items-center">
-                <select
-                  value={linea.metodoPago}
-                  onChange={(e) => updateLinea(idx, 'metodoPago', e.target.value)}
-                  className="flex-1 rounded-xl border-2 px-3 py-3 text-sm outline-none"
-                  style={{ borderColor: '#D1D5DB' }}
-                >
-                  {METODOS.map(({ value, label }) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={linea.monto}
-                  onChange={(e) => updateLinea(idx, 'monto', e.target.value)}
-                  placeholder="0.00"
-                  className="w-32 rounded-xl border-2 px-3 py-3 text-sm font-bold outline-none"
-                  style={{ borderColor: '#D1D5DB' }}
-                />
-                {lineas.length > 1 && (
-                  <button
-                    onClick={() => removeLinea(idx)}
-                    className="p-2 rounded-xl"
-                    style={{ color: '#DC2626' }}
-                    aria-label="Eliminar línea"
+              <div key={idx} className="space-y-2">
+                <div className="flex gap-2 items-center">
+                  <select
+                    value={linea.metodoPago}
+                    onChange={(e) => updateLinea(idx, 'metodoPago', e.target.value)}
+                    className="flex-1 rounded-xl border-2 px-3 py-3 text-sm outline-none"
+                    style={{ borderColor: '#D1D5DB' }}
                   >
-                    <Trash2 size={16} />
-                  </button>
+                    {METODOS.map(({ value, label }) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={linea.monto}
+                    onChange={(e) => updateLinea(idx, 'monto', e.target.value)}
+                    placeholder="0.00"
+                    className="w-32 rounded-xl border-2 px-3 py-3 text-sm font-bold outline-none"
+                    style={{ borderColor: '#D1D5DB' }}
+                  />
+                  {lineas.length > 1 && (
+                    <button
+                      onClick={() => removeLinea(idx)}
+                      className="p-2 rounded-xl"
+                      style={{ color: '#DC2626' }}
+                      aria-label="Eliminar línea"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+                {(linea.metodoPago === 'yape' || linea.metodoPago === 'transferencia') && (
+                  <input
+                    type="text"
+                    value={linea.referencia}
+                    onChange={(e) => updateLinea(idx, 'referencia', e.target.value)}
+                    placeholder="N° de operación"
+                    className="w-full rounded-xl border-2 px-3 py-2 text-sm outline-none"
+                    style={{ borderColor: '#D1D5DB' }}
+                  />
                 )}
               </div>
             ))}
