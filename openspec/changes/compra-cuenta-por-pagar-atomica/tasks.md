@@ -175,12 +175,21 @@
 
 ## Fase 6 — Verificación y rollout
 
-- [ ] 6.1 `npm test` completo en verde; conteos registrados.
-- [ ] 6.2 Advisors de seguridad/rendimiento sobre objetos nuevos (RLS, grants, search_path,
+- [x] 6.1 `npm test` completo en verde; conteos registrados.
+       (2026-08-23: 11 archivos, 88/88 PASS, 0 fallos.)
+- [x] 6.2 Advisors de seguridad/rendimiento sobre objetos nuevos (RLS, grants, search_path,
        índices, exposición de RPCs).
-- [ ] 6.3 Checklist operativo: actualizar/crear sección en operations-style si aplica
+       (Verificación read-only con `compra-atomica-fase6-verificacion.sql`: ledger/columnas/
+       índices únicos/RLS/grants/SECURITY DEFINER+search_path/044 sin hallazgos del change;
+       7 funciones DEFINER sin search_path fijado son baseline preexistente; cero tablas
+       expuestas sin RLS.)
+- [x] 6.3 Checklist operativo: actualizar/crear sección en operations-style si aplica
        (no hereda scheduler del change anterior).
-- [ ] 6.4 Crear `verify-report.md` con veredicto, desviaciones del design y riesgos residuales.
+       (Creado `operations.md`: preflight P0, orden P1, verificación P2, corte UI P3,
+       rollback forward-only, riesgos separados.)
+- [x] 6.4 Crear `verify-report.md` con veredicto, desviaciones del design y riesgos residuales.
+       (VEREDICTO FINAL DEL CHANGE: PASS. Riesgos separados: residuo S9, 038–040 untracked
+       en Git, baselines tsc/lint ajenos, 7 funciones DEFINER legacy.)
 
 ## Dependencias y puertas
 

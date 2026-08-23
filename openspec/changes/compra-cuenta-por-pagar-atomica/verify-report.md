@@ -302,3 +302,65 @@ Evidencia principal:
 
 - Fase 6 (npm test completo, advisors, checklist operativo, verificación final): PENDIENTE,
   requiere autorización explícita del propietario.
+
+---
+
+# Fase 6 — Verificación final y rollout (2026-08-23)
+
+## VEREDICTO FINAL DEL CHANGE: PASS
+
+Todas las fases (0–6) ejecutadas con evidencia verificable. El change está completo en
+Supabase TEST y listo para el checklist de despliegue a producción (operations.md).
+
+## Evidencia Fase 6
+
+| # | Requisito | Resultado | Detalle |
+|---|---|---|---|
+| 1 | npm test completo | **PASS** | 11 archivos, 88/88 pruebas, 0 fallos (6.62s) |
+| 2 | Lint focal | **PASS con nota** | 8 archivos del change: 0 errores. 2 errores ny detectados pertenecen a compras/[id]/page.tsx — baseline preexistente (commit 949104a), archivo no tocado por este change |
+| 2b | git diff --check | **PASS** | EXIT 0 |
+| 3 | tsc --noEmit | **PASS con riesgo separado** | Exactamente 1 error: ClienteFormSheet.tsx:113 (baseline ajeno conocido, change de clientes). Cero errores atribuibles a compras/venta/OSE |
+| 4 | Advisors-equivalentes read-only sobre 041–044 | **PASS** | supabase/tests/compra-atomica-fase6-verificacion.sql, sin escrituras |
+
+## Contratos verificados en Supabase TEST (read-only)
+
+1. **Ledger**: 041, 042, 043, 044 registradas.
+2. **Columnas 041**: operation_id, request_hash, tipo_documento (NOT NULL), nro_doc_norm,
+   total_pen presentes en ra_compras.
+3. **Índices únicos**: idx_compras_operation_id (unique=true) y
+   uq_compras_factura_proveedor (unique=true).
+4. **RLS**: habilitado en las 6 tablas del perímetro, con políticas activas
+   (ra_auditoria_estado_pago_compras: 1; ra_compras: 2).
+5. **Grants**: cero grants a anon/PUBLIC sobre la tabla de auditoría nueva.
+6. **RPCs**: ra_confirmar_compra / ra_obtener_resultado_compra /
+   ra_recalcular_estado_pago con SECURITY DEFINER y search_path fijado
+   (public, pg_temp). EXECUTE revocado a anon en todas; authenticated solo donde corresponde;
+   helpers internos (ra_error_compra, ra_sync_estado_pago_compras) sin EXECUTE directo.
+7. **044**: comentario DEPRECATED presente sobre la firma exacta de ra_registrar_compra.
+8. **Advisor search_path**: 7 funciones SECURITY DEFINER sin search_path fijado — todas
+   PREEXISTENTES (ajustar_producto_stock, crm_*, etc.); ninguna pertenece a 041–044.
+9. **Advisor RLS**: cero tablas expuestas a anon/authenticated sin RLS.
+
+## Matriz requisito → prueba → evidencia
+
+La matriz completa por fase está en las secciones previas de este informe:
+Fase 5 (11 escenarios autorizados), Fase 4 (49/49 + 88/88), Fases 0–3 (suites RPC/schema/
+preflight/043/concurrencia SCN1–SCN5) y la tabla de contratos de esta sección.
+
+## Riesgos documentados (separados, no bloqueantes)
+
+1. **Residuo auditado S9 (TEST)**: compra 3feb8e17-00ba-4763-98c5-8e7c50fcb0d5 + cadena es
+   permanente por diseño (auditoría append-only RA_AUDIT_IMMUTABLE + FK RESTRICT).
+   Aceptado por el propietario; no replicable en producción salvo reparaciones reales.
+2. **038–040 sin versionar en Git**: las migraciones del change venta-transaccional-idempotente
+   permanecen untracked; deben incorporarse al repositorio en su propio commit/change para
+   trazabilidad completa del ledger.
+3. **Baseline ajeno**: tsc falla por ClienteFormSheet.tsx:113 (clientes); deuda lint ny
+   global. Fuera de alcance de este change.
+4. **7 funciones SECURITY DEFINER preexistentes sin search_path fijado**: hallazgo de advisor,
+   fuera del alcance de este change; candidatas a hardening forward-only futuro.
+
+## Checklist operativo
+
+Despliegue futuro a producción: operations.md (preflight P0, orden de migraciones P1,
+verificación post-aplicación P2, corte UI P3, rollback operativo forward-only).

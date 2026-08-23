@@ -2,6 +2,15 @@
 
 Fecha de corte: 2026-08-23.
 
+## Estado final del change: COMPLETADO — VEREDICTO PASS
+
+Fases 0–6 completadas con evidencia verificable (ver `verify-report.md` y `operations.md`).
+El commit local de Fase 5 es 8665bc2; Fase 6 añade verificación final, checklist operativo
+(`operations.md`) y script de contratos (`supabase/tests/compra-atomica-fase6-verificacion.sql`).
+
+Siguiente paso natural cuando el propietario lo decida: ejecutar el checklist de
+`operations.md` contra PRODUCCIÓN (preflight P0 primero, nunca saltarlo).
+
 ## Estado confirmado
 
 - Fases 0–3 completadas y verificadas contra Supabase TEST.
