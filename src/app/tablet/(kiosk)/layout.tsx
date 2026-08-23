@@ -37,7 +37,7 @@ export default async function KioskLayout({ children }: { children: React.ReactN
 
   return (
     <div className="flex flex-col h-screen">
-      <SessionHydrator cajaId={caja.id} />
+      <SessionHydrator cajaId={caja.id} userId={user.id} empresaId={perfil.empresa_id} />
       <main className="flex-1 overflow-hidden">{children}</main>
       <TabBar rol={perfil.rol} />
     </div>

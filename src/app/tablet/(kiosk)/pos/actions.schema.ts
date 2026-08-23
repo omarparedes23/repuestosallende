@@ -2,13 +2,14 @@ import { z } from 'zod'
 
 export const VentaInputSchema = z
   .object({
+    operationId: z.string().uuid({ error: 'Identificador de operación inválido' }),
     tipoComprobante: z.enum(['ticket', 'boleta', 'factura']),
     clienteId: z.string().min(1).nullable().optional(),
     items: z
       .array(
         z.object({
           productoId: z.string().min(1),
-          catalogoId: z.string().min(1),
+          catalogoId: z.string().min(1).optional(),
           cantidad: z.number().positive(),
           descuento: z.number().min(0),
         })

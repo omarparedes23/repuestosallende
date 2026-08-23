@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect, useMemo } from 'react'
 import { Plus, Minus, Trash2, CheckCircle, Search, UserCheck, UserX, X, AlertTriangle } from 'lucide-react'
 import { FormDialog } from '@/app/tablet/components/shared/FormDialog'
 import { usePosStore, type CartItem } from '@/app/tablet/stores/posStore'
-import { procesarVenta, type VentaResult } from '../actions'
+import { consultarResultadoVenta, procesarVenta, type VentaResult } from '../actions'
 import { buscarClientes } from '../../clientes/actions'
 import type { ClienteResumen } from '../../clientes/actions'
 import { getVentaDetalle } from '../../ventas/actions'
@@ -16,6 +16,13 @@ import { MonedaSelector } from './MonedaSelector'
 import type { TicketReceiptData } from '@/app/tablet/components/ticket/TicketReceipt'
 import { TicketPrintPortal } from '@/app/tablet/components/ticket/TicketPrintPortal'
 import { Decimal } from 'decimal.js'
+import {
+  clearPendingSale,
+  loadPendingSale,
+  markPendingSaleUnknown,
+  savePendingSale,
+  type PendingSaleAttemptV1,
+} from '@/lib/ventas/pendingSale'
 
 const METODOS: { value: RaMetodoPago; label: string }[] = [
   { value: 'efectivo', label: 'Efectivo' },
@@ -53,6 +60,7 @@ export function PaymentSheet({ onClose }: Props) {
   const [avisoCredito, setAvisoCredito] = useState<string | null>(null)
   const [ventaResultState, setVentaResultState] = useState<VentaResult | null>(null)
   const [ventaDetalleState, setVentaDetalleState] = useState<VentaDetalleType | null>(null)
+  const [operationId, setOperationId] = useState(() => crypto.randomUUID())
   const [isPrinting, setIsPrinting] = useState(false)
   const [showPrint, setShowPrint] = useState(false)
   const [lineas, setLineas] = useState<LineaPago[]>([{ metodoPago: 'efectivo', monto: '', referencia: '' }])
@@ -84,6 +92,22 @@ export function PaymentSheet({ onClose }: Props) {
   const items = usePosStore((s) => s.items)
   const updateCantidad = usePosStore((s) => s.updateCantidad)
   const resetPosState = usePosStore((s) => s.resetPosState)
+  const userId = usePosStore((s) => s.userId)
+  const empresaId = usePosStore((s) => s.empresaId)
+
+  useEffect(() => {
+    if (!userId || !empresaId) return
+    const pending = loadPendingSale(userId, empresaId)
+    if (!pending) return
+    void Promise.resolve().then(() => setOperationId(pending.operationId))
+    void consultarResultadoVenta(pending.operationId).then((result) => {
+      if (!result.data) return
+      setVentaResultState(result.data)
+      setAvisoCredito(result.data.avisoCredito)
+      setSuccess(true)
+      clearPendingSale(userId, empresaId)
+    })
+  }, [userId, empresaId])
   const cliente = usePosStore((s) => s.cliente)
   const setCliente = usePosStore((s) => s.setCliente)
   const simbolo = simboloMoneda(moneda)
@@ -192,7 +216,8 @@ export function PaymentSheet({ onClose }: Props) {
         }))
         .filter((p) => p.monto > 0)
 
-      const result = await procesarVenta({
+      const payload = {
+        operationId,
         tipoComprobante,
         clienteId: cliente?.id ?? null,
         items: itemsConDescuento.map((i) => ({
@@ -205,12 +230,25 @@ export function PaymentSheet({ onClose }: Props) {
         moneda,
         tipoCambio: moneda === 'USD' ? tipoCambio : null,
         fechaVencimiento: tieneLineaCredito ? fechaVencimiento || null : null,
-      })
+      }
+      const attempt: PendingSaleAttemptV1<typeof payload> | null = userId && empresaId
+        ? { version: 1, operationId, userId, empresaId, createdAt: new Date().toISOString(), payload, state: 'sending' }
+        : null
+      if (attempt) savePendingSale(attempt)
+      const result = await procesarVenta(payload)
 
       if (result.error) {
+        if (attempt && result.error.includes('Conservamos el intento')) {
+          markPendingSaleUnknown(attempt)
+        } else if (userId && empresaId) {
+          clearPendingSale(userId, empresaId)
+          setOperationId(crypto.randomUUID())
+        }
         setError(result.error)
         return
       }
+
+      if (userId && empresaId) clearPendingSale(userId, empresaId)
 
       setSuccess(true)
       const aviso = result.data?.avisoCredito ?? null

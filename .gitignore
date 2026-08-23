@@ -45,6 +45,7 @@ claude.md
 *.md
 !openspec/changes/compra-cuenta-por-pagar-atomica/*.md
 !openspec/changes/compra-cuenta-por-pagar-atomica/**/*.md
+!openspec/changes/venta-transaccional-idempotente/**/*.md
 
 # data migration (CSVs con datos sensibles)
 *.csv

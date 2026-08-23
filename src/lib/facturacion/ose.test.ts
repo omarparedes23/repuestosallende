@@ -53,4 +53,20 @@ describe('emitirComprobante — payload moneda/tipoCambio', () => {
     expect(body.moneda).toBe('PEN')
     expect(body.tipoCambio).toBeUndefined()
   })
+
+  it('envía la clave idempotente estable', async () => {
+    await emitirComprobante(inputBase(), 'venta-uuid')
+    const [, options] = fetchMock.mock.calls[0]
+    expect(options.headers['Idempotency-Key']).toBe('venta-uuid')
+  })
+
+  it('clasifica RESULTADO_INCIERTO sin habilitar reintento', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ estado: 'RESULTADO_INCIERTO' }) })
+    await expect(emitirComprobante(inputBase(), 'venta-uuid')).resolves.toMatchObject({ kind: 'uncertain', exito: false })
+  })
+
+  it('clasifica ERROR_REINTENTABLE como temporal', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 503, json: async () => ({ estado: 'ERROR_REINTENTABLE' }) })
+    await expect(emitirComprobante(inputBase(), 'venta-uuid')).resolves.toMatchObject({ kind: 'temporary_error', exito: false })
+  })
 })

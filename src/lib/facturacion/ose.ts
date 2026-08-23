@@ -35,6 +35,7 @@ export type OseComprobanteInput = {
 }
 
 export type OseComprobanteResult = {
+  kind: 'accepted' | 'submitted' | 'uncertain' | 'temporary_error' | 'rejected'
   exito: boolean
   sunat_aceptada?: boolean
   id_externo?: string
@@ -45,13 +46,14 @@ export type OseComprobanteResult = {
 }
 
 export async function emitirComprobante(
-  input: OseComprobanteInput
+  input: OseComprobanteInput,
+  idempotencyKey?: string
 ): Promise<OseComprobanteResult> {
   const url = process.env.OSE_SUNAT_URL
   const apiKey = process.env.OSE_SUNAT_API_KEY
 
   if (!url || !apiKey) {
-    return { exito: false, error: 'OSE_SUNAT no configurado' }
+    return { kind: 'temporary_error', exito: false, error: 'OSE_SUNAT no configurado' }
   }
 
   const sinCliente = !input.cliente.nroDocumento
@@ -104,36 +106,44 @@ export async function emitirComprobante(
       headers: {
         'Content-Type': 'application/json',
         'X-Api-Key': apiKey,
+        ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
       },
       body: JSON.stringify(payload),
     })
 
-    if (!res.ok) {
-      const text = await res.text()
-      console.error('[OSE-SUNAT] HTTP error:', res.status, text)
-      return { exito: false, error: `HTTP ${res.status}` }
-    }
-
-    const json = await res.json()
+    const json = await res.json().catch(() => ({}))
     const estado: string = json.estado ?? ''
-    const exito = estado === 'EMITIDA' || estado === 'PENDIENTE'
-
-    if (!exito) {
-      const msg = json.errorMensaje ?? json.detail ?? estado ?? 'Error desconocido'
-      console.error('[OSE-SUNAT] Rechazado:', msg)
-      return { exito: false, error: msg }
-    }
+    const common = { id_externo: json.id, pdf_url: json.pdfUrl, xml_url: json.xmlUrl, hash: json.sunatHash }
+    if (estado === 'EMITIDA') return { kind: 'accepted', exito: true, sunat_aceptada: true, ...common }
+    if (estado === 'RESERVADO' || estado === 'ENVIANDO' || res.status === 202)
+      return { kind: 'submitted', exito: true, sunat_aceptada: false, ...common }
+    if (estado === 'RESULTADO_INCIERTO')
+      return { kind: 'uncertain', exito: false, error: json.errorMensaje ?? 'Resultado incierto; requiere reconciliación', ...common }
+    const message = json.errorMensaje ?? json.detail ?? json.code ?? `HTTP ${res.status}`
+    if (estado === 'ERROR_REINTENTABLE' || res.status === 503)
+      return { kind: 'temporary_error', exito: false, error: message, ...common }
+    if (estado === 'RECHAZADA' || res.status === 409 || res.status === 422 || (res.status >= 400 && res.status < 500))
+      return { kind: 'rejected', exito: false, error: message, ...common }
+    if (!res.ok) return { kind: 'temporary_error', exito: false, error: message, ...common }
 
     return {
-      exito: true,
-      sunat_aceptada: estado === 'EMITIDA',
-      id_externo: json.id,
-      pdf_url: json.pdfUrl,
-      xml_url: json.xmlUrl,
-      hash: json.sunatHash,
+      kind: 'uncertain', exito: false, error: `Estado OSE no reconocido: ${estado || 'vacío'}`, ...common,
     }
   } catch (err) {
     console.error('[OSE-SUNAT] Error de red:', err)
-    return { exito: false, error: 'Error de red al conectar con OSE-SUNAT' }
+    return { kind: 'uncertain', exito: false, error: 'Error de red al conectar con OSE-SUNAT' }
   }
+}
+
+export async function consultarComprobantePorNumero(tipo: 'BOLETA' | 'FACTURA', serie: string, correlativo: number) {
+  const url = process.env.OSE_SUNAT_URL
+  const apiKey = process.env.OSE_SUNAT_API_KEY
+  if (!url || !apiKey) return null
+  const query = new URLSearchParams({ tipo, serie, correlativo: String(correlativo) })
+  const response = await fetch(`${url}/api/v1/comprobantes/por-numero?${query}`, {
+    headers: { 'X-Api-Key': apiKey }, cache: 'no-store',
+  })
+  if (response.status === 404) return null
+  if (!response.ok) throw new Error(`OSE lookup HTTP ${response.status}`)
+  return response.json()
 }

@@ -3,6 +3,7 @@ import { VentaInputSchema } from './actions.schema'
 
 function inputBase(overrides: Record<string, unknown> = {}) {
   return {
+    operationId: '11111111-1111-4111-8111-111111111111',
     tipoComprobante: 'ticket',
     clienteId: null,
     items: [{ productoId: 'p1', catalogoId: 'c1', cantidad: 1, descuento: 0 }],
@@ -14,6 +15,9 @@ function inputBase(overrides: Record<string, unknown> = {}) {
 }
 
 describe('VentaInputSchema — moneda/tipoCambio', () => {
+  it('exige un operationId UUID', () => {
+    expect(VentaInputSchema.safeParse(inputBase({ operationId: 'no-uuid' })).success).toBe(false)
+  })
   it('USD sin tipoCambio falla', () => {
     const result = VentaInputSchema.safeParse(
       inputBase({ moneda: 'USD', tipoCambio: null })

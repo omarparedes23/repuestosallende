@@ -33,12 +33,15 @@ export type ClienteSnapshot = {
 
 interface PosState {
   cajaId: string | null
+  userId: string | null
+  empresaId: string | null
   cliente: ClienteSnapshot | null
   tipoComprobante: RaTipoComprobante
   items: CartItem[]
   pagos: PagoInput[]
 
   setCajaId: (id: string | null) => void
+  setSessionScope: (userId: string, empresaId: string) => void
   setCliente: (cliente: ClienteSnapshot | null) => void
   setTipoComprobante: (tipo: RaTipoComprobante) => void
   setPagos: (pagos: PagoInput[]) => void
@@ -58,12 +61,15 @@ interface PosState {
 
 export const usePosStore = create<PosState>()((set, get) => ({
   cajaId: null,
+  userId: null,
+  empresaId: null,
   cliente: null,
   tipoComprobante: 'ticket',
   items: [],
   pagos: [],
 
   setCajaId: (id) => set({ cajaId: id }),
+  setSessionScope: (userId, empresaId) => set({ userId, empresaId }),
   setCliente: (cliente) => set({ cliente }),
   setTipoComprobante: (tipo) => set({ tipoComprobante: tipo }),
   setPagos: (pagos) => set({ pagos }),

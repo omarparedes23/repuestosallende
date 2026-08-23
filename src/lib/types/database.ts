@@ -739,6 +739,9 @@ export interface Database {
           xml_url: string | null
           moneda: RaMoneda
           tipo_cambio: number | null
+          operation_id: string | null
+          request_hash: string | null
+          credit_limit_exceeded: boolean | null
           created_at: string
           updated_at: string
         }
@@ -761,6 +764,9 @@ export interface Database {
           sunat_estado?: string | null
           moneda?: RaMoneda
           tipo_cambio?: number | null
+          operation_id?: string | null
+          request_hash?: string | null
+          credit_limit_exceeded?: boolean | null
           created_at?: string
           updated_at?: string
         }
@@ -786,6 +792,9 @@ export interface Database {
           xml_url?: string | null
           moneda?: RaMoneda
           tipo_cambio?: number | null
+          operation_id?: string | null
+          request_hash?: string | null
+          credit_limit_exceeded?: boolean | null
           created_at?: string
           updated_at?: string
         }
