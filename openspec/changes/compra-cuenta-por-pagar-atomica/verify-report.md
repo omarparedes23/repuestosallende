@@ -244,3 +244,61 @@ no iniciar Fase 5 ni limpiar fixtures.
 - Migraciones aplicadas y registradas: 041, 042, 043, 044.
 - Fase 5 (E2E autenticada contra TEST): PENDIENTE de autorización separada del propietario.
 - Limpieza de fixtures TEST: NO realizada (fuera de alcance autorizado).
+
+---
+
+# Fase 5 — Suite autenticada E2E contra Supabase TEST (2026-08-23)
+
+## Veredicto
+
+**PASS.** Los 11 escenarios autorizados ejecutados con efectos reales COMMITADOS contra
+Supabase TEST (misma base del proyecto, sin DDL de negocio, fixtures etiquetados).
+
+Evidencia principal:
+- Suite E2E: supabase/tests/compra-atomica-e2e-fase5.test.sql, RUN_ID
+  edf1090b9e324f5abe08c54c672535b9 (S0–S9, todos NOTICE OK).
+- Concurrencia real: compra-atomica-fase5-conc-runner.ps1 +
+  compra-atomica-fase5-conc.test.sql, RUN_ID 7d040885d7584f2eac6bd159e44a185a.
+- Limpieza: compra-atomica-fase5-cleanup.sql.
+
+## Matriz requisito → escenario → evidencia
+
+| Requisito autorizado | Escenario | Evidencia |
+|---|---|---|
+| Éxito integral de compra | S1 | compra e64efd73 total 141.60 (subtotal 120 + IGV 21.60), 2 items, 2 kardex entrada, cargo+abono CxP, stock exacto (+2/+1), costeo promedio ponderado exacto ROUND((sa*pa+q*pp)/(sa+q),2), saldo proveedor neto intacto, estado pagado |
+| Replay idempotente | S2 | mismo operation_id con items en otro orden => replayed:true, misma compra e64efd73, cero efectos nuevos (hash canónico ordena items) |
+| Conflicto idempotente | S3 | mismo op payload distinto => RA_IDEMPOTENCY_CONFLICT, 0 compras residuales |
+| Timeout recovery found/not_found | S4 | ra_obtener_resultado_compra(op) => confirmed + id correcto; op inexistente => not_found; admin de otra empresa => not_found sin fuga |
+| Rollback total | S5 | trigger pg_temp inyectado en kardex: fallo propagado, cero efectos parciales intra-transacción y post-ROLLBACK; DDL transitorio revertido |
+| Concurrencia mismo operationId | F5-SCN1 | PIDs 4169462/4169463 solapados: una confirmed + una replayed:true, misma compra 2eb91670; 1 compra/2 movs/1 kardex |
+| Concurrencia orden inverso (deadlocks/stock) | F5-SCN2 | PIDs 4169468/4169469 solapados, ops distintos, productos en orden inverso: ambos OK sin deadlock, invariante stock_nuevo=stock_actual verificada |
+| Recepción parcial OC | S6 | L1 completa + L2 parcial mantiene OC 'confirmada' con cantidad_recibida 5/2; cierre final a 'recibida' (OC bdd5c305) |
+| Contado/crédito/abono parcial | S1+S7 | contado total=>pagado (S1); abono 40/118=>parcial con delta saldo proveedor +78 (S7); metodo credito como abono=>RA_PAYMENT_METHOD_INVALID sin efectos |
+| Proyección estado_pago | S9 | proyección ledger == almacenada en TODAS las compras del run; recalcular sobre compra consistente => changed:false; auditoría no-op registrada ('Auditoria SIEMPRE' de 043) |
+| Unicidad de factura | S8 | FACTURA duplicada normalizada=>RA_INVOICE_DUPLICATE; BOLETA mismo número permitida; NULL dos veces permitido (uq empresa+proveedor+tipo+nro_norm WHERE nro IS NOT NULL) |
+| Autorización y aislamiento cross-tenant | S3/S4/S7 + suite Fase 2 sección A | RA_UNAUTHENTICATED/RA_FORBIDDEN/RA_BRANCH_INVALID; resultado cross-tenant nunca filtra existencia |
+
+## Hallazgos de la fase
+
+1. **Auditoría append-only**: ra_auditoria_estado_pago_compras prohíbe DELETE
+   (RA_AUDIT_IMMUTABLE) y su FK a compras es ON DELETE RESTRICT. Consecuencia operativa:
+   toda compra con auditoría de reparación es permanente por diseño.
+2. **Auditoría también en no-op**: ra_recalcular_estado_pago registra auditoría incluso con
+   changed:false ("Auditoria SIEMPRE" en 043). Correcto para trazabilidad uniforme.
+3. **Pooler 6543 (modo transacción)** no retiene GUCs de sesión entre sentencias: los tests de
+   concurrencia requieren conexión directa 5432 o envolver setup+ejecución en una transacción.
+4. La suite E2E no es re-ejecutable con el mismo RUN_ID (operation_ids deterministas colisionan
+   con compras ya comprometidas => replay). Cada corrida exige RUN_ID fresco.
+
+## Limpieza de fixtures
+
+- Eliminadas 70 filas etiquetadas F5E2E (23 cxp, 20 kardex, 16 compras+items, 3 OC+items,
+  6 proveedores, 1 usuario, 1 empresa) sobre los 6 RUN_IDs de la sesión.
+- Residuo INTENCIONAL documentado (indeleble por diseño): compra auditada
+  3feb8e17-00ba-4763-98c5-8e7c50fcb0d5 (S7 crédito parcial) + 1 item + 1 kardex +
+  2 movimientos CxP + su proveedor + 1 auditoría.
+
+## Puertas siguientes
+
+- Fase 6 (npm test completo, advisors, checklist operativo, verificación final): PENDIENTE,
+  requiere autorización explícita del propietario.

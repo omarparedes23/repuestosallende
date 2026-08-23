@@ -49,6 +49,7 @@ claude.md
 # data migration (CSVs con datos sensibles)
 *.csv
 *.ps1
+!supabase/tests/compra-atomica-fase5-conc-runner.ps1
 *.bat
 sync_stock_checkpoint.json
 sync_stock.log

@@ -155,12 +155,23 @@
 
 ## Fase 5 — Pruebas autenticadas E2E contra TEST
 
-- [ ] 5.1 Suite autenticada completa (patrón del change de venta): éxito integral, replay,
+- [x] 5.1 Suite autenticada completa (patrón del change de venta): éxito integral, replay,
        conflicto, rollback, concurrencia doble (idempotencia + stock inverso), recepción parcial
        OC, unicidad de factura, contado/crédito, proyección estado_pago, autorización,
        timeout recovery (not_found/found). Evidencia SQL real por escenario.
-- [ ] 5.2 Documentar matriz requisito→prueba→evidencia en verify-report.md.
-- [ ] 5.3 Limpieza de fixtures TEST no referenciados; documentar los que se conservan por FK.
+       (EJECUTADA 2026-08-23 contra Supabase TEST, RUN_ID edf1090b9e324f5abe08c54c672535b9:
+       `compra-atomica-e2e-fase5.test.sql` S0–S9 todos OK con efectos COMMITADOS.
+       Concurrencia real con doble conexión: RUN_ID 7d040885d7584f2eac6bd159e44a185a,
+       SCN1 mismo op => una confirmed + una replayed:true misma compra
+       2eb91670-764f-4653-81f7-bb9fcc4430cc; SCN2 ops distintos orden inverso => ambos OK
+       sin deadlock, stock consistente. Matriz completa en verify-report.md.)
+- [x] 5.2 Documentar matriz requisito→prueba→evidencia en verify-report.md.
+- [x] 5.3 Limpieza de fixtures TEST no referenciados; documentar los que se conservan por FK.
+       (`compra-atomica-fase5-cleanup.sql` sobre 6 RUN_IDs de la sesión: 70 filas eliminadas.
+       Residuo INTENCIONAL documentado: la compra auditada por S9 es indeleble porque
+       ra_auditoria_estado_pago_compras es append-only (RA_AUDIT_IMMUTABLE) con FK RESTRICT:
+       compra 3feb8e17-00ba-4763-98c5-8e7c50fcb0d5 + 1 item + 1 kardex + 2 movimientos CxP +
+       su proveedor 'F5E2E:<run>:PROV' + 1 auditoría no-op.)
 
 ## Fase 6 — Verificación y rollout
 
