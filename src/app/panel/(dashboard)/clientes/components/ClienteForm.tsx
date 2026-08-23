@@ -1,9 +1,11 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useRef, useState, useTransition } from 'react'
 import { FormDialog } from '@/app/tablet/components/shared/FormDialog'
-import { upsertCliente } from '../actions'
+import { upsertCliente, consultarDocumento } from '../actions'
 import type { RaCliente } from '@/lib/types/database'
+
+const TIPO_DOC_CONSULTABLE = new Set(['DNI', 'RUC'])
 
 type Props = {
   open: boolean
@@ -13,6 +15,12 @@ type Props = {
 
 export function ClienteForm({ open, onClose, cliente }: Props) {
   const [tieneCredito, setTieneCredito] = useState(cliente?.tiene_credito ?? false)
+  const [nombre, setNombre] = useState(cliente?.nombre ?? '')
+  const [direccion, setDireccion] = useState(cliente?.direccion ?? '')
+  const [tipoDocumento, setTipoDocumento] = useState(cliente?.tipo_documento ?? '')
+  const [isConsultando, startConsulta] = useTransition()
+  const [errorConsulta, setErrorConsulta] = useState<string | null>(null)
+  const nroDocumentoRef = useRef<HTMLInputElement>(null)
 
   const [error, formAction, isPending] = useActionState(
     async (prev: string | null, fd: FormData) => {
@@ -22,6 +30,23 @@ export function ClienteForm({ open, onClose, cliente }: Props) {
     },
     null
   )
+
+  const handleBuscarDocumento = () => {
+    const numero = nroDocumentoRef.current?.value.trim() ?? ''
+    if (!TIPO_DOC_CONSULTABLE.has(tipoDocumento ?? '')) return
+    setErrorConsulta(null)
+    startConsulta(async () => {
+      const { data, error } = await consultarDocumento(tipoDocumento as 'DNI' | 'RUC', numero)
+      if (error) {
+        setErrorConsulta(error)
+        return
+      }
+      if (data) {
+        setNombre(data.nombre)
+        if (data.direccion) setDireccion(data.direccion)
+      }
+    })
+  }
 
   if (!open) return null
 
@@ -40,7 +65,8 @@ export function ClienteForm({ open, onClose, cliente }: Props) {
           </label>
           <input
             name="nombre"
-            defaultValue={cliente?.nombre ?? ''}
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
             required
             placeholder="Ej: Juan Pérez"
             className="w-full rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
@@ -53,7 +79,8 @@ export function ClienteForm({ open, onClose, cliente }: Props) {
             <label className="block text-sm font-semibold" style={{ color: '#374151' }}>Tipo documento</label>
             <select
               name="tipo_documento"
-              defaultValue={cliente?.tipo_documento ?? ''}
+              value={tipoDocumento ?? ''}
+              onChange={(e) => setTipoDocumento(e.target.value)}
               className="w-full rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62] bg-white"
               style={{ borderColor: '#D1D5DB' }}
             >
@@ -66,15 +93,33 @@ export function ClienteForm({ open, onClose, cliente }: Props) {
           </div>
           <div className="space-y-1">
             <label className="block text-sm font-semibold" style={{ color: '#374151' }}>Nro. documento</label>
-            <input
-              name="nro_documento"
-              defaultValue={cliente?.nro_documento ?? ''}
-              placeholder="12345678"
-              className="w-full rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
-              style={{ borderColor: '#D1D5DB' }}
-            />
+            <div className="flex gap-2">
+              <input
+                ref={nroDocumentoRef}
+                name="nro_documento"
+                defaultValue={cliente?.nro_documento ?? ''}
+                placeholder="12345678"
+                className="w-full rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
+                style={{ borderColor: '#D1D5DB' }}
+              />
+              {TIPO_DOC_CONSULTABLE.has(tipoDocumento ?? '') && (
+                <button
+                  type="button"
+                  onClick={handleBuscarDocumento}
+                  disabled={isConsultando}
+                  className="shrink-0 px-3 rounded-xl text-xs font-bold disabled:opacity-50"
+                  style={{ backgroundColor: '#002D62', color: '#FFD700' }}
+                >
+                  {isConsultando ? '...' : 'Buscar'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
+
+        {errorConsulta && (
+          <p className="text-xs font-medium" style={{ color: '#DC2626' }}>{errorConsulta}</p>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
@@ -104,7 +149,8 @@ export function ClienteForm({ open, onClose, cliente }: Props) {
           <label className="block text-sm font-semibold" style={{ color: '#374151' }}>Dirección</label>
           <input
             name="direccion"
-            defaultValue={cliente?.direccion ?? ''}
+            value={direccion}
+            onChange={(e) => setDireccion(e.target.value)}
             placeholder="Av. Lima 123"
             className="w-full rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
             style={{ borderColor: '#D1D5DB' }}

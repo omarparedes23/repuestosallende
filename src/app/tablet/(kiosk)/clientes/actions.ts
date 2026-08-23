@@ -3,6 +3,7 @@
 import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
 import { getSession, getSessionFast } from '@/lib/session'
+import { consultarRuc, consultarDni } from '@/lib/services/dniRuc'
 import type { RaCliente } from '@/lib/types/database'
 
 export type ClienteResumen = Pick<
@@ -67,6 +68,27 @@ export async function buscarClientes(query: string): Promise<{
   if (error) return { data: [], error: 'Error buscando clientes' }
 
   return { data: (data as ClienteResumen[]) ?? [], error: null }
+}
+
+export async function consultarDocumento(
+  tipoDocumento: 'DNI' | 'RUC',
+  numero: string
+): Promise<{ data: { nombre: string; direccion?: string | null } | null; error: string | null }> {
+  const { user, perfil } = await getSessionFast()
+  if (!user || !perfil?.empresa_id) return { data: null, error: 'No autenticado' }
+
+  if (tipoDocumento === 'RUC') {
+    const resultado = await consultarRuc(numero)
+    if (!resultado.exito) return { data: null, error: resultado.error }
+    return { data: { nombre: resultado.data.razonSocial, direccion: resultado.data.direccion }, error: null }
+  }
+
+  const resultado = await consultarDni(numero)
+  if (!resultado.exito) return { data: null, error: resultado.error }
+  const nombre = [resultado.data.nombres, resultado.data.apellidoPaterno, resultado.data.apellidoMaterno]
+    .filter(Boolean)
+    .join(' ')
+  return { data: { nombre }, error: null }
 }
 
 export async function crearCliente(
