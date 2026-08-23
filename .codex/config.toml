@@ -1,0 +1,6 @@
+[mcp_servers.supabase]
+url = "https://mcp.supabase.com/mcp?project_ref=axcrubvtpqcyscizgoee&read_only=true&features=database%2Cdebugging%2Cdevelopment"
+enabled = true
+
+[mcp_servers.supabase.tools.execute_sql]
+approval_mode = "approve"
