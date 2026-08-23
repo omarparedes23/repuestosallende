@@ -1,81 +1,111 @@
-# Checklist operativo — despliegue de compra-cuenta-por-pagar-atomica a PRODUCCIÓN
+# Checklist operativo — Promoción del proyecto TEST como PRODUCCIÓN
 
-> Estado actual: migraciones 041–044 aplicadas SOLO en Supabase TEST.
-> Este checklist es la puerta obligatoria antes de replicarlas en producción.
+> **Contexto corregido (2026-08-23):** NO existe un segundo proyecto Supabase de producción.
+> El proyecto actual (`axcrubvtpqcyscizgoee`, PostgreSQL 17.6) será promovido tal cual.
+> Por lo tanto **NO se reaplican ni replican migraciones en otro proyecto**: las migraciones
+> 038–044 ya están aplicadas y registradas en el ledger de ESTE proyecto, que pasará a ser
+> producción. Este checklist cubre el rango completo 038–044 (venta-transaccional-idempotente
+> y compra-cuenta-por-pagar-atomica).
 > Regla permanente: SQL Server histórico (`fasterp.sandemer.net.pe`) solo lectura.
 
-## Fase P0 — Preflight producción (read-only)
+## Principio rector
 
-- [ ] Instantánea read-only de `ra_compras`, `ra_compra_items`, `ra_kardex`,
-      `ra_cuentas_por_pagar_movimientos`, `ra_proveedores`, `ra_ordenes_compra(+items)`:
-      columnas, constraints, índices, triggers, funciones, políticas, grants.
-- [ ] Ejecutar el preflight canónico de duplicados de factura ANTES de 041:
-      `(empresa_id, proveedor_id, upper(btrim(nro_documento))) HAVING count(*) > 1`.
-      Si hay duplicados: resolverlos manualmente y re-ejecutar. La migración aborta sola,
-      pero resolver antes evita una ventana con compras bloqueadas.
-- [ ] Agregados de consistencia previos: totales <= 0, kardex huérfano, cargos CxP
-      duplicados por compra, saldos de proveedor divergentes vs ledger. Solo reporte;
-      las divergencias se corrigen DESPUÉS de aplicar 043 (backfill auditado), no antes.
-- [ ] Ventana de mantenimiento: la aplicación de 041 toma lock breve sobre `ra_compras`
-      (creación de índices únicos). Programar en franja de tráfico nulo del POS.
+La promoción es un cambio de **operativa y configuración**, no de esquema:
+lo que hoy llamamos "TEST" pasa a atender el negocio real. El trabajo consiste en
+inventariar y decidir qué datos/configuración de prueba permanecen, se corrigen o se
+anulan operativamente ANTES de que el negocio empiece a facturar sobre esta base.
 
-## Fase P1 — Orden de aplicación y ledger
+## Checklist de promoción
 
-Orden estricto, cada migración en su propia transacción con ON_ERROR_STOP=1:
+### A. Ledger confirmado (read-only)
 
-1. `041_compra_cuenta_pagar_atomica.sql` (preflight inline abortante incluido)
-2. `042_ra_confirmar_compra.sql`
-3. `043_recalcular_estado_pago_compra.sql` — ejecuta backfill auditado idempotente;
-   verificar después: divergencias restantes = 0 y segunda corrida = cero cambios.
-4. `044_deprecar_ra_registrar_compra.sql`
+- [ ] Confirmar presencia de 038–044 en `supabase_migrations.schema_migrations`
+      (script: `supabase/tests/compra-atomica-fase6-verificacion.sql` §1).
+- [ ] Nota conocida: `001`–`037` siguen fuera del ledger (aplicadas out-of-band);
+      registrarlas es tarea separada opcional, NO bloqueante para promover.
 
-Después de cada una:
-- [ ] Confirmar COMMIT en salida psql y exit code 0.
-- [ ] Registrar fila en `supabase_migrations.schema_migrations`
-      (`(version, name)`, statements NULL, nombre sin extensión).
-- [ ] Releer el ledger para confirmar el registro.
+### B. Inventario de fixtures y cuentas TEST
 
-## Fase P2 — Verificación post-aplicación (read-only)
+Inventario previo documentado (verify-report de venta y de compras). Elementos a clasificar
+(conservar / anular operativamente / documentar):
 
-- [ ] Suite schema: `compra-atomica-schema.test.sql`.
-- [ ] Suite preflight abortante: `compra-atomica-preflight.test.sql`.
-- [ ] Suite RPC completa: `compra-atomica-rpc.test.sql` (secciones A–I, ROLLBACK por sección).
-- [ ] Suite 043: `compra-atomica-043.test.sql` (0/A/B/D).
-- [ ] Concurrencia real: runner SCN1–SCN5 (`compra-atomica-concurrencia-runner.ps1`)
-      y/o par Fase 5 (`compra-atomica-fase5-conc-runner.ps1`).
-- [ ] E2E autenticada opcional: `compra-atomica-e2e-fase5.test.sql` con RUN_ID fresco
-      (recordar: no re-ejecutable con el mismo RUN_ID) + limpieza posterior con RUN_IDs.
-- [ ] Verificación de contratos 041–044: `compra-atomica-fase6-verificacion.sql`
-      (ledger, columnas, índices únicos, RLS, grants, SECURITY DEFINER/search_path,
-      comentario 044, advisors-equivalentes).
+- [ ] Empresa TEST de venta `10101010-...` con sus usuarios `@test.local`
+      (`a0a0a0a0-...` vendedor/admin/lectura/otra empresa), caja abierta `50505050-...`,
+      clientes de crédito, catálogos/productos `70..83`.
+- [ ] Ventas TTST correlativos 1–6 con estados fiscales de fixture (`b0b0b0b0`,
+      `c0c0c0c0`, etc.) y abono TEST en cuenta corriente.
+- [ ] Proveedores/productos de pruebas históricos usados por suites RPC/compra.
+- [ ] Empresas/perfiles creados por suites (p.ej. `F5E2E:*`, `f5e2e-*`) — ya limpiados,
+      salvo el residuo del punto C.
+- [ ] Decidir política: los fixtures NO se borran automáticamente; cada uno requiere
+      decisión y anulación operativa auditada si corresponde.
 
-Criterio de cierre P2: todas las suites en verde y la verificación de contratos sin hallazgos
-nuevos. Cualquier rojo BLOQUEA el corte de UI.
+### C. Residuo auditado S9 identificado
 
-## Fase P3 — Corte del adaptador UI
+- [ ] Compra `3feb8e17-00ba-4763-98c5-8e7c50fcb0d5` (S7/S9, run
+      `edf1090b9e324f5abe08c54c672535b9`) + su cadena (item, kardex, 2 movimientos CxP,
+      proveedor `F5E2E:<run>:PROV`, 1 auditoría) es INDELEBLE por diseño
+      (auditoría append-only + FK RESTRICT).
+- [ ] Decisión requerida: dejarla histórica documentada, o anularla mediante el mecanismo
+      operativo que se defina para anulaciones (change futuro de anulaciones/devoluciones).
 
-- [ ] Desplegar la versión del frontend que usa exclusivamente `ra_confirmar_compra`
-      (commit c3d0dd8 o posterior). NO existe fallback aceptable al flujo legacy.
-- [ ] Confirmar que ninguna ruta de código invoca `ra_registrar_compra` ni
-      `actualizarEstadoPago` (grep en el build desplegado).
+### D. OSE beta versus OSE productiva
 
-## Rollback operativo
+- [ ] Hoy `OSE_SUNAT_URL` apunta al beta del VPS (`w3sicad.cloud/osesunat`, SUNAT beta)
+      con `FACTURACION_PROVIDER=ose`. La promoción fiscal real exige decidir:
+      endpoint/certificados/credenciales de SUNAT **productiva** y serie(s) reales.
+- [ ] Las ventas TTST/B001 emitidas contra beta NO tienen valor fiscal; documentar esa
+      frontera antes de operar.
+- [ ] El scheduler sigue SIN habilitar (sin `vercel.json`); ver
+      `../venta-transaccional-idempotente/operations.md` para SLA aprobado y pasos de
+      activación cuando corresponda.
 
-- Las migraciones son FORWARD-ONLY: no existe rollback hacia atrás.
-- Rollback funcional = revertir el despliegue de UI a la versión anterior MIENTRAS la base
-  conserva 041–044. El flujo legacy `ra_registrar_compra` sigue ejecutable por
-  authenticated (044 solo añade metadato), lo que permite operar la UI vieja contra la base
-  nueva durante la contención.
-- Tras contención: diagnosticar causa, corregir forward-only con migración nueva (>= 045),
-  nunca editar 041–044 ya aplicadas.
-- La compra auditada por cualquier reparación 043 es permanente por diseño
-  (auditoría append-only + FK RESTRICT): no intentar eliminarla ni desactivar el trigger.
+### E. Variables del hosting (Vercel u otro)
 
-## Riesgos conocidos (separados, no bloqueantes del change)
+- [ ] Auditar variables contra `.env.example`: Supabase URL/anon/service-role,
+      `OSE_SUNAT_URL`/`OSE_SUNAT_API_KEY`, `APISPERU_TOKEN`, `SUNAT_OUTBOX_CRON_SECRET`
+      (hoy SIN definir: definirla NO activa nada por sí sola),
+      DeepSeek/OpenAI, R2, Stripe, IGV_RATE, APP_URL.
+- [ ] Ninguna variable debe exponerse al cliente (verificar ausencia de `NEXT_PUBLIC_`
+      para secretos).
 
-1. **Residuo auditado S9 en TEST**: compra `3feb8e17-00ba-4763-98c5-8e7c50fcb0d5` + su cadena
-   es indeleble (auditoría append-only). Aceptado y documentado; no afecta producción.
-2. **Migraciones 038–040 (venta transaccional) siguen sin versionarse en Git** — quedan como
-   archivos untracked de otro change/commit. Riesgo de trazabilidad separado del presente.
-3. **Baseline ajeno**: `tsc --noEmit` falla por `ClienteFormSheet.tsx:113` (change de clientes);
-   lint global tiene deuda `any` preexistente (p.ej. `compras/[id]/page.tsx`). No corregir aquí.
+### F. Usuarios y permisos
+
+- [ ] Inventariar `ra_perfiles` activos: separar cuentas de prueba (`@test.local`,
+      fixtures) de cuentas reales del negocio.
+- [ ] Verificar que los roles reales sean mínimos necesarios (administrador/vendedor/
+      lectura; superadmin solo si hay justificación).
+- [ ] Confirmar que anon/PUBLIC no tiene EXECUTE en RPCs sensibles ni grants sobre tablas
+      nuevas (ya verificado en Fase 6; re-chequeo barato con el script de contratos).
+
+### G. Backups / PITR
+
+- [ ] Confirmar en el dashboard de Supabase que el proyecto tiene backups automáticos y
+      (si el plan lo permite) PITR activado.
+- [ ] Tomar un backup manual/ snapshot ANTES de declarar la promoción completa.
+- [ ] Documentar RTO/RPO acordado con el negocio.
+
+### H. Monitoreo y plan de reversión operativa
+
+- [ ] Monitoreo mínimo: advisor de seguridad/rendimiento periódico; consulta agregada de
+      outbox por estado/antigüedad; alerta diaria para `dead_letter` según SLA aprobado.
+- [ ] Reversión operativa (no hay rollback de esquema): si algo falla tras promover, la
+      contención es funcional (desactivar features, anular documentos operativamente,
+      restaurar backup solo como último recurso con pérdida de datos posteriores).
+
+### I. Dominio y despliegue de la aplicación
+
+- [ ] Apuntar el dominio del negocio al despliegue (Vercel) con las variables de E.
+- [ ] Smoke post-promoción: login real, una venta ticket, una compra, impresión,
+      consulta DNI/RUC, y (cuando se active) flujo OSE productivo.
+- [ ] Dejar constancia de fecha/hora de la promoción y del responsable.
+
+## Orden sugerido
+
+A → B/C (decisiones sobre fixtures/residuo) → D/E (configuración) → F → G → H → I → smoke.
+
+## Puerta final
+
+La promoción queda cerrada cuando: ledger confirmado, decisiones B/C tomadas y ejecutadas,
+configuración productiva cargada, backup previo tomado, smoke en verde y acta corta de
+promoción (fecha, responsable, commits desplegados) guardada junto a este archivo.

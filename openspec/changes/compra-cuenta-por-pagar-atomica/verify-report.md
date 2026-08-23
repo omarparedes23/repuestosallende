@@ -309,15 +309,15 @@ Evidencia principal:
 
 ## VEREDICTO FINAL DEL CHANGE: PASS
 
-Todas las fases (0–6) ejecutadas con evidencia verificable. El change está completo en
-Supabase TEST y listo para el checklist de despliegue a producción (operations.md).
+Todas las fases (0–6) ejecutadas con evidencia verificable. El change está completo en este
+proyecto Supabase (que será promovido a producción; ver operations.md).
 
 ## Evidencia Fase 6
 
 | # | Requisito | Resultado | Detalle |
 |---|---|---|---|
 | 1 | npm test completo | **PASS** | 11 archivos, 88/88 pruebas, 0 fallos (6.62s) |
-| 2 | Lint focal | **PASS con nota** | 8 archivos del change: 0 errores. 2 errores ny detectados pertenecen a compras/[id]/page.tsx — baseline preexistente (commit 949104a), archivo no tocado por este change |
+| 2 | Lint focal | **PASS con nota** | 8 archivos del change: 0 errores. 2 errores `any` detectados pertenecen a compras/[id]/page.tsx — baseline preexistente (commit 949104a), archivo no tocado por este change |
 | 2b | git diff --check | **PASS** | EXIT 0 |
 | 3 | tsc --noEmit | **PASS con riesgo separado** | Exactamente 1 error: ClienteFormSheet.tsx:113 (baseline ajeno conocido, change de clientes). Cero errores atribuibles a compras/venta/OSE |
 | 4 | Advisors-equivalentes read-only sobre 041–044 | **PASS** | supabase/tests/compra-atomica-fase6-verificacion.sql, sin escrituras |
@@ -362,5 +362,10 @@ preflight/043/concurrencia SCN1–SCN5) y la tabla de contratos de esta sección
 
 ## Checklist operativo
 
-Despliegue futuro a producción: operations.md (preflight P0, orden de migraciones P1,
-verificación post-aplicación P2, corte UI P3, rollback operativo forward-only).
+**Actualizado (2026-08-23, corrección de contexto): NO existe otro proyecto Supabase de
+producción; el proyecto TEST actual será promovido tal cual.** Por lo tanto NO se replican
+ni reaplican migraciones 038–044 en otro proyecto. El checklist en `operations.md` define la
+promoción del mismo proyecto: ledger confirmado, inventario de fixtures TEST, residuo
+auditado S9, OSE beta vs productiva, variables del hosting, usuarios y permisos,
+backups/PITR, monitoreo/reversión operativa y dominio/despliegue. Varias casillas requieren
+decisión explícita del propietario (detalle y lista en operations.md).

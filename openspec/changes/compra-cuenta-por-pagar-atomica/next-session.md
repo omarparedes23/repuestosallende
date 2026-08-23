@@ -8,8 +8,12 @@ Fases 0–6 completadas con evidencia verificable (ver `verify-report.md` y `ope
 El commit local de Fase 5 es 8665bc2; Fase 6 añade verificación final, checklist operativo
 (`operations.md`) y script de contratos (`supabase/tests/compra-atomica-fase6-verificacion.sql`).
 
-Siguiente paso natural cuando el propietario lo decida: ejecutar el checklist de
-`operations.md` contra PRODUCCIÓN (preflight P0 primero, nunca saltarlo).
+Siguiente paso cuando el propietario lo decida: ejecutar el checklist de **promoción de
+este mismo proyecto** TEST→producción definido en `operations.md` (A–I). NO existe otro
+proyecto Supabase: no se reaplican ni replican migraciones 038–044; el trabajo es de
+inventario de fixtures, configuración productiva (OSE/variables/usuarios), backup previo,
+monitoreo y smoke. Varias casillas requieren decisiones explícitas del propietario
+(detalle en operations.md).
 
 ## Estado confirmado
 
