@@ -1,8 +1,9 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
 import { getSession, getSessionFast } from '@/lib/session'
-import type { RaCompraUpdate, RaMoneda } from '@/lib/types/database'
+import { CompraInputSchema } from './actions.schema'
 
 export type CompraRow = {
   id: string
@@ -17,7 +18,7 @@ export type CompraRow = {
 
 export type ItemCompra = {
   catalogo_id: string
-  nombre_producto: string
+  nombre_producto?: string
   cantidad: number
   precio_unitario: number
 }
@@ -37,9 +38,85 @@ export type OrdenCompraParaRecepcion = {
   items: ItemOrdenCompraPendiente[]
 }
 
+export type ActionResponse<T> = {
+  data: T | null
+  error: string | null
+}
+
+export type CompraResult = {
+  id: string
+  operationId: string
+  replayed: boolean
+  total: number
+  totalPen: number
+  estadoPago: string
+}
+
+const COMPRA_ERROR_MESSAGES: Record<string, string> = {
+  RA_UNAUTHENTICATED: 'No autenticado',
+  RA_FORBIDDEN: 'Sin permisos para registrar compras',
+  RA_BRANCH_INVALID: 'La sucursal seleccionada no es válida o no está autorizada',
+  RA_PROVIDER_INVALID: 'El proveedor no es válido para esta compra',
+  RA_PRODUCT_INVALID: 'Uno o más productos no son válidos para esta compra',
+  RA_ITEMS_INVALID: 'Los artículos de la compra no son válidos',
+  RA_CURRENCY_INVALID: 'La moneda o el tipo de cambio no son válidos',
+  RA_ORDER_INVALID: 'La orden de compra no es válida o excede la cantidad pendiente',
+  RA_INVOICE_INVALID: 'El tipo o número de comprobante no es válido',
+  RA_INVOICE_DUPLICATE: 'El número de comprobante ya está registrado para este proveedor',
+  RA_IDEMPOTENCY_CONFLICT: 'La operación ya fue confirmada con datos diferentes',
+  RA_PAYMENT_EXCEEDS_TOTAL: 'El abono inicial supera el total de la compra',
+  RA_PAYMENT_METHOD_INVALID: 'El método de pago del abono inicial no es válido',
+  RA_PAYMENT_AMOUNT_INVALID: 'El monto del abono inicial no es válido',
+  RA_PAYMENT_REFERENCE_TOO_LONG: 'La referencia de pago excede el límite permitido',
+  RA_AMOUNT_OVERFLOW: 'El importe total o saldo supera el límite permitido',
+  RA_ESTADO_PAGO_INCONSISTENTE: 'Inconsistencia en el estado de pago',
+}
+
+function compraErrorMessage(message?: string): string {
+  const code = Object.keys(COMPRA_ERROR_MESSAGES).find((candidate) => message?.includes(candidate))
+  return code
+    ? COMPRA_ERROR_MESSAGES[code]
+    : 'No se pudo confirmar la compra. Conservamos el intento para consultar su resultado.'
+}
+
+type RpcCompraResult = {
+  status: 'confirmed'
+  replayed: boolean
+  operationId?: string
+  compra: {
+    id: string
+    total: number
+    total_pen?: number
+    estado_pago: string
+  }
+}
+
+function mapRpcCompraResult(raw: unknown, fallbackOperationId: string): CompraResult {
+  const result = raw as RpcCompraResult
+  const compra = result.compra
+  return {
+    id: compra.id,
+    operationId: result.operationId ?? fallbackOperationId,
+    replayed: Boolean(result.replayed),
+    total: Number(compra.total),
+    totalPen: Number(compra.total_pen ?? compra.total),
+    estadoPago: compra.estado_pago ?? 'pendiente',
+  }
+}
+
+type CompraQueryResult = {
+  id: string
+  nro_documento: string | null
+  fecha_compra: string
+  total: number
+  estado_pago: 'pendiente' | 'parcial' | 'pagado'
+  notas: string | null
+  sucursal_id: string
+  ra_proveedores: { nombre: string } | null
+}
+
 export async function getCompras() {
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return { data: null, error: 'No autenticado' }
 
   const { data, error } = await supabase
@@ -57,7 +134,7 @@ export async function getCompras() {
     .eq('empresa_id', perfil.empresa_id)
     .order('fecha_compra', { ascending: false })
 
-  const mapped = (data ?? []).map((row: any) => ({
+  const mapped = ((data ?? []) as unknown as CompraQueryResult[]).map((row) => ({
     id: row.id,
     nro_documento: row.nro_documento,
     fecha_compra: row.fecha_compra,
@@ -72,8 +149,7 @@ export async function getCompras() {
 }
 
 export async function buscarProveedores(q: string) {
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return []
 
   const { data } = await supabase
@@ -87,18 +163,20 @@ export async function buscarProveedores(q: string) {
   return data ?? []
 }
 
+type ProductoParaCompraQuery = {
+  id: string
+  catalogo_id: string
+  precio_compra: number | null
+  ra_catalogo_repuestos: {
+    nombre: string
+    codigo_oem: string | null
+  } | null
+}
+
 export async function buscarProductosParaCompra(q: string) {
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return []
 
-  // El filtro de texto va en la consulta SQL (contra la tabla embebida
-  // ra_catalogo_repuestos, vía `!inner` para forzar el join y poder
-  // filtrar por sus columnas) — NO se puede traer un `.limit(20)` de
-  // ra_productos sin filtrar primero y recién ahí buscar el texto: con
-  // decenas de miles de productos, esos 20 arbitrarios casi nunca
-  // contienen el término buscado (bug real detectado en QA manual,
-  // mismo fix aplicado en ordenes-compra/actions.ts).
   const { data } = await supabase
     .from('ra_productos')
     .select(`
@@ -112,7 +190,7 @@ export async function buscarProductosParaCompra(q: string) {
     .or(`nombre.ilike.%${q}%,codigo_oem.ilike.%${q}%`, { foreignTable: 'ra_catalogo_repuestos' })
     .limit(20)
 
-  return (data ?? []).map((row: any) => ({
+  return ((data ?? []) as unknown as ProductoParaCompraQuery[]).map((row) => ({
     catalogo_id: row.catalogo_id,
     nombre: row.ra_catalogo_repuestos?.nombre ?? '',
     codigo_oem: row.ra_catalogo_repuestos?.codigo_oem ?? null,
@@ -120,17 +198,27 @@ export async function buscarProductosParaCompra(q: string) {
   }))
 }
 
-// NOTA: se consulta ra_ordenes_compra/ra_orden_compra_items directamente acá
-// (en vez de reexportar una función de `ordenes-compra/actions.ts`) porque ese
-// módulo lo está construyendo otro agente en paralelo (Phase 4) — no debe haber
-// dependencia cruzada entre ambos mientras los dos están en construcción. Mismo
-// criterio que la nota espejo que dejó ese módulo sobre buscarProveedores/
-// buscarProductosParaCompra.
+type OrdenCompraQueryItem = {
+  catalogo_id: string
+  nombre_producto: string
+  cantidad: number
+  precio_unitario: number
+  cantidad_recibida: number
+}
+
+type OrdenCompraQueryResult = {
+  id: string
+  proveedor_id: string | null
+  referencia: string | null
+  estado: string
+  ra_proveedores: { nombre: string } | null
+  ra_orden_compra_items: OrdenCompraQueryItem[]
+}
+
 export async function getOrdenCompra(
   id: string
 ): Promise<{ data: OrdenCompraParaRecepcion | null; error: string | null }> {
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return { data: null, error: 'No autenticado' }
 
   const { data, error } = await supabase
@@ -148,13 +236,14 @@ export async function getOrdenCompra(
     .single()
 
   if (error || !data) return { data: null, error: 'Orden de compra no encontrada.' }
-  if (!data.proveedor_id) return { data: null, error: 'La orden de compra no tiene proveedor asociado.' }
-  if (data.estado !== 'confirmada') {
+  const oc = data as unknown as OrdenCompraQueryResult
+  if (!oc.proveedor_id) return { data: null, error: 'La orden de compra no tiene proveedor asociado.' }
+  if (oc.estado !== 'confirmada') {
     return { data: null, error: 'Solo se pueden recibir órdenes de compra confirmadas.' }
   }
 
-  const items: ItemOrdenCompraPendiente[] = (data.ra_orden_compra_items ?? [])
-    .map((i: any) => ({
+  const items: ItemOrdenCompraPendiente[] = (oc.ra_orden_compra_items ?? [])
+    .map((i) => ({
       catalogo_id: i.catalogo_id,
       nombre_producto: i.nombre_producto,
       cantidad_pendiente: i.cantidad - i.cantidad_recibida,
@@ -164,33 +253,41 @@ export async function getOrdenCompra(
 
   return {
     data: {
-      id: data.id,
-      proveedorId: data.proveedor_id,
-      proveedorNombre: data.ra_proveedores?.nombre ?? '—',
-      referencia: data.referencia,
+      id: oc.id,
+      proveedorId: oc.proveedor_id,
+      proveedorNombre: oc.ra_proveedores?.nombre ?? '—',
+      referencia: oc.referencia,
       items,
     },
     error: null,
   }
 }
 
-export async function registrarCompra(
-  proveedorId: string,
-  nroDocumento: string | null,
-  notas: string | null,
-  items: ItemCompra[],
-  ordenCompraId?: string | null,
-  moneda: RaMoneda = 'PEN',
-  tipoCambio?: number | null
-): Promise<{ id: string | null; error: string | null }> {
-  if (items.length === 0) return { id: null, error: 'Debes agregar al menos un artículo.' }
-  if (moneda === 'USD' && (!tipoCambio || tipoCambio <= 0)) {
-    return { id: null, error: 'Ingresa un tipo de cambio válido para una compra en dólares.' }
+export async function consultarResultadoCompra(operationId: string): Promise<ActionResponse<CompraResult>> {
+  const parsed = z.string().uuid({ message: 'Identificador de operación inválido' }).safeParse(operationId)
+  if (!parsed.success) return { data: null, error: 'Identificador de operación inválido' }
+
+  const { supabase, user } = await getSession()
+  if (!user) return { data: null, error: 'No autenticado' }
+
+  const { data, error } = await supabase.rpc('ra_obtener_resultado_compra', {
+    p_operation_id: operationId,
+  } as never)
+
+  if (error) return { data: null, error: compraErrorMessage(error.message) }
+  if (!data || (data as { status?: string }).status === 'not_found') {
+    return { data: null, error: null }
   }
 
-  const { supabase: raw, perfil, sucursalId: resolvedSucursalId } = await getSession()
-  const supabase = raw as any
-  if (!perfil?.empresa_id) return { id: null, error: 'No autenticado.' }
+  return { data: mapRpcCompraResult(data, operationId), error: null }
+}
+
+export async function registrarCompra(input: unknown): Promise<ActionResponse<CompraResult>> {
+  const { supabase, user, perfil, sucursalId: resolvedSucursalId } = await getSession()
+  if (!user || !perfil?.empresa_id) return { data: null, error: 'No autenticado' }
+  if (perfil.rol === 'vendedor' || perfil.rol === 'lectura') {
+    return { data: null, error: 'Sin permisos para registrar compras' }
+  }
 
   let sucursalId = resolvedSucursalId
   if (!sucursalId) {
@@ -202,83 +299,60 @@ export async function registrarCompra(
       .order('created_at')
       .limit(1)
       .single()
-    sucursalId = suc?.id ?? null
+    sucursalId = (suc as { id: string } | null)?.id ?? null
   }
-  if (!sucursalId) return { id: null, error: 'No hay sucursal configurada.' }
+  if (!sucursalId) return { data: null, error: 'No hay sucursal configurada.' }
 
-  const { data, error } = await supabase.rpc('ra_registrar_compra', {
-    p_empresa_id: perfil.empresa_id,
+  const parsed = CompraInputSchema.safeParse(input)
+  if (!parsed.success) {
+    return { data: null, error: parsed.error.issues[0]?.message ?? 'Datos inválidos' }
+  }
+
+  const value = parsed.data
+  const { data, error } = await supabase.rpc('ra_confirmar_compra', {
+    p_operation_id: value.operationId,
     p_sucursal_id: sucursalId,
-    p_proveedor_id: proveedorId,
-    p_nro_documento: nroDocumento || null,
-    p_notas: notas || null,
-    p_items: items,
-    p_orden_compra_id: ordenCompraId || null,
-    p_moneda: moneda,
-    p_tipo_cambio: moneda === 'USD' ? tipoCambio : null,
-  })
+    p_proveedor_id: value.proveedorId,
+    p_nro_documento: value.nroDocumento ? value.nroDocumento.trim() : null,
+    p_notas: value.notas ? value.notas.trim() : null,
+    p_items: value.items.map((i) => ({
+      catalogo_id: i.catalogoId,
+      cantidad: i.cantidad,
+      precio_unitario: i.precioUnitario,
+    })),
+    p_orden_compra_id: value.ordenCompraId ?? null,
+    p_moneda: value.moneda,
+    p_tipo_cambio: value.moneda === 'USD' ? value.tipoCambio : null,
+    p_tipo_documento: value.tipoDocumento,
+    p_abono_inicial: value.abonoInicial
+      ? {
+          metodoPago: value.abonoInicial.metodoPago,
+          monto: value.abonoInicial.monto,
+          referencia: value.abonoInicial.referencia ?? '',
+        }
+      : null,
+  } as never)
 
-  if (error) {
-    console.error('[registrarCompra] RPC error:', error)
-    return { id: null, error: 'Error al registrar la compra.' }
-  }
-
-  const compraId = data as string
-
-  // Wiring del cargo a cuentas por pagar: RPC aparte a propósito — mismo
-  // patrón que procesarVenta -> ra_registrar_cargo_credito (ver
-  // src/app/tablet/(kiosk)/pos/actions.ts). ra_registrar_compra NO genera el
-  // cargo automáticamente. Si esta segunda llamada falla, la compra ya quedó
-  // registrada (stock/kardex/costeo ya aplicados) y NO se revierte — mismo
-  // gap de atomicidad ya aceptado en sdd/cuentas-corrientes/design (Open
-  // Questions): se loguea para diagnóstico, no se bloquea al usuario.
-  if (proveedorId) {
-    const { error: cargoError } = await supabase.rpc('ra_registrar_cargo_compra', {
-      p_compra_id: compraId,
-    })
-    if (cargoError) {
-      console.error(`[cuentas-por-pagar] Error registrando cargo para compra ${compraId}:`, cargoError)
-    }
+  if (error || !data) {
+    return { data: null, error: compraErrorMessage(error?.message) }
   }
 
   revalidatePath('/panel/compras')
-  if (ordenCompraId) revalidatePath('/panel/ordenes-compra')
-  return { id: compraId, error: null }
+  if (value.ordenCompraId) revalidatePath('/panel/ordenes-compra')
+
+  return { data: mapRpcCompraResult(data, value.operationId), error: null }
 }
 
 export async function anularCompra(id: string): Promise<string | null> {
-  const { supabase: raw, perfil } = await getSession()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) return 'No autenticado.'
 
-  const { error } = await supabase.rpc('ra_anular_compra', { p_compra_id: id })
+  const { error } = await supabase.rpc('ra_anular_compra', { p_compra_id: id } as never)
   if (error) {
     console.error('[anularCompra] RPC error:', error)
-    // El mensaje de la excepción de Postgres es el motivo real (sin cargo vs.
-    // stock negativo) — se devuelve tal cual en vez de un genérico.
     return error.message ?? 'Error al anular la compra.'
   }
 
-  revalidatePath('/panel/compras')
-  return null
-}
-
-export async function actualizarEstadoPago(
-  id: string,
-  estadoPago: 'pendiente' | 'parcial' | 'pagado'
-): Promise<string | null> {
-  const { supabase: raw, perfil } = await getSession()
-  const supabase = raw as any
-  if (!perfil?.empresa_id) return 'No autenticado.'
-
-  const payload: RaCompraUpdate = { estado_pago: estadoPago }
-  const { error } = await supabase
-    .from('ra_compras')
-    .update(payload)
-    .eq('id', id)
-    .eq('empresa_id', perfil.empresa_id)
-
-  if (error) return 'Error al actualizar el estado de pago.'
   revalidatePath('/panel/compras')
   return null
 }

@@ -387,11 +387,16 @@ export interface Database {
           sucursal_id: string
           proveedor_id: string | null
           usuario_id: string
+          operation_id: string | null
+          request_hash: string | null
+          tipo_documento: string
           nro_documento: string | null
+          nro_doc_norm: string | null
           fecha_compra: string
           subtotal: number
           igv: number
           total: number
+          total_pen: number | null
           estado_pago: RaEstadoPagoCompra
           notas: string | null
           orden_compra_id: string | null
@@ -407,11 +412,15 @@ export interface Database {
           sucursal_id: string
           proveedor_id?: string | null
           usuario_id: string
+          operation_id?: string | null
+          request_hash?: string | null
+          tipo_documento?: string
           nro_documento?: string | null
           fecha_compra?: string
           subtotal?: number
           igv?: number
           total?: number
+          total_pen?: number | null
           estado_pago?: RaEstadoPagoCompra
           notas?: string | null
           orden_compra_id?: string | null
@@ -423,11 +432,15 @@ export interface Database {
         }
         Update: {
           proveedor_id?: string | null
+          operation_id?: string | null
+          request_hash?: string | null
+          tipo_documento?: string
           nro_documento?: string | null
           fecha_compra?: string
           subtotal?: number
           igv?: number
           total?: number
+          total_pen?: number | null
           estado_pago?: RaEstadoPagoCompra
           notas?: string | null
           orden_compra_id?: string | null
@@ -1038,6 +1051,37 @@ export interface Database {
           referencia?: string | null
         }
       }
+      ra_auditoria_estado_pago_compras: {
+        Row: {
+          id: string
+          empresa_id: string
+          compra_id: string
+          operation_id: string
+          request_hash: string
+          usuario_id: string | null
+          actor_tipo: 'usuario' | 'migracion'
+          estado_anterior: RaEstadoPagoCompra
+          estado_nuevo: RaEstadoPagoCompra
+          motivo: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          empresa_id: string
+          compra_id: string
+          operation_id: string
+          request_hash: string
+          usuario_id?: string | null
+          actor_tipo: 'usuario' | 'migracion'
+          estado_anterior: RaEstadoPagoCompra
+          estado_nuevo: RaEstadoPagoCompra
+          motivo: string
+          created_at?: string
+        }
+        Update: {
+          motivo?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -1066,6 +1110,52 @@ export interface Database {
       ra_anular_orden_compra: {
         Args: { p_orden_compra_id: string }
         Returns: void
+      }
+      ra_confirmar_venta: {
+        Args: {
+          p_operation_id: string
+          p_sucursal_id: string
+          p_tipo_comprobante: RaTipoComprobante
+          p_cliente_id: string | null
+          p_items: Json
+          p_pagos: Json
+          p_moneda: string
+          p_tipo_cambio: number | null
+          p_fecha_vencimiento: string | null
+        }
+        Returns: Json
+      }
+      ra_obtener_resultado_venta: {
+        Args: { p_operation_id: string }
+        Returns: Json
+      }
+      ra_confirmar_compra: {
+        Args: {
+          p_operation_id: string
+          p_sucursal_id: string
+          p_proveedor_id: string
+          p_nro_documento: string | null
+          p_notas: string | null
+          p_items: Json
+          p_orden_compra_id?: string | null
+          p_moneda?: string
+          p_tipo_cambio?: number | null
+          p_tipo_documento?: string
+          p_abono_inicial?: Json | null
+        }
+        Returns: Json
+      }
+      ra_obtener_resultado_compra: {
+        Args: { p_operation_id: string }
+        Returns: Json
+      }
+      ra_recalcular_estado_pago: {
+        Args: {
+          p_operation_id: string
+          p_compra_id: string
+          p_motivo: string
+        }
+        Returns: Json
       }
     }
     Enums: {
@@ -1177,3 +1267,7 @@ export type RaOrdenCompraItemInsert = TablesInsert<'ra_orden_compra_items'>
 // ── Tipos derivados: migration 035 (Cuentas por pagar) ──────
 export type RaCuentaPorPagarMovimiento       = Tables<'ra_cuentas_por_pagar_movimientos'>
 export type RaCuentaPorPagarMovimientoInsert = TablesInsert<'ra_cuentas_por_pagar_movimientos'>
+
+// ── Tipos derivados: migration 043 (Auditoría estado pago) ───
+export type RaAuditoriaEstadoPagoCompra       = Tables<'ra_auditoria_estado_pago_compras'>
+export type RaAuditoriaEstadoPagoCompraInsert = TablesInsert<'ra_auditoria_estado_pago_compras'>

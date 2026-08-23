@@ -5,8 +5,8 @@ import { Decimal } from 'decimal.js'
  * se recibe una compra, ponderando el precio previo (por el stock que ya
  * había) contra el precio de la mercadería recién recibida.
  *
- * Fórmula (misma que la RPC `ra_registrar_compra` en SQL, deben mantenerse
- * matemáticamente equivalentes):
+ * Fórmula (misma que la RPC `ra_confirmar_compra` en SQL, deben mantenerse
+ * matemáticamente equivalentes; `ra_registrar_compra` legacy deprecated):
  *   nuevo = (stockActual * precioActual + cantidadRecibida * precioRecibido)
  *           / (stockActual + cantidadRecibida)
  *

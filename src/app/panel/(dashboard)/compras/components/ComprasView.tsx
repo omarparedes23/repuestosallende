@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import { Search, Plus, ShoppingCart, Eye } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { actualizarEstadoPago } from '../actions'
 import type { CompraRow } from '../actions'
 
 const ESTADO_LABEL: Record<string, string> = {
@@ -22,26 +21,16 @@ type Props = { initialCompras: CompraRow[] }
 
 export function ComprasView({ initialCompras }: Props) {
   const router = useRouter()
-  const [compras, setCompras] = useState(initialCompras)
+  const [compras] = useState(initialCompras)
   const [query, setQuery] = useState('')
-  const [, startTransition] = useTransition()
 
   const filtered = query.trim()
-    ? compras.filter(
-        (c) =>
-          c.proveedor_nombre.toLowerCase().includes(query.toLowerCase()) ||
-          (c.nro_documento ?? '').toLowerCase().includes(query.toLowerCase())
-      )
-    : compras
-
-  function handleEstado(id: string, nuevoEstado: 'pendiente' | 'parcial' | 'pagado') {
-    startTransition(async () => {
-      await actualizarEstadoPago(id, nuevoEstado)
-      setCompras((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, estado_pago: nuevoEstado } : c))
-      )
-    })
-  }
+  ? compras.filter(
+      (c) =>
+        c.proveedor_nombre.toLowerCase().includes(query.toLowerCase()) ||
+        (c.nro_documento ?? '').toLowerCase().includes(query.toLowerCase())
+    )
+  : compras
 
   return (
     <div className="p-8 space-y-6">
@@ -144,16 +133,6 @@ export function ComprasView({ initialCompras }: Props) {
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2">
-                        <select
-                          value={c.estado_pago}
-                          onChange={(e) => handleEstado(c.id, e.target.value as any)}
-                          className="rounded-lg border text-xs px-2 py-1.5 outline-none bg-white"
-                          style={{ borderColor: '#D1D5DB', color: '#374151' }}
-                        >
-                          <option value="pendiente">Pendiente</option>
-                          <option value="parcial">Parcial</option>
-                          <option value="pagado">Pagado</option>
-                        </select>
                         <button
                           onClick={() => router.push(`/panel/compras/${c.id}`)}
                           className="p-1.5 rounded-lg transition-colors hover:bg-gray-100"

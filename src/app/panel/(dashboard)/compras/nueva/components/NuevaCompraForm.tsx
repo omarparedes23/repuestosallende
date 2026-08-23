@@ -2,10 +2,11 @@
 
 import { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, Plus, Trash2, ChevronLeft, AlertTriangle } from 'lucide-react'
+import { Search, Trash2, ChevronLeft, AlertTriangle } from 'lucide-react'
 import {
   buscarProveedores,
   buscarProductosParaCompra,
+  consultarResultadoCompra,
   registrarCompra,
   getOrdenCompra,
 } from '../../actions'
@@ -29,6 +30,10 @@ export function NuevaCompraForm() {
   const ordenCompraId = searchParams.get('ordenCompraId')
   const [isPending, startTransition] = useTransition()
 
+  // Idempotency: operationId persists across retries and is rotated only on success or new form
+  const [operationId, setOperationId] = useState(() => crypto.randomUUID())
+  const [isInErrorState, setIsInErrorState] = useState(false)
+
   // Proveedor
   const [proveedorQuery, setProveedorQuery] = useState('')
   const [proveedorSugerencias, setProveedorSugerencias] = useState<Proveedor[]>([])
@@ -51,7 +56,7 @@ export function NuevaCompraForm() {
   const tipoCambioInvalido = moneda === 'USD' && (!tipoCambio || tipoCambio <= 0)
 
   // Precarga desde una orden de compra confirmada (recepción vinculada)
-  const [ordenCargando, setOrdenCargando] = useState(false)
+  const [ordenCargando, setOrdenCargando] = useState(() => Boolean(ordenCompraId))
   const [ordenError, setOrdenError] = useState<string | null>(null)
   const [ordenReferencia, setOrdenReferencia] = useState<string | null>(null)
 
@@ -60,8 +65,9 @@ export function NuevaCompraForm() {
 
   useEffect(() => {
     if (!ordenCompraId) return
-    setOrdenCargando(true)
+    let active = true
     getOrdenCompra(ordenCompraId).then(({ data, error: err }) => {
+      if (!active) return
       setOrdenCargando(false)
       if (err || !data) {
         setOrdenError(err ?? 'No se pudo cargar la orden de compra.')
@@ -80,7 +86,9 @@ export function NuevaCompraForm() {
         }))
       )
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      active = false
+    }
   }, [ordenCompraId])
 
   function onProveedorInput(q: string) {
@@ -155,19 +163,43 @@ export function NuevaCompraForm() {
 
     setError(null)
     startTransition(async () => {
-      const result = await registrarCompra(
-        proveedorSeleccionado.id,
-        nroDocumento.trim() || null,
-        notas.trim() || null,
-        items.map(({ key: _key, ...rest }) => rest),
-        ordenCompraId,
-        moneda,
-        moneda === 'USD' ? tipoCambio : null
-      )
-      if (result.error) {
-        setError(result.error)
-      } else {
-        router.push('/panel/compras')
+      try {
+        if (isInErrorState) {
+          const check = await consultarResultadoCompra(operationId)
+          if (check.data) {
+            setOperationId(crypto.randomUUID())
+            router.push('/panel/compras')
+            return
+          }
+        }
+
+        const result = await registrarCompra({
+          operationId,
+          proveedorId: proveedorSeleccionado.id,
+          nroDocumento: nroDocumento.trim() || null,
+          notas: notas.trim() || null,
+          items: items.map((i) => ({
+            catalogoId: i.catalogo_id,
+            cantidad: i.cantidad,
+            precioUnitario: i.precio_unitario,
+            nombreProducto: i.nombre_producto,
+          })),
+          ordenCompraId: ordenCompraId || null,
+          moneda,
+          tipoCambio: moneda === 'USD' ? tipoCambio : null,
+        })
+
+        if (result.error) {
+          setIsInErrorState(true)
+          setError(result.error)
+        } else {
+          setIsInErrorState(false)
+          setOperationId(crypto.randomUUID())
+          router.push('/panel/compras')
+        }
+      } catch {
+        setIsInErrorState(true)
+        setError('Error de comunicación. El reintento consultará si la compra fue registrada antes de reenviar.')
       }
     })
   }
