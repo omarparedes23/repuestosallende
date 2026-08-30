@@ -1,9 +1,13 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useActionState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, User, Receipt, Printer } from 'lucide-react'
-import type { VentaDetalle as VentaDetalleType } from '../../actions'
+import { ArrowLeft, User, Receipt, Printer, Send } from 'lucide-react'
+import {
+  enviarVentaAOseSunat,
+  initialEnvioSunatManualState,
+  type VentaDetalle as VentaDetalleType,
+} from '../../actions'
 import type { RaTipoComprobante } from '@/lib/types/database'
 import { simboloMoneda } from '@/lib/calc/moneda'
 import { calcularVuelto } from '@/lib/calc/vuelto'
@@ -12,6 +16,7 @@ import type { TicketReceiptData } from '@/app/tablet/components/ticket/TicketRec
 
 type Props = {
   venta: VentaDetalleType
+  puedeEnviarSunat: boolean
 }
 
 const METODO_LABELS: Record<string, string> = {
@@ -35,8 +40,12 @@ const ESTADO_CONFIG: Record<string, { label: string; bg: string; text: string }>
   error_sunat: { label: 'Error SUNAT', bg: '#FEF2F2', text: '#DC2626' },
 }
 
-export function VentaDetalle({ venta }: Props) {
+export function VentaDetalle({ venta, puedeEnviarSunat }: Props) {
   const [showPrint, setShowPrint] = useState(false)
+  const [envioState, enviarFormAction, enviando] = useActionState(
+    enviarVentaAOseSunat,
+    initialEnvioSunatManualState
+  )
   const estadoCfg = ESTADO_CONFIG[venta.estado] ?? ESTADO_CONFIG.pendiente
   const fecha = new Date(venta.created_at)
 
@@ -54,6 +63,7 @@ export function VentaDetalle({ venta }: Props) {
   const puedeReimprimir = (esTicket || esBoletaFactura) && (venta.estado === 'completada' || venta.estado === 'pendiente')
   const esAnulada = venta.estado === 'anulada'
   const esErrorSunat = venta.estado === 'error_sunat'
+  const puedeEnviarManual = puedeEnviarSunat && esBoletaFactura && venta.estado === 'pendiente' && !venta.sunat_hash
 
   const ticketData: TicketReceiptData | null = puedeReimprimir
     ? {
@@ -273,6 +283,35 @@ export function VentaDetalle({ venta }: Props) {
                 <Printer size={16} />
                 {esTicket ? 'Reimprimir ticket' : 'Imprimir / Reimprimir'}
               </button>
+            )}
+            {puedeEnviarManual && (
+              <form
+                action={enviarFormAction}
+                onSubmit={(event) => {
+                  if (!window.confirm(`¿Enviar ${idVenta} a OSE/SUNAT ahora?`)) event.preventDefault()
+                }}
+              >
+                <input type="hidden" name="venta_id" value={venta.id} />
+                <button
+                  type="submit"
+                  disabled={enviando}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold disabled:opacity-50"
+                  style={{ backgroundColor: '#059669', color: '#FFFFFF' }}
+                >
+                  <Send size={16} />
+                  {enviando ? 'Enviando a OSE/SUNAT...' : 'Enviar a OSE/SUNAT'}
+                </button>
+              </form>
+            )}
+            {envioState.message && (
+              <p
+                className="text-sm text-center"
+                style={{
+                  color: envioState.tone === 'success' ? '#059669' : envioState.tone === 'error' ? '#DC2626' : '#D97706',
+                }}
+              >
+                {envioState.message}
+              </p>
             )}
             {puedeReimprimir && esBoletaFactura && !venta.sunat_hash && (
               <p className="text-sm text-center" style={{ color: '#D97706' }}>

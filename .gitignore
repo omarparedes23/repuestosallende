@@ -54,6 +54,7 @@ claude.md
 !openspec/changes/limpieza-prepromocion-datos-test/**/*.md
 !openspec/changes/seguridad-rpc-multitenant/**/*.md
 !openspec/changes/tesoreria-idempotente-cierre-atomico/**/*.md
+!openspec/changes/activar-outbox-fiscal-p1/**/*.md
 
 # data migration (CSVs con datos sensibles)
 *.csv

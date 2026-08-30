@@ -1,7 +1,21 @@
 'use server'
 
-import { getSessionFast } from '@/lib/session'
+import { revalidatePath } from 'next/cache'
+import { getSession, getSessionFast } from '@/lib/session'
+import { processSunatOutboxForVenta } from '@/lib/facturacion/outbox'
 import type { RaMoneda } from '@/lib/types/database'
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+export type EnvioSunatManualState = {
+  message: string | null
+  tone: 'success' | 'error' | 'info'
+}
+
+export const initialEnvioSunatManualState: EnvioSunatManualState = {
+  message: null,
+  tone: 'info',
+}
 
 export type VentaResumen = {
   id: string
@@ -188,4 +202,73 @@ export async function getVentaDetalle(id: string): Promise<{
   }
 
   return { data: detalle, error: null }
+}
+
+export async function enviarVentaAOseSunat(
+  _previousState: EnvioSunatManualState,
+  formData: FormData
+): Promise<EnvioSunatManualState> {
+  const ventaId = String(formData.get('venta_id') ?? '')
+  if (!UUID.test(ventaId)) {
+    return { message: 'Identificador de venta inválido.', tone: 'error' }
+  }
+
+  const { supabase: rawSupabase, user, perfil, sucursalId } = await getSession()
+  if (!user || !perfil?.empresa_id) {
+    return { message: 'No autenticado.', tone: 'error' }
+  }
+  if (!sucursalId) {
+    return { message: 'Tienda no seleccionada. Vuelve al inicio.', tone: 'error' }
+  }
+  if (!['administrador', 'superadmin'].includes(perfil.rol)) {
+    return { message: 'Solo el administrador puede enviar comprobantes a OSE/SUNAT.', tone: 'error' }
+  }
+
+  const { data: venta, error } = await rawSupabase
+    .from('ra_ventas')
+    .select('id, tipo_comprobante, estado')
+    .eq('id', ventaId)
+    .eq('empresa_id', perfil.empresa_id)
+    .eq('sucursal_id', sucursalId)
+    .maybeSingle()
+  const ventaFiscal = venta as unknown as {
+    tipo_comprobante: string
+    estado: string
+  } | null
+
+  if (error || !ventaFiscal) {
+    return { message: 'Venta no encontrada en la tienda activa.', tone: 'error' }
+  }
+  if (!['boleta', 'factura'].includes(ventaFiscal.tipo_comprobante) || ventaFiscal.estado !== 'pendiente') {
+    return { message: 'Solo se pueden enviar boletas o facturas pendientes.', tone: 'error' }
+  }
+
+  try {
+    const result = await processSunatOutboxForVenta(ventaId)
+    revalidatePath('/tablet/ventas')
+    revalidatePath(`/tablet/ventas/${ventaId}`)
+
+    if (result.claimed === 0) {
+      return {
+        message: 'El comprobante ya está siendo procesado, fue enviado antes o aún espera su próximo reintento.',
+        tone: 'info',
+      }
+    }
+    if (result.processed === 0) {
+      return { message: 'No se pudo registrar el resultado del envío. Intenta nuevamente más tarde.', tone: 'error' }
+    }
+    if (result.outcome === 'accepted') {
+      return { message: 'Comprobante aceptado por SUNAT.', tone: 'success' }
+    }
+    if (result.outcome === 'submitted') {
+      return { message: 'Comprobante enviado al OSE. Está pendiente de confirmación.', tone: 'info' }
+    }
+    if (result.outcome === 'rejected') {
+      return { message: 'OSE/SUNAT rechazó el comprobante. Revisa el estado antes de corregirlo.', tone: 'error' }
+    }
+    return { message: 'El envío no se confirmó; quedó registrado para reintento o revisión administrativa.', tone: 'info' }
+  } catch (cause) {
+    console.error('[sunat-outbox-manual] Error al procesar venta', cause instanceof Error ? cause.message : 'unknown')
+    return { message: 'No se pudo enviar el comprobante. No se modificó la venta comercial.', tone: 'error' }
+  }
 }
