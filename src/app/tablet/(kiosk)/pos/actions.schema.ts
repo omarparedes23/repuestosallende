@@ -37,3 +37,12 @@ export const VentaInputSchema = z
     (v) => (v.pagos.some((p) => p.metodoPago === 'credito') ? v.fechaVencimiento != null : true),
     { error: 'Las ventas a crédito requieren fecha de vencimiento' }
   )
+  .refine(
+    (v) =>
+      v.pagos.every(
+        (p) =>
+          !['yape', 'tarjeta', 'transferencia'].includes(p.metodoPago) ||
+          Boolean(p.referencia?.trim())
+      ),
+    { error: 'Los pagos digitales requieren número de operación o voucher' }
+  )

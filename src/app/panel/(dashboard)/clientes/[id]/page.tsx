@@ -4,10 +4,11 @@ import { ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import { getEstadoCuenta } from '../actions'
 import { EstadoCuentaView } from './components/EstadoCuentaView'
+import { getSucursalesParaCobro } from '../../tesoreria/actions'
 
 export default async function ClienteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { supabase: raw, perfil } = await getSession()
+  const { supabase: raw, perfil, sucursalId } = await getSession()
   if (!perfil?.empresa_id) redirect('/panel/login')
   const supabase = raw as any
 
@@ -20,7 +21,10 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
 
   if (!cliente) redirect('/panel/clientes')
 
-  const { data: movimientos } = await getEstadoCuenta(id)
+  const [{ data: movimientos }, sucursales] = await Promise.all([
+    getEstadoCuenta(id),
+    getSucursalesParaCobro(),
+  ])
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6">
@@ -63,7 +67,12 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      <EstadoCuentaView cliente={cliente} movimientos={movimientos ?? []} />
+      <EstadoCuentaView
+        cliente={cliente}
+        movimientos={movimientos ?? []}
+        sucursales={sucursales}
+        sucursalInicialId={sucursalId}
+      />
     </div>
   )
 }

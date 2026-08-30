@@ -78,6 +78,20 @@ describe('VentaInputSchema — moneda/tipoCambio', () => {
     expect(result.success).toBe(true)
   })
 
+  it('tarjeta exige voucher u operación, sin almacenar el número de tarjeta', () => {
+    expect(
+      VentaInputSchema.safeParse(
+        inputBase({ pagos: [{ metodoPago: 'tarjeta', monto: 150 }] })
+      ).success
+    ).toBe(false)
+
+    expect(
+      VentaInputSchema.safeParse(
+        inputBase({ pagos: [{ metodoPago: 'tarjeta', monto: 150, referencia: 'VCH-000123' }] })
+      ).success
+    ).toBe(true)
+  })
+
   it('efectivo sin referencia pasa el schema (referencia opcional)', () => {
     const result = VentaInputSchema.safeParse(
       inputBase({

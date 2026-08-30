@@ -23,6 +23,10 @@
 .env*
 !.env.example
 
+# tooling local y artefactos externos
+.codex/
+analisisgoogle/
+
 # logs
 npm-debug.log*
 yarn-debug.log*
@@ -48,11 +52,14 @@ claude.md
 !openspec/changes/compra-cuenta-por-pagar-atomica/**/*.md
 !openspec/changes/venta-transaccional-idempotente/**/*.md
 !openspec/changes/limpieza-prepromocion-datos-test/**/*.md
+!openspec/changes/seguridad-rpc-multitenant/**/*.md
+!openspec/changes/tesoreria-idempotente-cierre-atomico/**/*.md
 
 # data migration (CSVs con datos sensibles)
 *.csv
 *.ps1
 !supabase/tests/compra-atomica-fase5-conc-runner.ps1
+!supabase/tests/tesoreria-*.ps1
 *.bat
 sync_stock_checkpoint.json
 sync_stock.log

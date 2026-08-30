@@ -4,10 +4,12 @@ import { Fragment, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, ChevronUp, Landmark, AlertTriangle } from 'lucide-react'
 import { RegistrarCobroForm } from '../../clientes/[id]/components/RegistrarCobroForm'
-import type { MovimientoConVentaYCliente } from '../actions'
+import type { MovimientoConVentaYCliente, SucursalCobro } from '../actions'
 
 type Props = {
   movimientos: MovimientoConVentaYCliente[]
+  sucursales: SucursalCobro[]
+  sucursalInicialId: string | null
 }
 
 type DeudaPendiente = {
@@ -37,7 +39,7 @@ function estaVencida(fechaVencimiento: string | null): boolean {
   return new Date(fechaVencimiento) < new Date(new Date().toDateString())
 }
 
-export function TesoreriaView({ movimientos }: Props) {
+export function TesoreriaView({ movimientos, sucursales, sucursalInicialId }: Props) {
   const router = useRouter()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [cobroTarget, setCobroTarget] = useState<DeudaPendiente | null>(null)
@@ -208,6 +210,8 @@ export function TesoreriaView({ movimientos }: Props) {
           numeroCompleto={cobroTarget.numeroCompleto}
           moneda={cobroTarget.moneda}
           saldoPendiente={cobroTarget.saldoPendiente}
+          sucursales={sucursales}
+          sucursalInicialId={sucursalInicialId}
           onClose={() => setCobroTarget(null)}
           onSaved={() => {
             setCobroTarget(null)

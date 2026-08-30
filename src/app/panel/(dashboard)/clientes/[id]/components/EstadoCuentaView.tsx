@@ -6,10 +6,13 @@ import { ChevronDown, ChevronUp, Wallet, AlertTriangle } from 'lucide-react'
 import { RegistrarCobroForm } from './RegistrarCobroForm'
 import type { RaCliente } from '@/lib/types/database'
 import type { MovimientoConVenta } from '../../actions'
+import type { SucursalCobro } from '../../../tesoreria/actions'
 
 type Props = {
   cliente: RaCliente
   movimientos: MovimientoConVenta[]
+  sucursales: SucursalCobro[]
+  sucursalInicialId: string | null
 }
 
 type VentaCredito = {
@@ -37,7 +40,7 @@ function estaVencida(fechaVencimiento: string | null): boolean {
   return new Date(fechaVencimiento) < new Date(new Date().toDateString())
 }
 
-export function EstadoCuentaView({ cliente, movimientos }: Props) {
+export function EstadoCuentaView({ cliente, movimientos, sucursales, sucursalInicialId }: Props) {
   const router = useRouter()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [cobroTarget, setCobroTarget] = useState<VentaCredito | null>(null)
@@ -193,6 +196,8 @@ export function EstadoCuentaView({ cliente, movimientos }: Props) {
           numeroCompleto={cobroTarget.numeroCompleto}
           moneda={cobroTarget.moneda}
           saldoPendiente={cobroTarget.saldoPendiente}
+          sucursales={sucursales}
+          sucursalInicialId={sucursalInicialId}
           onClose={() => setCobroTarget(null)}
           onSaved={() => {
             setCobroTarget(null)

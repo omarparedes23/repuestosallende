@@ -1,0 +1,40 @@
+HANDOFF 2026-08-30
+
+Estado P0:
+- Commit existente: 66ee1e9 feat(treasury): secure idempotent cash closure.
+- Supabase TEST: migraciones 045-048 aplicadas y validadas. Caja compartida
+  por sucursal; efectivo físico separado de pagos digitales conciliables.
+- Runners de venta/cierre y abonos concurrentes habían terminado PASS antes
+  del reset descrito abajo.
+
+Cambios locales sin commit de esta sesión:
+- POS exige referencia para Yape, transferencia y tarjeta. Para tarjeta el
+  campo dice "N.º de operación / voucher POS" y nunca captura número de tarjeta.
+- Cobranza CxC permite seleccionar explícitamente la sucursal receptora, tanto
+  desde Tesorería global como desde la cuenta del cliente.
+- UUID canónicos históricos de PostgreSQL son aceptados; la RPC mantiene la
+  autorización real empresa/sucursal.
+- OpenSpec/script: changes/reset-ventas-tesoreria-test/.
+
+Reset ejecutado en Supabase TEST por agente externo:
+- Dry-run rollback PASS; real PASS.
+- Vacías: outbox 9, CxC 6, liquidaciones 10, movimientos caja 27, pagos 27,
+  items 28, ventas 27, cajas 13; saldos deudores clientes 0.
+- Sin cambios: 43,622 productos (snapshot JSON PASS), stock, precios,
+  catálogo 43,617, kardex 128, compras 51 y CxP 55.
+- Triggers append-only de caja y liquidación restaurados/habilitados.
+
+Límite P1:
+- Kardex se conservó por alcance aunque se borraron ventas; puede conservar
+  referencias históricas a ventas inexistentes. Requiere conciliación de
+  inventario P1, no ocultar esa divergencia.
+
+Verificación local final:
+- npm test: 18 archivos, 117 pruebas PASS.
+- npx tsc --noEmit: PASS.
+- git diff --check: PASS.
+- Lint global conserva deuda histórica; no se hizo limpieza masiva.
+
+Preservar worktree:
+- No revertir ni mezclar cambios staged previos de .codex/config.toml,
+  .gitignore y ZIP analíticos. Hay cuatro capturas sin seguimiento.

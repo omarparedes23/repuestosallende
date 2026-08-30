@@ -19,11 +19,22 @@ type Props = {
   numeroCompleto: string | null
   moneda: string
   saldoPendiente: number
+  sucursales: Array<{ id: string; nombre: string }>
+  sucursalInicialId: string | null
   onClose: () => void
   onSaved: () => void
 }
 
-export function RegistrarCobroForm({ ventaId, numeroCompleto, moneda, saldoPendiente, onClose, onSaved }: Props) {
+export function RegistrarCobroForm({
+  ventaId,
+  numeroCompleto,
+  moneda,
+  saldoPendiente,
+  sucursales,
+  sucursalInicialId,
+  onClose,
+  onSaved,
+}: Props) {
   const [operationId] = useState(() => crypto.randomUUID())
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -31,16 +42,24 @@ export function RegistrarCobroForm({ ventaId, numeroCompleto, moneda, saldoPendi
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0])
   const [metodoPago, setMetodoPago] = useState<RaMetodoPago>('efectivo')
   const [referencia, setReferencia] = useState('')
+  const [sucursalCobroId, setSucursalCobroId] = useState(() =>
+    sucursalInicialId && sucursales.some((sucursal) => sucursal.id === sucursalInicialId)
+      ? sucursalInicialId
+      : ''
+  )
 
   const simbolo = SIMBOLO[moneda] ?? 'S/'
   const montoNumero = parseFloat(monto) || 0
   const montoInvalido = montoNumero <= 0 || montoNumero > saldoPendiente
+  const requiereReferencia = ['yape', 'tarjeta', 'transferencia'].includes(metodoPago)
+  const referenciaInvalida = requiereReferencia && !referencia.trim()
 
   function handleSubmit() {
     setError(null)
     startTransition(async () => {
       const result = await registrarCobro(
         operationId,
+        sucursalCobroId,
         ventaId,
         montoNumero,
         fecha,
@@ -116,14 +135,43 @@ export function RegistrarCobroForm({ ventaId, numeroCompleto, moneda, saldoPendi
         </div>
 
         <div className="space-y-1">
-          <label className="block text-sm font-semibold" style={{ color: '#374151' }}>Referencia</label>
+          <label className="block text-sm font-semibold" style={{ color: '#374151' }}>
+            Sucursal que recibe el cobro
+          </label>
+          <select
+            value={sucursalCobroId}
+            onChange={(e) => setSucursalCobroId(e.target.value)}
+            className="w-full rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62] bg-white"
+            style={{ borderColor: !sucursalCobroId ? '#DC2626' : '#D1D5DB' }}
+          >
+            <option value="">Selecciona la sucursal</option>
+            {sucursales.map((sucursal) => (
+              <option key={sucursal.id} value={sucursal.id}>{sucursal.nombre}</option>
+            ))}
+          </select>
+          {!sucursalCobroId && (
+            <p className="text-xs font-medium" style={{ color: '#DC2626' }}>
+              Indica dónde se recibió el pago.
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1">
+          <label className="block text-sm font-semibold" style={{ color: '#374151' }}>
+            {metodoPago === 'tarjeta' ? 'N.º de operación / voucher POS' : 'Referencia'}
+          </label>
           <input
             value={referencia}
             onChange={(e) => setReferencia(e.target.value)}
-            placeholder="Nro. operación, voucher, etc. (opcional)"
+            placeholder={requiereReferencia ? 'N.º de operación o voucher' : 'Nro. operación, voucher, etc. (opcional)'}
             className="w-full rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
             style={{ borderColor: '#D1D5DB' }}
           />
+          {referenciaInvalida && (
+            <p className="text-xs font-medium" style={{ color: '#DC2626' }}>
+              Registra la referencia del pago digital.
+            </p>
+          )}
         </div>
 
         {error && (
@@ -142,7 +190,7 @@ export function RegistrarCobroForm({ ventaId, numeroCompleto, moneda, saldoPendi
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={isPending || montoInvalido}
+            disabled={isPending || montoInvalido || !sucursalCobroId || referenciaInvalida}
             className="flex-1 py-3 rounded-xl text-sm font-bold disabled:opacity-50"
             style={{ backgroundColor: '#002D62', color: '#FFD700' }}
           >

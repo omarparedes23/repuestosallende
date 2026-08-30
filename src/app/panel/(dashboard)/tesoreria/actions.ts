@@ -8,6 +8,29 @@ export type MovimientoConVentaYCliente = MovimientoConVenta & {
   ra_clientes: Pick<RaCliente, 'id' | 'nombre'> | null
 }
 
+export type SucursalCobro = {
+  id: string
+  nombre: string
+}
+
+export async function getSucursalesParaCobro(): Promise<SucursalCobro[]> {
+  const { supabase: raw, perfil } = await getSessionFast()
+  // Los tipos manuales aún no incluyen ra_sucursales; la consulta queda limitada
+  // a id/nombre y el RPC sigue validando empresa/sucursal en servidor.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = raw as any
+  if (!perfil?.empresa_id) return []
+
+  const { data } = await supabase
+    .from('ra_sucursales')
+    .select('id, nombre')
+    .eq('empresa_id', perfil.empresa_id)
+    .eq('activo', true)
+    .order('nombre')
+
+  return data ?? []
+}
+
 export async function getCuentasPorCobrarGlobal(): Promise<{
   data: MovimientoConVentaYCliente[] | null
   error: string | null

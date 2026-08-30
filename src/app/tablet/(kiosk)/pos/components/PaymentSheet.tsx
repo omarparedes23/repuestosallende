@@ -38,6 +38,8 @@ const COMPROBANTES: { value: RaTipoComprobante; label: string }[] = [
   { value: 'factura', label: 'Factura' },
 ]
 
+const METODOS_CON_REFERENCIA = new Set<RaMetodoPago>(['yape', 'tarjeta', 'transferencia'])
+
 type Props = {
   onClose: () => void
 }
@@ -207,6 +209,16 @@ export function PaymentSheet({ onClose }: Props) {
   const handleConfirm = () => {
     if (!totales) return
     setError(null)
+    const pagoSinReferencia = lineas.some(
+      (linea) =>
+        METODOS_CON_REFERENCIA.has(linea.metodoPago) &&
+        (parseFloat(linea.monto) || 0) > 0 &&
+        !linea.referencia.trim()
+    )
+    if (pagoSinReferencia) {
+      setError('Registra el número de operación o voucher de cada pago digital.')
+      return
+    }
     startTransition(async () => {
       const pagosValidos = lineas
         .map((l) => ({
@@ -650,15 +662,20 @@ export function PaymentSheet({ onClose }: Props) {
                     </button>
                   )}
                 </div>
-                {(linea.metodoPago === 'yape' || linea.metodoPago === 'transferencia') && (
-                  <input
-                    type="text"
-                    value={linea.referencia}
-                    onChange={(e) => updateLinea(idx, 'referencia', e.target.value)}
-                    placeholder="N° de operación"
-                    className="w-full rounded-xl border-2 px-3 py-2 text-sm outline-none"
-                    style={{ borderColor: '#D1D5DB' }}
-                  />
+                {METODOS_CON_REFERENCIA.has(linea.metodoPago) && (
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold" style={{ color: '#374151' }}>
+                      {linea.metodoPago === 'tarjeta' ? 'N.º de operación / voucher POS' : 'N.º de operación'}
+                    </label>
+                    <input
+                      type="text"
+                      value={linea.referencia}
+                      onChange={(e) => updateLinea(idx, 'referencia', e.target.value)}
+                      placeholder={linea.metodoPago === 'tarjeta' ? 'Voucher del POS, no número de tarjeta' : 'N.º de operación'}
+                      className="w-full rounded-xl border-2 px-3 py-2 text-sm outline-none"
+                      style={{ borderColor: '#D1D5DB' }}
+                    />
+                  </div>
                 )}
               </div>
             ))}

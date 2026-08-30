@@ -7,6 +7,7 @@ vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 const operationId = '11111111-1111-4111-8111-111111111111'
 const ventaId = '22222222-2222-4222-8222-222222222222'
 const sucursalId = '33333333-3333-4333-8333-333333333333'
+const sucursalHistoricaId = 'b2c3d4e5-f6a7-8901-bcde-f12345678901'
 
 describe('clientes actions — cobro por RPC versionada', () => {
   let rpc: ReturnType<typeof vi.fn>
@@ -23,7 +24,7 @@ describe('clientes actions — cobro por RPC versionada', () => {
   })
 
   it('envía un cobro digital únicamente a ra_registrar_cobro_v2', async () => {
-    const result = await registrarCobro(operationId, ventaId, 25.5, '2026-08-30', 'yape', 'PEN', 'YAPE-001')
+    const result = await registrarCobro(operationId, sucursalId, ventaId, 25.5, '2026-08-30', 'yape', 'PEN', 'YAPE-001')
 
     expect(result).toEqual({ error: null })
     expect(rpc).toHaveBeenCalledWith('ra_registrar_cobro_v2', {
@@ -39,10 +40,35 @@ describe('clientes actions — cobro por RPC versionada', () => {
     })
   })
 
+  it('acepta una sucursal con UUID PostgreSQL histórico y deja la autorización a la RPC', async () => {
+    const result = await registrarCobro(
+      operationId,
+      sucursalHistoricaId,
+      ventaId,
+      25.5,
+      '2026-08-30',
+      'transferencia',
+      'PEN',
+      'TRX-001'
+    )
+
+    expect(result).toEqual({ error: null })
+    expect(rpc).toHaveBeenCalledWith('ra_registrar_cobro_v2', expect.objectContaining({
+      p_sucursal_id: sucursalHistoricaId,
+    }))
+  })
+
   it('sanitiza el conflicto idempotente sin exponer el error SQL', async () => {
     rpc.mockResolvedValue({ data: null, error: { message: 'RA_IDEMPOTENCY_CONFLICT' } })
 
-    await expect(registrarCobro(operationId, ventaId, 25.5, '2026-08-30', 'yape', 'PEN', null))
+    await expect(registrarCobro(operationId, sucursalId, ventaId, 25.5, '2026-08-30', 'yape', 'PEN', 'YAPE-001'))
       .resolves.toEqual({ error: 'El identificador de operación ya fue usado con otros datos.' })
+  })
+
+  it('rechaza un cobro digital sin voucher antes de invocar la RPC', async () => {
+    await expect(registrarCobro(operationId, sucursalId, ventaId, 25.5, '2026-08-30', 'tarjeta', 'PEN', null))
+      .resolves.toEqual({ error: 'Los pagos digitales requieren número de operación o voucher.' })
+
+    expect(rpc).not.toHaveBeenCalled()
   })
 })

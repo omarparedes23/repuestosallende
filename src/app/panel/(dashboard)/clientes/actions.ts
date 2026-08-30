@@ -150,6 +150,7 @@ export async function getEstadoCuenta(clienteId: string): Promise<{
 
 export async function registrarCobro(
   operationId: string,
+  sucursalId: string,
   ventaId: string,
   monto: number,
   fecha: string,
@@ -157,16 +158,21 @@ export async function registrarCobro(
   moneda: RaMoneda,
   referencia: string | null
 ): Promise<{ error: string | null }> {
-  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-  if (!uuid.test(operationId) || !uuid.test(ventaId)) return { error: 'Identificador de operación inválido.' }
+  // PostgreSQL admite UUID canónicos que no necesariamente siguen las versiones
+  // RFC 1–5; algunas sucursales históricas usan ese formato válido.
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!uuid.test(operationId) || !uuid.test(sucursalId) || !uuid.test(ventaId)) {
+    return { error: 'Identificador de operación inválido.' }
+  }
   if (!Number.isFinite(monto) || monto <= 0) return { error: 'El monto debe ser mayor a cero.' }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return { error: 'Fecha inválida.' }
-  const { supabase: raw, perfil, sucursalId } = await getSession()
+  if (['yape', 'tarjeta', 'transferencia'].includes(metodoPago) && !referencia?.trim()) {
+    return { error: 'Los pagos digitales requieren número de operación o voucher.' }
+  }
+  const { supabase: raw, perfil } = await getSession()
   const supabase = raw as any
   if (!perfil?.empresa_id) return { error: 'No autenticado' }
   if (!['administrador', 'superadmin'].includes(perfil.rol)) return { error: 'Sin permisos.' }
-  if (!sucursalId) return { error: 'Tienda no seleccionada.' }
-
   const { error } = await supabase.rpc('ra_registrar_cobro_v2', {
     p_operation_id: operationId,
     p_sucursal_id: sucursalId,

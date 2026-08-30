@@ -1,13 +1,16 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/session'
-import { getCuentasPorCobrarGlobal } from './actions'
+import { getCuentasPorCobrarGlobal, getSucursalesParaCobro } from './actions'
 import { TesoreriaView } from './components/TesoreriaView'
 
 export default async function TesoreriaPage() {
-  const { perfil } = await getSession()
+  const { perfil, sucursalId } = await getSession()
   if (!perfil?.empresa_id) redirect('/panel/login')
 
-  const { data: movimientos } = await getCuentasPorCobrarGlobal()
+  const [{ data: movimientos }, sucursales] = await Promise.all([
+    getCuentasPorCobrarGlobal(),
+    getSucursalesParaCobro(),
+  ])
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6">
@@ -18,7 +21,11 @@ export default async function TesoreriaPage() {
         </p>
       </div>
 
-      <TesoreriaView movimientos={movimientos ?? []} />
+      <TesoreriaView
+        movimientos={movimientos ?? []}
+        sucursales={sucursales}
+        sucursalInicialId={sucursalId}
+      />
     </div>
   )
 }
