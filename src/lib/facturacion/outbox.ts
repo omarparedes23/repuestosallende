@@ -8,6 +8,11 @@ type OutboxJob = {
   request_payload: OseComprobanteInput
 }
 
+export type SunatOutboxError = {
+  error_code: string | null
+  error_message: string | null
+}
+
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -78,5 +83,21 @@ export async function processSunatOutboxForVenta(ventaId: string) {
     claimed: 1,
     processed: result.finalized ? 1 : 0,
     outcome: result.outcome,
+  }
+}
+
+
+export async function getSunatOutboxErrorForVenta(ventaId: string): Promise<SunatOutboxError | null> {
+  const supabase = adminClient()
+  const { data, error } = await supabase
+    .from('ra_sunat_outbox')
+    .select('error_code, error_message')
+    .eq('venta_id', ventaId)
+    .maybeSingle()
+  if (error) throw new Error(`No se pudo consultar el error fiscal: ${error.message}`)
+  if (!data) return null
+  return {
+    error_code: data.error_code ?? null,
+    error_message: data.error_message ?? null,
   }
 }

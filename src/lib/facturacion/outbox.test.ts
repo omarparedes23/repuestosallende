@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createClient } from '@supabase/supabase-js'
 import { emitirComprobante } from './ose'
-import { processSunatOutboxForVenta } from './outbox'
+import { getSunatOutboxErrorForVenta, processSunatOutboxForVenta } from './outbox'
 
 vi.mock('@supabase/supabase-js', () => ({ createClient: vi.fn() }))
 vi.mock('./ose', () => ({ emitirComprobante: vi.fn() }))
@@ -52,5 +52,24 @@ describe('processSunatOutboxForVenta', () => {
       p_lease_token: 'lease-1',
       p_outcome: 'accepted',
     }))
+  })
+
+  it('devuelve únicamente el mensaje fiscal almacenado para el detalle autorizado de una venta', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { error_code: null, error_message: 'Ya existe F001-00000001 con un payload distinto' },
+      error: null,
+    })
+    const eq = vi.fn().mockReturnValue({ maybeSingle })
+    vi.mocked(createClient).mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({ eq }),
+      }),
+    } as never)
+
+    await expect(getSunatOutboxErrorForVenta(ventaId)).resolves.toEqual({
+      error_code: null,
+      error_message: 'Ya existe F001-00000001 con un payload distinto',
+    })
+    expect(eq).toHaveBeenCalledWith('venta_id', ventaId)
   })
 })

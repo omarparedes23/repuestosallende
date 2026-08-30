@@ -324,9 +324,15 @@ export function VentaDetalle({ venta, puedeEnviarSunat }: Props) {
               </p>
             )}
             {esErrorSunat && (
-              <p className="text-sm text-center" style={{ color: '#DC2626' }}>
-                No hay documento legal disponible para esta venta.
-              </p>
+              <div className="rounded-xl p-3 space-y-1" style={{ backgroundColor: '#FEF2F2', color: '#991B1B' }}>
+                <p className="text-sm font-bold text-center">No hay documento legal disponible para esta venta.</p>
+                {venta.sunat_error_message && (
+                  <>
+                    <p className="text-xs font-semibold">Motivo devuelto por OSE/SUNAT</p>
+                    <p className="text-sm break-words">{venta.sunat_error_message}</p>
+                  </>
+                )}
+              </div>
             )}
           </div>
         )}

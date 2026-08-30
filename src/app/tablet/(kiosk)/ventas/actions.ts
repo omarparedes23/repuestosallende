@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { getSession, getSessionFast } from '@/lib/session'
-import { processSunatOutboxForVenta } from '@/lib/facturacion/outbox'
+import { getSunatOutboxErrorForVenta, processSunatOutboxForVenta } from '@/lib/facturacion/outbox'
 import type { RaMoneda } from '@/lib/types/database'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -46,6 +46,7 @@ export type VentaDetalle = {
   cliente_nombre: string | null
   cliente_tipo_documento: string | null
   cliente_nro_documento: string | null
+  sunat_error_message: string | null
   empresa: {
     nombre: string
     razon_social: string | null
@@ -145,6 +146,16 @@ export async function getVentaDetalle(id: string): Promise<{
 
   if (error || !data) return { data: null, error: 'Venta no encontrada' }
 
+  let sunatErrorMessage: string | null = null
+  if (data.estado === 'error_sunat' && ['administrador', 'superadmin'].includes(perfil.rol)) {
+    try {
+      const outboxError = await getSunatOutboxErrorForVenta(data.id)
+      sunatErrorMessage = outboxError?.error_message?.trim().slice(0, 500) || null
+    } catch (cause) {
+      console.error('[sunat-outbox] No se pudo obtener el detalle del rechazo', cause instanceof Error ? cause.message : 'unknown')
+    }
+  }
+
   const detalle: VentaDetalle = {
     id: data.id,
     created_at: data.created_at,
@@ -164,6 +175,7 @@ export async function getVentaDetalle(id: string): Promise<{
     cliente_nombre: (data.ra_clientes as any)?.nombre ?? null,
     cliente_tipo_documento: (data.ra_clientes as any)?.tipo_documento ?? null,
     cliente_nro_documento: (data.ra_clientes as any)?.nro_documento ?? null,
+    sunat_error_message: sunatErrorMessage,
     empresa: {
       nombre: (data.ra_empresas as any)?.nombre ?? '',
       razon_social: (data.ra_empresas as any)?.razon_social ?? null,
