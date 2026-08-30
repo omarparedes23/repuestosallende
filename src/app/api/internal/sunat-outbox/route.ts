@@ -6,7 +6,8 @@ export const runtime = 'nodejs'
 export const maxDuration = 50
 
 function authorized(request: Request) {
-  const expected = process.env.SUNAT_OUTBOX_CRON_SECRET
+  // Vercel Cron envía automáticamente `Authorization: Bearer <CRON_SECRET>`.
+  const expected = process.env.CRON_SECRET
   const authorization = request.headers.get('authorization')
   if (!expected || !authorization?.startsWith('Bearer ')) return false
   const received = authorization.slice(7)

@@ -18,12 +18,13 @@ export const getCachedPerfil = cache(async (userId: string): Promise<Perfil | nu
 
 // sucursal_id resolution:
 // - vendedor: fixed to perfil.sucursal_id
-// - admin: reads cookie ra_sucursal_id set by the store picker
+// - admin: reads the active-store cookie shared by Tablet and Panel.
+//   ra_sucursal_id is retained only while older browser sessions are replaced.
 async function resolveSucursalId(perfil: Perfil | null): Promise<string | null> {
   if (!perfil) return null
   if (perfil.sucursal_id) return perfil.sucursal_id
   const jar = await cookies()
-  return jar.get('ra_sucursal_id')?.value ?? null
+  return jar.get('ra_sucursal_activa')?.value ?? jar.get('ra_sucursal_id')?.value ?? null
 }
 
 // Para ESCRITURAS: verifica el token contra los servidores de Supabase.

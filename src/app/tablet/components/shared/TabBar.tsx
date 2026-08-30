@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ShoppingCart, Users, ClipboardList, Archive, LayoutDashboard } from 'lucide-react'
+import { ShoppingCart, Users, ClipboardList, Archive, LayoutDashboard, Store } from 'lucide-react'
+import { cambiarSucursal } from '@/app/tablet/sucursal/actions'
 
 const TABS = [
   { label: 'POS', href: '/tablet/pos', icon: ShoppingCart },
@@ -42,6 +43,18 @@ export function TabBar({ rol }: Props) {
           </Link>
         )
       })}
+      {(rol === 'administrador' || rol === 'superadmin') && (
+        <form action={cambiarSucursal} className="flex flex-1">
+          <button
+            type="submit"
+            className="flex flex-1 flex-col items-center justify-center gap-1 py-3 text-xs font-semibold transition-colors"
+            style={{ color: '#8BA7CC' }}
+          >
+            <Store size={22} strokeWidth={1.8} />
+            <span>Cambiar</span>
+          </button>
+        </form>
+      )}
     </nav>
   )
 }

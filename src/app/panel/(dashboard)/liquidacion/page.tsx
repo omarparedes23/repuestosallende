@@ -8,14 +8,14 @@ export default async function LiquidacionPage() {
   const { perfil } = await getSession()
   if (!perfil?.empresa_id) redirect('/panel/login')
 
-  const [{ data: caja }, { data: liquidaciones, error: errorLiquidaciones }] = await Promise.all([
+  const [{ data: caja, error: errorCaja }, { data: liquidaciones, error: errorLiquidaciones }] = await Promise.all([
     getCajaActiva(),
     getLiquidacionesParaRevision(),
   ])
 
   return (
     <div className="space-y-8">
-      <LiquidacionView caja={caja} />
+      <LiquidacionView caja={caja} mensajeVacio={errorCaja} />
       <RevisionLiquidacionesPanel liquidaciones={liquidaciones} errorInicial={errorLiquidaciones} />
     </div>
   )

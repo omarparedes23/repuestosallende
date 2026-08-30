@@ -15,9 +15,12 @@ const METODOS: { key: MetodoPago; label: string; emoji: string }[] = [
   { key: 'credito',      label: 'Crédito',        emoji: '📋' },
 ]
 
-type Props = { caja: CajaActiva | null }
+type Props = {
+  caja: CajaActiva | null
+  mensajeVacio?: string | null
+}
 
-export function LiquidacionView({ caja }: Props) {
+export function LiquidacionView({ caja, mensajeVacio }: Props) {
   const [isPending, startTransition] = useTransition()
   const [confirmando, setConfirmando] = useState(false)
   const [exito, setExito] = useState(false)
@@ -35,8 +38,12 @@ export function LiquidacionView({ caja }: Props) {
         </div>
         <div className="rounded-2xl border flex flex-col items-center justify-center py-20 gap-3" style={{ borderColor: '#E5E7EB' }}>
           <CheckCircle size={40} style={{ color: '#D1D5DB' }} />
-          <p className="font-semibold" style={{ color: '#374151' }}>No hay caja abierta</p>
-          <p className="text-sm" style={{ color: '#9CA3AF' }}>Abre una caja desde el tablet para comenzar a vender</p>
+          <p className="font-semibold" style={{ color: '#374151' }}>
+            {mensajeVacio ? 'No hay sucursal seleccionada' : 'No hay caja abierta'}
+          </p>
+          <p className="text-sm" style={{ color: '#9CA3AF' }}>
+            {mensajeVacio ?? 'Abre una caja desde el tablet para comenzar a vender'}
+          </p>
         </div>
       </div>
     )

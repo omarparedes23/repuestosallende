@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as sessionModule from '@/lib/session'
-import { cerrarConLiquidacion, revisarLiquidacion } from './actions'
+import { cerrarConLiquidacion, getCajaActiva, revisarLiquidacion } from './actions'
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
@@ -56,5 +56,21 @@ describe('liquidación actions — cierre atómico', () => {
 
     expect(result).toBe('Indica una decisión y un motivo de hasta 1000 caracteres.')
     expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('no elige una caja de otra sucursal cuando no hay sucursal activa', async () => {
+    const from = vi.fn()
+    vi.spyOn(sessionModule, 'getSessionFast').mockResolvedValue({
+      supabase: { from } as never,
+      user: { id: 'user-1' } as never,
+      perfil: { id: 'user-1', empresa_id: 'empresa-1', rol: 'administrador', activo: true } as never,
+      sucursalId: null,
+    })
+
+    await expect(getCajaActiva()).resolves.toEqual({
+      data: null,
+      error: 'Selecciona una sucursal en el Tablet antes de liquidar caja.',
+    })
+    expect(from).not.toHaveBeenCalled()
   })
 })

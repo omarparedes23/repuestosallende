@@ -54,9 +54,13 @@ const NAV: NavSection[] = [
   },
 ]
 
-type Props = { nombreUsuario: string }
+type Props = {
+  nombreUsuario: string
+  sucursalNombre: string | null
+  sucursalDireccion: string | null
+}
 
-export function Sidebar({ nombreUsuario }: Props) {
+export function Sidebar({ nombreUsuario, sucursalNombre, sucursalDireccion }: Props) {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
 
@@ -75,16 +79,23 @@ export function Sidebar({ nombreUsuario }: Props) {
         className="md:hidden fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 h-14 border-b"
         style={{ backgroundColor: '#002D62', borderColor: '#001A3D' }}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <div
             className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
             style={{ backgroundColor: '#FFD700', color: '#002D62' }}
           >
             RA
           </div>
-          <p className="text-sm font-bold" style={{ color: '#FFFFFF' }}>
-            Panel admin
-          </p>
+          <div className="min-w-0">
+            <p className="text-sm font-bold truncate" style={{ color: '#FFFFFF' }}>
+              {sucursalNombre ? `Panel · ${sucursalNombre}` : 'Panel admin'}
+            </p>
+            {sucursalDireccion && (
+              <p className="text-[10px] truncate" style={{ color: '#8BA7CC' }}>
+                {sucursalDireccion}
+              </p>
+            )}
+          </div>
         </div>
         <button
           type="button"
@@ -127,8 +138,13 @@ export function Sidebar({ nombreUsuario }: Props) {
                 Repuestos Allende
               </p>
               <p className="text-xs truncate" style={{ color: '#8BA7CC' }}>
-                Panel admin
+                {sucursalNombre ? `Panel admin · ${sucursalNombre}` : 'Panel admin'}
               </p>
+              {sucursalDireccion && (
+                <p className="text-[10px] leading-tight truncate" style={{ color: '#8BA7CC' }}>
+                  {sucursalDireccion}
+                </p>
+              )}
             </div>
           </div>
           <button

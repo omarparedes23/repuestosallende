@@ -58,6 +58,7 @@ export async function getCajaActiva(): Promise<{ data: CajaActiva | null; error:
   const { supabase: raw, perfil, sucursalId } = await getSessionFast()
   const supabase = raw as any
   if (!perfil?.empresa_id) return { data: null, error: 'No autenticado' }
+  if (!sucursalId) return { data: null, error: 'Selecciona una sucursal en el Tablet antes de liquidar caja.' }
 
   let query = supabase
     .from('ra_cajas')
@@ -71,7 +72,7 @@ export async function getCajaActiva(): Promise<{ data: CajaActiva | null; error:
     .eq('empresa_id', perfil.empresa_id)
     .eq('estado', 'abierta')
 
-  if (sucursalId) query = query.eq('sucursal_id', sucursalId)
+  query = query.eq('sucursal_id', sucursalId)
 
   const { data: caja, error: cajaError } = await query
     .order('fecha_apertura', { ascending: false })

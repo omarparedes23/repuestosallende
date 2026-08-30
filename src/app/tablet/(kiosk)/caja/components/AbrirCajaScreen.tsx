@@ -1,8 +1,9 @@
 'use client'
 
 import { useActionState, useState } from 'react'
-import { Landmark } from 'lucide-react'
+import { Landmark, Store } from 'lucide-react'
 import { abrirCaja } from '../actions'
+import { cambiarSucursal } from '@/app/tablet/sucursal/actions'
 import type { RaRol } from '@/lib/types/database'
 
 interface Props {
@@ -42,6 +43,19 @@ export function AbrirCajaScreen({ empresaId, sucursalId, rol }: Props) {
                 Ingresa el monto inicial en efectivo para comenzar a operar.
               </p>
             </div>
+
+            {['administrador', 'superadmin'].includes(rol) && (
+              <form action={cambiarSucursal}>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 text-sm font-semibold"
+                  style={{ color: '#002D62' }}
+                >
+                  <Store size={17} />
+                  Cambiar sucursal
+                </button>
+              </form>
+            )}
 
             <form action={formAction} className="space-y-5">
               <input type="hidden" name="operation_id" value={operationId} />
