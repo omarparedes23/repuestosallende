@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft, User, Receipt, Printer, Send } from 'lucide-react'
 import {
   enviarVentaAOseSunat,
-  initialEnvioSunatManualState,
+  type EnvioSunatManualState,
   type VentaDetalle as VentaDetalleType,
 } from '../../actions'
 import type { RaTipoComprobante } from '@/lib/types/database'
@@ -38,6 +38,11 @@ const ESTADO_CONFIG: Record<string, { label: string; bg: string; text: string }>
   pendiente: { label: 'Pendiente', bg: '#FFFBEB', text: '#D97706' },
   anulada: { label: 'Anulada', bg: '#FEF2F2', text: '#DC2626' },
   error_sunat: { label: 'Error SUNAT', bg: '#FEF2F2', text: '#DC2626' },
+}
+
+const initialEnvioSunatManualState: EnvioSunatManualState = {
+  message: null,
+  tone: 'info',
 }
 
 export function VentaDetalle({ venta, puedeEnviarSunat }: Props) {

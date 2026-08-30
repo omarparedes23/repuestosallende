@@ -12,11 +12,6 @@ export type EnvioSunatManualState = {
   tone: 'success' | 'error' | 'info'
 }
 
-export const initialEnvioSunatManualState: EnvioSunatManualState = {
-  message: null,
-  tone: 'info',
-}
-
 export type VentaResumen = {
   id: string
   created_at: string

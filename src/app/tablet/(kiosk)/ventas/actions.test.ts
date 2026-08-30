@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as sessionModule from '@/lib/session'
 import { processSunatOutboxForVenta } from '@/lib/facturacion/outbox'
-import { enviarVentaAOseSunat, initialEnvioSunatManualState } from './actions'
+import { enviarVentaAOseSunat, type EnvioSunatManualState } from './actions'
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/facturacion/outbox', () => ({ processSunatOutboxForVenta: vi.fn() }))
 
 const ventaId = '11111111-1111-4111-8111-111111111111'
 const sucursalId = '22222222-2222-4222-8222-222222222222'
+const initialEnvioSunatManualState: EnvioSunatManualState = { message: null, tone: 'info' }
 
 function form(values: Record<string, string>) {
   const data = new FormData()
