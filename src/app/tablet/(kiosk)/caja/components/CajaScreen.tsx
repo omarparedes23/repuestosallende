@@ -27,6 +27,8 @@ const METODO_LABELS: Record<string, string> = {
 export function CajaScreen({ caja, movimientos, rol }: Props) {
   const [mostrarCierre, setMostrarCierre] = useState(false)
   const [mostrarMovimiento, setMostrarMovimiento] = useState(false)
+  const [operationIdCierre] = useState(() => crypto.randomUUID())
+  const [operationIdMovimiento, setOperationIdMovimiento] = useState(() => crypto.randomUUID())
 
   const [errorCierre, formCierre, pendingCierre] = useActionState(cerrarCaja, null)
   const [errorMovimiento, formMovimiento, pendingMovimiento] = useActionState(
@@ -36,13 +38,17 @@ export function CajaScreen({ caja, movimientos, rol }: Props) {
 
   const esAdmin = rol === 'administrador' || rol === 'superadmin'
 
-  const totalIngresos = movimientos
+  const movimientosEfectivo = movimientos.filter((m) => m.metodo_pago === 'efectivo')
+  const totalIngresosEfectivo = movimientosEfectivo
     .filter((m) => m.tipo === 'ingreso')
     .reduce((sum, m) => sum + m.monto, 0)
-  const totalEgresos = movimientos
+  const totalEgresosEfectivo = movimientosEfectivo
     .filter((m) => m.tipo === 'egreso')
     .reduce((sum, m) => sum + m.monto, 0)
-  const saldoActual = caja.monto_inicial + totalIngresos - totalEgresos
+  const efectivoEsperado = caja.monto_inicial + totalIngresosEfectivo - totalEgresosEfectivo
+  const conciliacionDigital = movimientos
+    .filter((m) => ['yape', 'tarjeta', 'transferencia'].includes(m.metodo_pago))
+    .reduce((sum, m) => sum + (m.tipo === 'ingreso' ? m.monto : -m.monto), 0)
 
   const fechaApertura = new Date(caja.fecha_apertura)
 
@@ -63,8 +69,8 @@ export function CajaScreen({ caja, movimientos, rol }: Props) {
       <div className="grid grid-cols-3 gap-3 p-4">
         {[
           { label: 'Monto inicial', value: caja.monto_inicial, color: '#6B7280' },
-          { label: 'Total ingresos', value: totalIngresos, color: '#059669' },
-          { label: 'Total egresos', value: totalEgresos, color: '#DC2626' },
+          { label: 'Ingresos efectivo', value: totalIngresosEfectivo, color: '#059669' },
+          { label: 'Egresos efectivo', value: totalEgresosEfectivo, color: '#DC2626' },
         ].map(({ label, value, color }) => (
           <div key={label} className="rounded-2xl p-4 border" style={{ borderColor: '#E5E7EB' }}>
             <p className="text-xs font-medium mb-1" style={{ color: '#9CA3AF' }}>
@@ -83,12 +89,15 @@ export function CajaScreen({ caja, movimientos, rol }: Props) {
           style={{ backgroundColor: '#002D62' }}
         >
           <span className="text-sm font-semibold" style={{ color: '#8BA7CC' }}>
-            Saldo actual (estimado)
+            Efectivo esperado
           </span>
           <span className="text-xl font-bold" style={{ color: '#FFD700' }}>
-            S/. {saldoActual.toFixed(2)}
+            S/. {efectivoEsperado.toFixed(2)}
           </span>
         </div>
+        <p className="mt-2 text-xs" style={{ color: '#6B7280' }}>
+          Conciliación digital (Yape, tarjeta y transferencia): S/. {conciliacionDigital.toFixed(2)}. No se suma al efectivo.
+        </p>
       </div>
 
       {/* Movimientos */}
@@ -100,7 +109,9 @@ export function CajaScreen({ caja, movimientos, rol }: Props) {
           {esAdmin && (
             <button
               onClick={() => {
-                setMostrarMovimiento(!mostrarMovimiento)
+                const next = !mostrarMovimiento
+                if (next) setOperationIdMovimiento(crypto.randomUUID())
+                setMostrarMovimiento(next)
                 setMostrarCierre(false)
               }}
               className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold"
@@ -119,10 +130,11 @@ export function CajaScreen({ caja, movimientos, rol }: Props) {
             className="mb-4 p-4 rounded-2xl border-2 space-y-3"
             style={{ borderColor: '#002D62' }}
           >
+            <input type="hidden" name="operation_id" value={operationIdMovimiento} />
             <p className="text-sm font-bold" style={{ color: '#002D62' }}>
               Nuevo movimiento
             </p>
-            <div className="grid grid-cols-2 gap-2">
+            <div>
               <select
                 name="tipo"
                 defaultValue="ingreso"
@@ -132,19 +144,8 @@ export function CajaScreen({ caja, movimientos, rol }: Props) {
                 <option value="ingreso">Ingreso</option>
                 <option value="egreso">Egreso</option>
               </select>
-              <select
-                name="metodo_pago"
-                defaultValue="efectivo"
-                className="rounded-xl border-2 px-3 py-2.5 text-sm outline-none"
-                style={{ borderColor: '#D1D5DB' }}
-              >
-                {Object.entries(METODO_LABELS).map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
-                  </option>
-                ))}
-              </select>
             </div>
+            <p className="text-xs" style={{ color: '#6B7280' }}>Los movimientos manuales de caja son siempre en efectivo.</p>
             <input
               name="concepto"
               placeholder="Concepto (ej: Pago proveedor)"
@@ -233,6 +234,7 @@ export function CajaScreen({ caja, movimientos, rol }: Props) {
             </button>
           ) : (
             <form action={formCierre} className="space-y-3">
+              <input type="hidden" name="operation_id" value={operationIdCierre} />
               <p className="text-sm font-semibold" style={{ color: '#374151' }}>
                 Confirmar cierre — ingresa el efectivo contado
               </p>
@@ -241,7 +243,7 @@ export function CajaScreen({ caja, movimientos, rol }: Props) {
                 type="number"
                 min="0"
                 step="0.01"
-                placeholder={`Efectivo en caja (S/. ${saldoActual.toFixed(2)} estimado)`}
+                placeholder={`Efectivo en caja (S/. ${efectivoEsperado.toFixed(2)} esperado)`}
                 className="w-full rounded-xl border-2 px-4 py-3 text-base font-bold outline-none"
                 style={{ borderColor: '#D1D5DB' }}
               />

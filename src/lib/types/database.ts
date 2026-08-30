@@ -561,6 +561,15 @@ export interface Database {
           diff_transferencia: number
           diff_credito: number
           notas: string | null
+          operation_id: string | null
+          request_hash: string | null
+          estado_revision: 'pendiente_revision' | 'validada' | 'observada'
+          revisado_por: string | null
+          revisado_at: string | null
+          motivo_revision: string | null
+          review_operation_id: string | null
+          review_request_hash: string | null
+          review_result_snapshot: Json | null
           created_at: string
         }
         Insert: {
@@ -579,6 +588,15 @@ export interface Database {
           conteo_transferencia?: number
           conteo_credito?: number
           notas?: string | null
+          operation_id?: string | null
+          request_hash?: string | null
+          estado_revision?: 'pendiente_revision' | 'validada' | 'observada'
+          revisado_por?: string | null
+          revisado_at?: string | null
+          motivo_revision?: string | null
+          review_operation_id?: string | null
+          review_request_hash?: string | null
+          review_result_snapshot?: Json | null
           created_at?: string
         }
         Update: {
@@ -588,6 +606,13 @@ export interface Database {
           conteo_transferencia?: number
           conteo_credito?: number
           notas?: string | null
+          estado_revision?: 'pendiente_revision' | 'validada' | 'observada'
+          revisado_por?: string | null
+          revisado_at?: string | null
+          motivo_revision?: string | null
+          review_operation_id?: string | null
+          review_request_hash?: string | null
+          review_result_snapshot?: Json | null
         }
       }
       // ── Tablet POS tables (migration 003) ──────────────────
@@ -656,6 +681,8 @@ export interface Database {
           fecha_apertura: string
           fecha_cierre: string | null
           notas: string | null
+          operation_id: string | null
+          request_hash: string | null
         }
         Insert: {
           id?: string
@@ -668,6 +695,8 @@ export interface Database {
           fecha_apertura?: string
           fecha_cierre?: string | null
           notas?: string | null
+          operation_id?: string | null
+          request_hash?: string | null
         }
         Update: {
           id?: string
@@ -680,6 +709,8 @@ export interface Database {
           fecha_apertura?: string
           fecha_cierre?: string | null
           notas?: string | null
+          operation_id?: string | null
+          request_hash?: string | null
         }
       }
       ra_movimientos_caja: {
@@ -691,6 +722,11 @@ export interface Database {
           monto: number
           metodo_pago: RaMetodoPago
           referencia_id: string | null
+          usuario_id: string | null
+          operation_id: string | null
+          request_hash: string | null
+          origen: 'venta' | 'cobro' | 'pago_proveedor' | 'manual' | 'ajuste' | null
+          notas: string | null
           created_at: string
         }
         Insert: {
@@ -701,6 +737,11 @@ export interface Database {
           monto: number
           metodo_pago?: RaMetodoPago
           referencia_id?: string | null
+          usuario_id?: string | null
+          operation_id?: string | null
+          request_hash?: string | null
+          origen?: 'venta' | 'cobro' | 'pago_proveedor' | 'manual' | 'ajuste' | null
+          notas?: string | null
           created_at?: string
         }
         Update: {
@@ -711,6 +752,11 @@ export interface Database {
           monto?: number
           metodo_pago?: RaMetodoPago
           referencia_id?: string | null
+          usuario_id?: string | null
+          operation_id?: string | null
+          request_hash?: string | null
+          origen?: 'venta' | 'cobro' | 'pago_proveedor' | 'manual' | 'ajuste' | null
+          notas?: string | null
           created_at?: string
         }
       }
@@ -926,6 +972,11 @@ export interface Database {
           metodo_pago: RaMetodoPago | null
           referencia: string | null
           usuario_id: string
+          operation_id: string | null
+          request_hash: string | null
+          result_snapshot: Json | null
+          sucursal_id: string | null
+          caja_id: string | null
           created_at: string
         }
         Insert: {
@@ -942,6 +993,11 @@ export interface Database {
           metodo_pago?: RaMetodoPago | null
           referencia?: string | null
           usuario_id: string
+          operation_id?: string | null
+          request_hash?: string | null
+          result_snapshot?: Json | null
+          sucursal_id?: string | null
+          caja_id?: string | null
           created_at?: string
         }
         Update: {
@@ -958,6 +1014,11 @@ export interface Database {
           metodo_pago?: RaMetodoPago | null
           referencia?: string | null
           usuario_id?: string
+          operation_id?: string | null
+          request_hash?: string | null
+          result_snapshot?: Json | null
+          sucursal_id?: string | null
+          caja_id?: string | null
           created_at?: string
         }
       }
@@ -1040,6 +1101,11 @@ export interface Database {
           metodo_pago: RaMetodoPago | null
           referencia: string | null
           usuario_id: string
+          operation_id: string | null
+          request_hash: string | null
+          result_snapshot: Json | null
+          sucursal_id: string | null
+          caja_id: string | null
           created_at: string
         }
         Insert: {
@@ -1053,11 +1119,21 @@ export interface Database {
           metodo_pago?: RaMetodoPago | null
           referencia?: string | null
           usuario_id: string
+          operation_id?: string | null
+          request_hash?: string | null
+          result_snapshot?: Json | null
+          sucursal_id?: string | null
+          caja_id?: string | null
           created_at?: string
         }
         Update: {
           fecha?: string
           referencia?: string | null
+          operation_id?: string | null
+          request_hash?: string | null
+          result_snapshot?: Json | null
+          sucursal_id?: string | null
+          caja_id?: string | null
         }
       }
       ra_auditoria_estado_pago_compras: {
@@ -1116,6 +1192,18 @@ export interface Database {
         Args: { p_orden_compra_id: string }
         Returns: void
       }
+      ra_recibir_guia: {
+        Args: { p_guia_id: string }
+        Returns: void
+      }
+      ra_contar_stock_bajo: {
+        Args: { p_empresa_id: string }
+        Returns: number
+      }
+      ra_anular_compra: {
+        Args: { p_compra_id: string }
+        Returns: void
+      }
       ra_anular_orden_compra: {
         Args: { p_orden_compra_id: string }
         Returns: void
@@ -1162,6 +1250,70 @@ export interface Database {
         Args: {
           p_operation_id: string
           p_compra_id: string
+          p_motivo: string
+        }
+        Returns: Json
+      }
+      ra_abrir_caja_v1: {
+        Args: {
+          p_operation_id: string
+          p_sucursal_id: string
+          p_monto_inicial: number
+          p_notas: string | null
+        }
+        Returns: Json
+      }
+      ra_registrar_movimiento_caja_v1: {
+        Args: {
+          p_operation_id: string
+          p_sucursal_id: string
+          p_tipo: string
+          p_concepto: string
+          p_monto: number
+          p_notas: string | null
+        }
+        Returns: Json
+      }
+      ra_registrar_cobro_v2: {
+        Args: {
+          p_operation_id: string
+          p_sucursal_id: string
+          p_venta_id: string
+          p_monto: number
+          p_fecha: string
+          p_metodo_pago: RaMetodoPago
+          p_moneda_cobro: string
+          p_tipo_cambio_cobro: number | null
+          p_referencia: string | null
+        }
+        Returns: Json
+      }
+      ra_registrar_pago_proveedor_v2: {
+        Args: {
+          p_operation_id: string
+          p_sucursal_id: string
+          p_compra_id: string
+          p_monto: number
+          p_fecha: string
+          p_metodo_pago: RaMetodoPago
+          p_referencia: string | null
+        }
+        Returns: Json
+      }
+      ra_cerrar_caja_v1: {
+        Args: {
+          p_operation_id: string
+          p_caja_id: string
+          p_efectivo_contado: number
+          p_notas: string | null
+        }
+        Returns: Json
+      }
+      ra_revisar_liquidacion_v1: {
+        Args: {
+          p_operation_id: string
+          p_liquidacion_id: string
+          p_decision: 'validada' | 'observada'
           p_motivo: string
         }
         Returns: Json

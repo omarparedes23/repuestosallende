@@ -24,6 +24,7 @@ type Props = {
 }
 
 export function RegistrarCobroForm({ ventaId, numeroCompleto, moneda, saldoPendiente, onClose, onSaved }: Props) {
+  const [operationId] = useState(() => crypto.randomUUID())
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [monto, setMonto] = useState(saldoPendiente.toFixed(2))
@@ -39,6 +40,7 @@ export function RegistrarCobroForm({ ventaId, numeroCompleto, moneda, saldoPendi
     setError(null)
     startTransition(async () => {
       const result = await registrarCobro(
+        operationId,
         ventaId,
         montoNumero,
         fecha,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useState } from 'react'
 import { Landmark } from 'lucide-react'
 import { abrirCaja } from '../actions'
 import type { RaRol } from '@/lib/types/database'
@@ -13,6 +13,7 @@ interface Props {
 
 export function AbrirCajaScreen({ empresaId, sucursalId, rol }: Props) {
   const [error, formAction, isPending] = useActionState(abrirCaja, null)
+  const [operationId] = useState(() => crypto.randomUUID())
   void empresaId
   void sucursalId
 
@@ -43,6 +44,7 @@ export function AbrirCajaScreen({ empresaId, sucursalId, rol }: Props) {
             </div>
 
             <form action={formAction} className="space-y-5">
+              <input type="hidden" name="operation_id" value={operationId} />
               <div className="space-y-2 text-left">
                 <label
                   htmlFor="monto_inicial"

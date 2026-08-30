@@ -149,6 +149,7 @@ export async function getEstadoCuenta(clienteId: string): Promise<{
 }
 
 export async function registrarCobro(
+  operationId: string,
   ventaId: string,
   monto: number,
   fecha: string,
@@ -156,12 +157,19 @@ export async function registrarCobro(
   moneda: RaMoneda,
   referencia: string | null
 ): Promise<{ error: string | null }> {
-  const { supabase: raw, perfil } = await getSession()
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  if (!uuid.test(operationId) || !uuid.test(ventaId)) return { error: 'Identificador de operación inválido.' }
+  if (!Number.isFinite(monto) || monto <= 0) return { error: 'El monto debe ser mayor a cero.' }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return { error: 'Fecha inválida.' }
+  const { supabase: raw, perfil, sucursalId } = await getSession()
   const supabase = raw as any
   if (!perfil?.empresa_id) return { error: 'No autenticado' }
   if (!['administrador', 'superadmin'].includes(perfil.rol)) return { error: 'Sin permisos.' }
+  if (!sucursalId) return { error: 'Tienda no seleccionada.' }
 
-  const { error } = await supabase.rpc('ra_registrar_cobro', {
+  const { error } = await supabase.rpc('ra_registrar_cobro_v2', {
+    p_operation_id: operationId,
+    p_sucursal_id: sucursalId,
     p_venta_id: ventaId,
     p_monto: monto,
     p_fecha: fecha,
@@ -171,10 +179,20 @@ export async function registrarCobro(
     p_referencia: referencia,
   })
 
-  if (error) return { error: error.message ?? 'Error al registrar el cobro' }
+  if (error) return { error: mapTreasuryError(error.message, 'Error al registrar el cobro') }
 
   revalidatePath('/panel/clientes')
   return { error: null }
+}
+
+function mapTreasuryError(message: string | null | undefined, fallback: string): string {
+  if (!message) return fallback
+  if (message.includes('RA_UNAUTHENTICATED')) return 'No autenticado.'
+  if (message.includes('RA_FORBIDDEN')) return 'Sin permisos.'
+  if (message.includes('RA_IDEMPOTENCY_CONFLICT')) return 'El identificador de operación ya fue usado con otros datos.'
+  if (message.includes('RA_NOT_FOUND')) return 'La venta no existe o no pertenece a la empresa.'
+  if (message.includes('RA_AMOUNT_INVALID')) return 'El monto debe ser mayor a cero.'
+  return message
 }
 
 export async function toggleActivoCliente(id: string, activo: boolean): Promise<string | null> {

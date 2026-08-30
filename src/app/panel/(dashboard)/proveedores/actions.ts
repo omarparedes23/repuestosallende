@@ -125,18 +125,26 @@ export async function getEstadoCuentaProveedor(proveedorId: string): Promise<{
 }
 
 export async function registrarPagoProveedor(
+  operationId: string,
   compraId: string,
   monto: number,
   fecha: string,
   metodoPago: RaMetodoPago,
   referencia: string | null
 ): Promise<{ error: string | null }> {
-  const { supabase: raw, perfil } = await getSession()
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  if (!uuid.test(operationId) || !uuid.test(compraId)) return { error: 'Identificador de operación inválido.' }
+  if (!Number.isFinite(monto) || monto <= 0) return { error: 'El monto debe ser mayor a cero.' }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return { error: 'Fecha inválida.' }
+  const { supabase: raw, perfil, sucursalId } = await getSession()
   const supabase = raw as any
   if (!perfil?.empresa_id) return { error: 'No autenticado' }
   if (!['administrador', 'superadmin'].includes(perfil.rol)) return { error: 'Sin permisos.' }
+  if (!sucursalId) return { error: 'Tienda no seleccionada.' }
 
-  const { error } = await supabase.rpc('ra_registrar_pago_proveedor', {
+  const { error } = await supabase.rpc('ra_registrar_pago_proveedor_v2', {
+    p_operation_id: operationId,
+    p_sucursal_id: sucursalId,
     p_compra_id: compraId,
     p_monto: monto,
     p_fecha: fecha,
@@ -144,10 +152,20 @@ export async function registrarPagoProveedor(
     p_referencia: referencia,
   })
 
-  if (error) return { error: error.message ?? 'Error al registrar el pago' }
+  if (error) return { error: mapTreasuryError(error.message, 'Error al registrar el pago') }
 
   revalidatePath('/panel/proveedores')
   return { error: null }
+}
+
+function mapTreasuryError(message: string | null | undefined, fallback: string): string {
+  if (!message) return fallback
+  if (message.includes('RA_UNAUTHENTICATED')) return 'No autenticado.'
+  if (message.includes('RA_FORBIDDEN')) return 'Sin permisos.'
+  if (message.includes('RA_IDEMPOTENCY_CONFLICT')) return 'El identificador de operación ya fue usado con otros datos.'
+  if (message.includes('RA_NOT_FOUND')) return 'La compra no existe o no pertenece a la empresa.'
+  if (message.includes('RA_AMOUNT_INVALID')) return 'El monto debe ser mayor a cero.'
+  return message
 }
 
 export async function toggleActivoProveedor(id: string, activo: boolean): Promise<string | null> {

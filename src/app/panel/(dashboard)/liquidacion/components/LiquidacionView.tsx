@@ -23,14 +23,8 @@ export function LiquidacionView({ caja }: Props) {
   const [exito, setExito] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notas, setNotas] = useState('')
-
-  const [conteo, setConteo] = useState<Record<MetodoPago, number>>({
-    efectivo: 0,
-    yape: 0,
-    tarjeta: 0,
-    transferencia: 0,
-    credito: 0,
-  })
+  const [operationId] = useState(() => crypto.randomUUID())
+  const [efectivoContado, setEfectivoContado] = useState(0)
 
   if (!caja) {
     return (
@@ -67,10 +61,6 @@ export function LiquidacionView({ caja }: Props) {
     )
   }
 
-  function updateConteo(key: MetodoPago, val: string) {
-    setConteo((prev) => ({ ...prev, [key]: parseFloat(val) || 0 }))
-  }
-
   function handleCerrar() {
     if (!caja) return
     if (!confirmando) { setConfirmando(true); return }
@@ -78,9 +68,9 @@ export function LiquidacionView({ caja }: Props) {
     setError(null)
     startTransition(async () => {
       const result = await cerrarConLiquidacion(
+        operationId,
         caja.id,
-        conteo,
-        caja.totales,
+        efectivoContado,
         notas.trim() || null
       )
       if (result) {
@@ -92,9 +82,7 @@ export function LiquidacionView({ caja }: Props) {
     })
   }
 
-  const totalSistema = Object.values(caja.totales).reduce((a, b) => a + b, 0)
-  const totalConteo = Object.values(conteo).reduce((a, b) => a + b, 0)
-  const diferencia = totalConteo - totalSistema
+  const diferencia = efectivoContado - caja.totales.efectivo
 
   return (
     <div className="p-8 max-w-3xl mx-auto space-y-6">
@@ -123,7 +111,8 @@ export function LiquidacionView({ caja }: Props) {
         </div>
       </div>
 
-      {/* Tabla de conteo */}
+      {/* Solo el efectivo físico se cuenta. Los demás medios son conciliación
+          informativa y el servidor los vuelve a calcular al cerrar. */}
       <div className="rounded-2xl border overflow-hidden" style={{ borderColor: '#E5E7EB' }}>
         <table className="w-full text-sm">
           <thead>
@@ -135,7 +124,7 @@ export function LiquidacionView({ caja }: Props) {
                 Sistema
               </th>
               <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider" style={{ color: '#6B7280' }}>
-                Conteo real
+                Conteo / conciliación
               </th>
               <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider" style={{ color: '#6B7280' }}>
                 Diferencia
@@ -145,7 +134,8 @@ export function LiquidacionView({ caja }: Props) {
           <tbody>
             {METODOS.map((m, i) => {
               const sis = caja.totales[m.key]
-              const cnt = conteo[m.key]
+              const esEfectivo = m.key === 'efectivo'
+              const cnt = esEfectivo ? efectivoContado : sis
               const diff = cnt - sis
               return (
                 <tr
@@ -164,15 +154,19 @@ export function LiquidacionView({ caja }: Props) {
                     S/ {sis.toFixed(2)}
                   </td>
                   <td className="px-5 py-4 flex justify-center">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={cnt}
-                      onChange={(e) => updateConteo(m.key, e.target.value)}
-                      className="w-32 rounded-xl border-2 px-3 py-2 text-sm text-right font-mono outline-none focus:border-[#002D62]"
-                      style={{ borderColor: '#D1D5DB' }}
-                    />
+                    {esEfectivo ? (
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={efectivoContado}
+                        onChange={(e) => setEfectivoContado(parseFloat(e.target.value) || 0)}
+                        className="w-32 rounded-xl border-2 px-3 py-2 text-sm text-right font-mono outline-none focus:border-[#002D62]"
+                        style={{ borderColor: '#D1D5DB' }}
+                      />
+                    ) : (
+                      <span className="text-xs" style={{ color: '#6B7280' }}>Calculado por sistema</span>
+                    )}
                   </td>
                   <td className="px-5 py-4 text-right font-mono font-semibold">
                     <span style={{ color: diff === 0 ? '#059669' : diff > 0 ? '#2563EB' : '#DC2626' }}>
@@ -183,22 +177,6 @@ export function LiquidacionView({ caja }: Props) {
               )
             })}
           </tbody>
-          <tfoot>
-            <tr style={{ backgroundColor: '#F9FAFB', borderTop: '2px solid #E5E7EB' }}>
-              <td className="px-5 py-4 font-bold" style={{ color: '#002D62' }}>Total</td>
-              <td className="px-5 py-4 text-right font-bold font-mono" style={{ color: '#002D62' }}>
-                S/ {totalSistema.toFixed(2)}
-              </td>
-              <td className="px-5 py-4 text-center font-bold font-mono" style={{ color: '#002D62' }}>
-                S/ {totalConteo.toFixed(2)}
-              </td>
-              <td className="px-5 py-4 text-right font-bold font-mono">
-                <span style={{ color: diferencia === 0 ? '#059669' : diferencia > 0 ? '#2563EB' : '#DC2626' }}>
-                  {diferencia > 0 ? '+' : ''}{diferencia.toFixed(2)}
-                </span>
-              </td>
-            </tr>
-          </tfoot>
         </table>
       </div>
 
