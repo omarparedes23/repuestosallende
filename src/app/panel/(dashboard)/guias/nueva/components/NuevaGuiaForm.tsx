@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useTransition, useRef } from 'react'
+import { useEffect, useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, Trash2, ChevronLeft } from 'lucide-react'
-import { buscarProductosEnSucursal, crearGuia } from '../../actions'
+import { buscarProductosEnSucursal, crearGuia, obtenerPreviewSerieGuia } from '../../actions'
 import type { ItemGuia } from '../../actions'
-import type { ProductoEnSucursal } from '../../actions'
+import type { PreviewSerieGuia, ProductoEnSucursal } from '../../actions'
 
 type Sucursal = { id: string; nombre: string }
 type ItemForm = ItemGuia & { key: string; stockDisponible: number }
@@ -18,8 +18,8 @@ export function NuevaGuiaForm({ sucursales }: Props) {
 
   const [origenId, setOrigenId] = useState(sucursales[0]?.id ?? '')
   const [destinoId, setDestinoId] = useState(sucursales[1]?.id ?? '')
-  const [serie, setSerie] = useState('')
-  const [correlativo, setCorrelativo] = useState('')
+  const [previewSerie, setPreviewSerie] = useState<PreviewSerieGuia | null>(null)
+  const [previewError, setPreviewError] = useState<string | null>(null)
   const [notas, setNotas] = useState('')
 
   const [productoQuery, setProductoQuery] = useState('')
@@ -29,6 +29,19 @@ export function NuevaGuiaForm({ sucursales }: Props) {
 
   const productoTimer = useRef<NodeJS.Timeout | null>(null)
   const busquedaActual = useRef(0)
+
+  useEffect(() => {
+    let vigente = true
+    if (!origenId) return
+
+    void obtenerPreviewSerieGuia(origenId).then((resultado) => {
+      if (!vigente) return
+      setPreviewSerie(resultado.preview)
+      setPreviewError(resultado.error)
+    })
+
+    return () => { vigente = false }
+  }, [origenId])
 
   function limpiarProductos() {
     busquedaActual.current += 1
@@ -47,6 +60,8 @@ export function NuevaGuiaForm({ sucursales }: Props) {
     setOrigenId(nuevoOrigenId)
     setItems([])
     setError(null)
+    setPreviewSerie(null)
+    setPreviewError(null)
     limpiarProductos()
   }
 
@@ -104,6 +119,10 @@ export function NuevaGuiaForm({ sucursales }: Props) {
   function handleSubmit() {
     if (!origenId || !destinoId) { setError('Selecciona origen y destino.'); return }
     if (origenId === destinoId) { setError('Origen y destino deben ser distintos.'); return }
+    if (!previewSerie) {
+      setError(previewError ?? 'Espera a que se cargue la numeración de la sucursal.')
+      return
+    }
     if (items.length === 0) { setError('Agrega al menos un artículo.'); return }
     if (items.some((item) => item.cantidad < 1 || item.cantidad > item.stockDisponible)) {
       setError('Corrige las cantidades para que no excedan el stock disponible.')
@@ -114,8 +133,6 @@ export function NuevaGuiaForm({ sucursales }: Props) {
     startTransition(async () => {
       const result = await crearGuia(
         origenId, destinoId,
-        serie.trim() || null,
-        correlativo.trim() || null,
         notas.trim() || null,
         items.map(({ catalogo_id, nombre, cantidad }) => ({ catalogo_id, nombre, cantidad }))
       )
@@ -173,24 +190,29 @@ export function NuevaGuiaForm({ sucursales }: Props) {
           <div className="space-y-1">
             <label className="block text-sm font-semibold" style={{ color: '#374151' }}>Serie</label>
             <input
-              value={serie}
-              onChange={(e) => setSerie(e.target.value)}
-              placeholder="T001"
-              className="w-full rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
+              value={previewSerie?.serie ?? ''}
+              readOnly
+              placeholder={previewError ? 'Sin configurar' : 'Cargando...'}
+              className="w-full rounded-xl border-2 px-4 py-3 text-sm bg-gray-50"
               style={{ borderColor: '#D1D5DB' }}
             />
           </div>
           <div className="space-y-1">
             <label className="block text-sm font-semibold" style={{ color: '#374151' }}>Correlativo</label>
             <input
-              value={correlativo}
-              onChange={(e) => setCorrelativo(e.target.value)}
-              placeholder="00001"
-              className="w-full rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
+              value={previewSerie ? String(previewSerie.siguienteCorrelativo).padStart(8, '0') : ''}
+              readOnly
+              placeholder={previewError ? 'Sin configurar' : 'Cargando...'}
+              className="w-full rounded-xl border-2 px-4 py-3 text-sm bg-gray-50"
               style={{ borderColor: '#D1D5DB' }}
             />
           </div>
         </div>
+        <p className="text-xs" style={{ color: previewError ? '#DC2626' : '#6B7280' }}>
+          {previewError ?? (previewSerie
+            ? `Próximo número: ${previewSerie.numeroPreview}. Se asigna definitivamente al crear la guía.`
+            : 'Consultando la numeración de la sucursal...')}
+        </p>
         <div className="space-y-1">
           <label className="block text-sm font-semibold" style={{ color: '#374151' }}>Notas</label>
           <textarea

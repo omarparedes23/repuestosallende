@@ -1200,11 +1200,13 @@ export interface Database {
         Args: {
           p_sucursal_origen_id: string
           p_sucursal_destino_id: string
-          p_serie: string | null
-          p_correlativo: number | null
           p_notas: string | null
           p_items: Json
         }
+        Returns: Json
+      }
+      ra_obtener_preview_serie_guia: {
+        Args: { p_sucursal_id: string }
         Returns: Json
       }
       ra_avanzar_estado_guia: {

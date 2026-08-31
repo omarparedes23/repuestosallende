@@ -8,9 +8,10 @@ export type GuiaRow = {
   id: string
   estado: 'borrador' | 'emitida' | 'en_transito' | 'recibida'
   serie: string | null
-  correlativo: string | null
+  correlativo: number | null
   notas: string | null
-  fecha_emision: string
+  fecha_emision: string | null
+  created_at: string
   fecha_recepcion: string | null
   sucursal_origen_nombre: string
   sucursal_destino_nombre: string
@@ -43,6 +44,7 @@ const GUIA_ERROR_MESSAGES: Record<string, string> = {
   RA_GUIDE_DUPLICATE_ITEM: 'Un artículo no puede repetirse en la misma guía.',
   RA_GUIDE_NUMBER_INCOMPLETE: 'Ingresa serie y correlativo juntos, con correlativo positivo.',
   RA_GUIDE_DUPLICATE_NUMBER: 'Ya existe una guía con esa serie y correlativo.',
+  RA_GUIDE_SERIES_NOT_CONFIGURED: 'La sucursal origen no tiene una serie de guías configurada.',
   RA_PRODUCT_NOT_FOUND_AT_ORIGIN: 'Uno de los artículos ya no está configurado en la sucursal origen.',
   RA_PRODUCT_NOT_FOUND_AT_DESTINATION: 'Uno de los artículos no está configurado en la sucursal destino.',
   RA_STOCK_INSUFFICIENT: 'El stock disponible en origen ya no alcanza para recibir esta guía.',
@@ -60,12 +62,38 @@ function mapRpcGuiaResult(raw: unknown): RpcGuiaResult | null {
   return result as RpcGuiaResult
 }
 
+function mapPreviewSerieGuia(raw: unknown): PreviewSerieGuia | null {
+  if (!raw || typeof raw !== 'object') return null
+  const preview = raw as {
+    serie?: unknown
+    siguiente_correlativo?: unknown
+    numero_preview?: unknown
+  }
+  if (
+    typeof preview.serie !== 'string' ||
+    typeof preview.siguiente_correlativo !== 'number' ||
+    typeof preview.numero_preview !== 'string'
+  ) return null
+
+  return {
+    serie: preview.serie,
+    siguienteCorrelativo: preview.siguiente_correlativo,
+    numeroPreview: preview.numero_preview,
+  }
+}
+
 export type ProductoEnSucursal = {
   productoId: string
   catalogoId: string
   nombre: string
   codigoOem: string | null
   stockDisponible: number
+}
+
+export type PreviewSerieGuia = {
+  serie: string
+  siguienteCorrelativo: number
+  numeroPreview: string
 }
 
 type ProductoEnSucursalQuery = {
@@ -85,6 +113,7 @@ type GuiaQueryResult = {
   correlativo: number | null
   notas: string | null
   fecha_emision: string | null
+  created_at: string
   fecha_recepcion: string | null
   origen: { nombre: string } | null
   destino: { nombre: string } | null
@@ -147,12 +176,13 @@ export async function getGuias() {
       correlativo,
       notas,
       fecha_emision,
+      created_at,
       fecha_recepcion,
       origen:ra_sucursales!sucursal_origen_id ( nombre ),
       destino:ra_sucursales!sucursal_destino_id ( nombre )
     `)
     .eq('empresa_id', perfil.empresa_id)
-    .order('fecha_emision', { ascending: false })
+    .order('created_at', { ascending: false })
 
   const mapped = ((data ?? []) as unknown as GuiaQueryResult[]).map((row) => ({
     id: row.id,
@@ -161,6 +191,7 @@ export async function getGuias() {
     correlativo: row.correlativo,
     notas: row.notas,
     fecha_emision: row.fecha_emision,
+    created_at: row.created_at,
     fecha_recepcion: row.fecha_recepcion,
     sucursal_origen_nombre: row.origen?.nombre ?? '—',
     sucursal_destino_nombre: row.destino?.nombre ?? '—',
@@ -183,27 +214,39 @@ export async function getSucursales() {
   return data ?? []
 }
 
+/** La vista previa no reserva un número; la asignación definitiva es atómica al crear. */
+export async function obtenerPreviewSerieGuia(
+  sucursalId: string
+): Promise<{ preview: PreviewSerieGuia | null; error: string | null }> {
+  if (!sucursalId) return { preview: null, error: 'Selecciona la sucursal origen.' }
+
+  const { supabase, perfil } = await getSessionFast()
+  if (!perfil?.empresa_id) return { preview: null, error: 'No autenticado.' }
+
+  const { data, error } = await supabase.rpc('ra_obtener_preview_serie_guia', {
+    p_sucursal_id: sucursalId,
+  } as never)
+  if (error) {
+    return {
+      preview: null,
+      error: guiaErrorMessage(error.message, 'No se pudo obtener la serie de la sucursal.'),
+    }
+  }
+
+  const preview = mapPreviewSerieGuia(data)
+  return preview
+    ? { preview, error: null }
+    : { preview: null, error: 'La serie de la sucursal no devolvió un resultado válido.' }
+}
+
 export async function crearGuia(
   sucursalOrigenId: string,
   sucursalDestinoId: string,
-  serie: string | null,
-  correlativo: string | null,
   notas: string | null,
   items: ItemGuia[]
 ): Promise<{ id: string | null; error: string | null }> {
   if (items.length === 0) return { id: null, error: 'Debes agregar al menos un artículo.' }
   if (sucursalOrigenId === sucursalDestinoId) return { id: null, error: 'Origen y destino deben ser distintos.' }
-
-  const serieNormalizada = serie?.trim() || null
-  const correlativoTexto = correlativo?.trim() || ''
-  if ((serieNormalizada === null) !== (correlativoTexto === '')) {
-    return { id: null, error: 'Ingresa serie y correlativo juntos.' }
-  }
-
-  const correlativoNormalizado = correlativoTexto === '' ? null : Number(correlativoTexto)
-  if (correlativoNormalizado !== null && (!Number.isInteger(correlativoNormalizado) || correlativoNormalizado <= 0)) {
-    return { id: null, error: 'El correlativo debe ser un número entero positivo.' }
-  }
 
   if (items.some((item) => !item.catalogo_id || !Number.isFinite(item.cantidad) || item.cantidad <= 0)) {
     return { id: null, error: 'Uno o más artículos o cantidades no son válidos.' }
@@ -215,8 +258,6 @@ export async function crearGuia(
   const payload = {
     p_sucursal_origen_id: sucursalOrigenId,
     p_sucursal_destino_id: sucursalDestinoId,
-    p_serie: serieNormalizada,
-    p_correlativo: correlativoNormalizado,
     p_notas: notas?.trim() || null,
     p_items: items.map(({ catalogo_id, cantidad }) => ({ catalogo_id, cantidad })) as Json,
   }

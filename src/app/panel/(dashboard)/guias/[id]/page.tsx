@@ -1,6 +1,6 @@
 import { getSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import { ChevronLeft, ArrowRight, Truck, CheckCircle, FileText } from 'lucide-react'
+import { ChevronLeft, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 
 const ESTADO_CONFIG: Record<string, { bg: string; color: string; label: string }> = {
@@ -10,13 +10,36 @@ const ESTADO_CONFIG: Record<string, { bg: string; color: string; label: string }
   recibida:    { bg: '#F0FDF4', color: '#059669', label: 'Recibida' },
 }
 
+function formatoNumeroGuia(serie: string | null, correlativo: number | null): string | null {
+  if (!serie || correlativo === null) return null
+  return `${serie}-${String(correlativo).padStart(8, '0')}`
+}
+
+type GuiaItem = {
+  id: string
+  nombre_producto: string
+  cantidad: number
+}
+
+type GuiaDetalle = {
+  estado: string
+  serie: string | null
+  correlativo: number | null
+  fecha_emision: string | null
+  fecha_recepcion: string | null
+  created_at: string
+  notas: string | null
+  origen: { nombre: string } | null
+  destino: { nombre: string } | null
+  ra_guia_items: GuiaItem[] | null
+}
+
 export default async function GuiaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { supabase: raw, perfil } = await getSession()
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) redirect('/panel/login')
-  const supabase = raw as any
 
-  const { data: guia } = await supabase
+  const { data: guiaSinTipar } = await supabase
     .from('ra_guias_remision')
     .select(`
       *,
@@ -28,9 +51,12 @@ export default async function GuiaDetailPage({ params }: { params: Promise<{ id:
     .eq('empresa_id', perfil.empresa_id)
     .single()
 
+  const guia = guiaSinTipar as unknown as GuiaDetalle | null
   if (!guia) redirect('/panel/guias')
 
   const cfg = ESTADO_CONFIG[guia.estado] ?? ESTADO_CONFIG.borrador
+  const numeroGuia = formatoNumeroGuia(guia.serie, guia.correlativo)
+  const fechaDocumento = guia.fecha_emision ?? guia.created_at
 
   return (
     <div className="p-8 max-w-3xl mx-auto space-y-6">
@@ -41,9 +67,9 @@ export default async function GuiaDetailPage({ params }: { params: Promise<{ id:
         </Link>
         <div>
           <h1 className="text-2xl font-bold" style={{ color: '#002D62' }}>Guía de remisión</h1>
-          {guia.serie && guia.correlativo && (
+          {numeroGuia && (
             <p className="text-sm mt-0.5 font-mono" style={{ color: '#6B7280' }}>
-              {guia.serie}-{guia.correlativo}
+              {numeroGuia}
             </p>
           )}
         </div>
@@ -64,9 +90,11 @@ export default async function GuiaDetailPage({ params }: { params: Promise<{ id:
         </div>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#9CA3AF' }}>Fecha emisión</p>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#9CA3AF' }}>
+              {guia.fecha_emision ? 'Fecha emisión' : 'Fecha creación'}
+            </p>
             <p style={{ color: '#374151' }}>
-              {new Date(guia.fecha_emision).toLocaleDateString('es-PE', {
+              {new Date(fechaDocumento).toLocaleDateString('es-PE', {
                 day: '2-digit', month: 'long', year: 'numeric',
               })}
             </p>
@@ -107,7 +135,7 @@ export default async function GuiaDetailPage({ params }: { params: Promise<{ id:
             </tr>
           </thead>
           <tbody>
-            {(guia.ra_guia_items ?? []).map((item: any, i: number) => (
+            {((guia.ra_guia_items ?? []) as GuiaItem[]).map((item, i) => (
               <tr
                 key={item.id}
                 className="border-t"

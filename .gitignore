@@ -57,6 +57,8 @@ claude.md
 !openspec/changes/activar-outbox-fiscal-p1/**/*.md
 !openspec/changes/reportes-ventas-cobros/**/*.md
 !openspec/changes/guia-traslado-inventario-segura/**/*.md
+!openspec/changes/numeracion-series-guias/**/*.md
+!openspec/changes/alta-automatica-producto-destino-guia/**/*.md
 
 # data migration (CSVs con datos sensibles)
 *.csv

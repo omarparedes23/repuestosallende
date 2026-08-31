@@ -15,6 +15,17 @@ const ESTADO_CONFIG: Record<string, { bg: string; color: string; label: string; 
 
 type Props = { initialGuias: GuiaRow[] }
 
+function formatoNumeroGuia(guia: GuiaRow): string {
+  if (!guia.serie || guia.correlativo === null) return '—'
+  return `${guia.serie}-${String(guia.correlativo).padStart(8, '0')}`
+}
+
+function formatoFechaGuia(guia: GuiaRow): string {
+  return new Date(guia.fecha_emision ?? guia.created_at).toLocaleDateString('es-PE', {
+    day: '2-digit', month: 'short', year: 'numeric',
+  })
+}
+
 export function GuiasView({ initialGuias }: Props) {
   const router = useRouter()
   const [guias, setGuias] = useState(initialGuias)
@@ -137,7 +148,7 @@ export function GuiasView({ initialGuias }: Props) {
                     onClick={() => router.push(`/panel/guias/${g.id}`)}
                   >
                     <td className="px-5 py-4 font-mono text-xs" style={{ color: '#6B7280' }}>
-                      {g.serie && g.correlativo ? `${g.serie}-${g.correlativo}` : '—'}
+                      {formatoNumeroGuia(g)}
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2 font-medium" style={{ color: '#111827' }}>
@@ -147,9 +158,7 @@ export function GuiasView({ initialGuias }: Props) {
                       </div>
                     </td>
                     <td className="px-5 py-4" style={{ color: '#6B7280' }}>
-                      {new Date(g.fecha_emision).toLocaleDateString('es-PE', {
-                        day: '2-digit', month: 'short', year: 'numeric',
-                      })}
+                      {formatoFechaGuia(g)}
                     </td>
                     <td className="px-5 py-4">
                       <span

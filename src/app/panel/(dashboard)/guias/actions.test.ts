@@ -3,6 +3,7 @@ import {
   avanzarEstadoGuia,
   buscarProductosEnSucursal,
   crearGuia,
+  obtenerPreviewSerieGuia,
   recibirGuia,
 } from './actions'
 import * as sessionModule from '@/lib/session'
@@ -108,7 +109,7 @@ describe('guias actions — buscarProductosEnSucursal', () => {
     })
 
     const result = await crearGuia(
-      'origen-1', 'destino-1', 'T001', '7', ' traslado ',
+      'origen-1', 'destino-1', ' traslado ',
       [{ catalogo_id: 'catalogo-1', nombre: 'No es autoritativo', cantidad: 2 }]
     )
 
@@ -116,33 +117,36 @@ describe('guias actions — buscarProductosEnSucursal', () => {
     expect(mockRpc).toHaveBeenCalledWith('ra_crear_guia', {
       p_sucursal_origen_id: 'origen-1',
       p_sucursal_destino_id: 'destino-1',
-      p_serie: 'T001',
-      p_correlativo: 7,
       p_notas: 'traslado',
       p_items: [{ catalogo_id: 'catalogo-1', cantidad: 2 }],
     })
     expect(mockFrom).not.toHaveBeenCalled()
   })
 
-  it('valida numeración incompleta antes de invocar Supabase', async () => {
-    const result = await crearGuia(
-      'origen-1', 'destino-1', 'T001', null, null,
-      [{ catalogo_id: 'catalogo-1', nombre: 'Artículo', cantidad: 1 }]
-    )
+  it('obtiene el preview sin reservar ni aceptar números del cliente', async () => {
+    mockRpc.mockResolvedValue({
+      data: { serie: '001', siguiente_correlativo: 6, numero_preview: '001-00000006' },
+      error: null,
+    })
 
-    expect(result).toEqual({ id: null, error: 'Ingresa serie y correlativo juntos.' })
-    expect(mockRpc).not.toHaveBeenCalled()
+    await expect(obtenerPreviewSerieGuia('origen-1')).resolves.toEqual({
+      preview: { serie: '001', siguienteCorrelativo: 6, numeroPreview: '001-00000006' },
+      error: null,
+    })
+    expect(mockRpc).toHaveBeenCalledWith('ra_obtener_preview_serie_guia', {
+      p_sucursal_id: 'origen-1',
+    })
   })
 
   it('traduce errores de creación y recepción desde las RPC', async () => {
     mockRpc.mockResolvedValueOnce({
       data: null,
-      error: { message: 'RA_GUIDE_DUPLICATE_NUMBER' },
+      error: { message: 'RA_GUIDE_SERIES_NOT_CONFIGURED' },
     })
     await expect(crearGuia(
-      'origen-1', 'destino-1', 'T001', '7', null,
+      'origen-1', 'destino-1', null,
       [{ catalogo_id: 'catalogo-1', nombre: 'Artículo', cantidad: 1 }]
-    )).resolves.toEqual({ id: null, error: 'Ya existe una guía con esa serie y correlativo.' })
+    )).resolves.toEqual({ id: null, error: 'La sucursal origen no tiene una serie de guías configurada.' })
 
     mockRpc.mockResolvedValueOnce({
       data: null,
