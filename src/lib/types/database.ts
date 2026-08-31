@@ -1217,7 +1217,7 @@ export interface Database {
         Returns: Json
       }
       ra_contar_stock_bajo: {
-        Args: { p_empresa_id: string }
+        Args: { p_empresa_id: string; p_sucursal_id?: string | null }
         Returns: number
       }
       ra_anular_compra: {

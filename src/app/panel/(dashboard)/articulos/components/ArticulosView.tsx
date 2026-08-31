@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Search, Pencil, AlertTriangle, Package, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { ArticuloEditForm } from './ArticuloEditForm'
-import { buscarArticulos } from '../actions'
-import type { ArticuloRow, MarcaOption, ModeloOption } from '../actions'
+import { buscarArticulos, getStockBajoCount } from '../actions'
+import type { ArticuloRow, MarcaOption, ModeloOption, SucursalOption } from '../actions'
 import { FILAS_POR_PAGINA } from '../constants'
 
 type Props = {
@@ -13,25 +13,33 @@ type Props = {
   modelos: ModeloOption[]
   marcas: MarcaOption[]
   marcasAuto: MarcaOption[]
+  sucursales: SucursalOption[]
+  sucursalInicialId: string | null
   stockBajoCount: number
 }
 
-export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas, marcasAuto, stockBajoCount }: Props) {
+export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas, marcasAuto, sucursales, sucursalInicialId, stockBajoCount }: Props) {
   const [articulos, setArticulos] = useState(initialArticulos)
   const [total, setTotal] = useState(initialTotal)
   const [query, setQuery] = useState('')
   const [marcaId, setMarcaId] = useState('')
   const [marcaAutoId, setMarcaAutoId] = useState('')
+  const [sucursalId, setSucursalId] = useState(sucursalInicialId ?? '')
+  const [stockBajoActual, setStockBajoActual] = useState(stockBajoCount)
   const [pagina, setPagina] = useState(1)
   const [loading, setLoading] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<ArticuloRow | null>(null)
 
-  const refetch = useCallback(async (q: string, p: number, m: string, ma: string) => {
+  const refetch = useCallback(async (q: string, p: number, m: string, ma: string, s: string) => {
     setLoading(true)
-    const res = await buscarArticulos(q, p, m || null, ma || null)
+    const [res, stockBajo] = await Promise.all([
+      buscarArticulos(q, p, m || null, ma || null, s || null),
+      getStockBajoCount(s || null),
+    ])
     setArticulos(res.data)
     setTotal(res.total)
+    setStockBajoActual(stockBajo)
     setLoading(false)
   }, [])
 
@@ -42,15 +50,31 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
       montado.current = true
       return
     }
-    const timer = setTimeout(() => refetch(query, pagina, marcaId, marcaAutoId), 350)
+    const timer = setTimeout(() => refetch(query, pagina, marcaId, marcaAutoId, sucursalId), 350)
     return () => clearTimeout(timer)
-  }, [query, pagina, marcaId, marcaAutoId, refetch])
-
-  useEffect(() => {
-    setPagina(1)
-  }, [query, marcaId, marcaAutoId])
+  }, [query, pagina, marcaId, marcaAutoId, sucursalId, refetch])
 
   const totalPaginas = Math.max(1, Math.ceil(total / FILAS_POR_PAGINA))
+
+  function actualizarBusqueda(value: string) {
+    setQuery(value)
+    setPagina(1)
+  }
+
+  function actualizarMarca(value: string) {
+    setMarcaId(value)
+    setPagina(1)
+  }
+
+  function actualizarMarcaAuto(value: string) {
+    setMarcaAutoId(value)
+    setPagina(1)
+  }
+
+  function actualizarSucursal(value: string) {
+    setSucursalId(value)
+    setPagina(1)
+  }
 
   function handleEdit(a: ArticuloRow) {
     setEditing(a)
@@ -70,13 +94,13 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
             <h1 className="text-2xl font-bold" style={{ color: '#002D62' }}>Artículos</h1>
             <p className="text-sm mt-0.5" style={{ color: '#6B7280' }}>
               {total} artículo{total !== 1 ? 's' : ''}
-              {stockBajoCount > 0 && (
+              {stockBajoActual > 0 && (
                 <span
                   className="ml-3 inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full"
                   style={{ backgroundColor: '#FEF2F2', color: '#DC2626' }}
                 >
                   <AlertTriangle size={11} />
-                  {stockBajoCount} bajo stock
+                  {stockBajoActual} bajo stock
                 </span>
               )}
             </p>
@@ -89,7 +113,7 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
             <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#9CA3AF' }} />
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => actualizarBusqueda(e.target.value)}
               placeholder="Buscar por nombre, código OEM o código alterno..."
               className="w-full rounded-xl border-2 pl-10 pr-9 py-3 text-sm outline-none focus:border-[#002D62]"
               style={{ borderColor: '#D1D5DB' }}
@@ -104,7 +128,7 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
           </div>
           <select
             value={marcaId}
-            onChange={(e) => setMarcaId(e.target.value)}
+            onChange={(e) => actualizarMarca(e.target.value)}
             className="w-full md:w-auto rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
             style={{ borderColor: '#D1D5DB', color: '#374151' }}
           >
@@ -114,8 +138,20 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
             ))}
           </select>
           <select
+            value={sucursalId}
+            onChange={(e) => actualizarSucursal(e.target.value)}
+            className="w-full md:w-auto rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
+            style={{ borderColor: '#D1D5DB', color: '#374151' }}
+            aria-label="Filtrar por sucursal"
+          >
+            <option value="">Todas las sucursales</option>
+            {sucursales.map((s) => (
+              <option key={s.id} value={s.id}>{s.nombre}</option>
+            ))}
+          </select>
+          <select
             value={marcaAutoId}
-            onChange={(e) => setMarcaAutoId(e.target.value)}
+            onChange={(e) => actualizarMarcaAuto(e.target.value)}
             className="w-full md:w-auto rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
             style={{ borderColor: '#D1D5DB', color: '#374151' }}
           >
@@ -306,7 +342,7 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
       <ArticuloEditForm
         open={formOpen}
         onClose={handleClose}
-        onSaved={() => refetch(query, pagina, marcaId, marcaAutoId)}
+        onSaved={() => refetch(query, pagina, marcaId, marcaAutoId, sucursalId)}
         articulo={editing}
         modelos={modelos}
       />

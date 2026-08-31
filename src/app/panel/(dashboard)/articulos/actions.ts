@@ -37,6 +37,23 @@ export async function getModelosAuto(): Promise<ModeloOption[]> {
 }
 
 export type MarcaOption = { id: string; nombre: string }
+export type SucursalOption = { id: string; nombre: string }
+
+export async function getSucursalesActivas(): Promise<SucursalOption[]> {
+  const { supabase: raw, perfil } = await getSessionFast()
+  // Los tipos manuales aun no incluyen ra_sucursales.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = raw as any
+  if (!perfil?.empresa_id) return []
+
+  const { data } = await supabase
+    .from('ra_sucursales')
+    .select('id, nombre')
+    .eq('empresa_id', perfil.empresa_id)
+    .eq('activo', true)
+    .order('nombre')
+  return (data ?? []) as SucursalOption[]
+}
 
 export async function getMarcasRepuesto(): Promise<MarcaOption[]> {
   const { supabase: raw } = await getSessionFast()
@@ -111,7 +128,8 @@ export async function buscarArticulos(
   query: string,
   pagina: number,
   marcaId?: string | null,
-  marcaAutoId?: string | null
+  marcaAutoId?: string | null,
+  sucursalId?: string | null
 ): Promise<{ data: ArticuloRow[]; total: number; error: string | null }> {
   const { supabase: raw, perfil } = await getSessionFast()
   const supabase = raw as any
@@ -124,6 +142,8 @@ export async function buscarArticulos(
     .from('ra_productos')
     .select(SELECT_ARTICULO, { count: 'exact' })
     .eq('empresa_id', perfil.empresa_id)
+
+  if (sucursalId) q = q.eq('sucursal_id', sucursalId)
 
   if (term) {
     q = q.or(
@@ -149,13 +169,14 @@ export async function buscarArticulos(
   return { data: (data ?? []).map(mapArticuloRow), total: count ?? 0, error: null }
 }
 
-export async function getStockBajoCount(): Promise<number> {
+export async function getStockBajoCount(sucursalId: string | null = null): Promise<number> {
   const { supabase: raw, perfil } = await getSessionFast()
   const supabase = raw as any
   if (!perfil?.empresa_id) return 0
 
   const { data } = await supabase.rpc('ra_contar_stock_bajo', {
     p_empresa_id: perfil.empresa_id,
+    p_sucursal_id: sucursalId,
   })
   return Number(data ?? 0)
 }

@@ -14,6 +14,8 @@ type MarcaRepuesto = { id: string; nombre: string }
 type RepuestoConCategoria = CatalogoRepuesto & {
   categoria: Pick<Categoria, 'id' | 'nombre' | 'slug' | 'orden'> | null
   marca_repuesto: MarcaRepuesto | null
+  precio_venta: number | null
+  precio_venta_dolar: number | null
 }
 
 /** Modelo con su marca relacionada (join desde page.tsx). */
@@ -32,6 +34,10 @@ const CATEGORIA_COLORS: Record<string, string> = {
 
 function ProductoCard({ repuesto, priority = false, isAdmin = false }: { repuesto: RepuestoConCategoria; priority?: boolean; isAdmin?: boolean }) {
   const categoriaNombre = repuesto.categoria?.nombre ?? ''
+  const formatoPrecio = new Intl.NumberFormat('es-PE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 
   return (
     <div className="relative bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col group">
@@ -73,6 +79,19 @@ function ProductoCard({ repuesto, priority = false, isAdmin = false }: { repuest
         </p>
 
         <div className="mt-auto pt-3 border-t border-slate-100">
+          {(repuesto.precio_venta != null || repuesto.precio_venta_dolar != null) && (
+            <div className="mb-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Precio</p>
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
+                {repuesto.precio_venta != null && (
+                  <p className="text-base font-extrabold text-[#002D62]">S/ {formatoPrecio.format(repuesto.precio_venta)}</p>
+                )}
+                {repuesto.precio_venta_dolar != null && (
+                  <p className="text-sm font-bold text-slate-600 self-end">US$ {formatoPrecio.format(repuesto.precio_venta_dolar)}</p>
+                )}
+              </div>
+            </div>
+          )}
           <p className="text-[#002D62] text-xs font-semibold mb-2 flex items-center gap-1">
             <Package className="w-3 h-3 text-[#FFD700]" />
             Consulte disponibilidad

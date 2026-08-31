@@ -1,18 +1,19 @@
 import { getSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import { buscarArticulos, getMarcasAuto, getMarcasRepuesto, getModelosAuto, getStockBajoCount } from './actions'
+import { buscarArticulos, getMarcasAuto, getMarcasRepuesto, getModelosAuto, getStockBajoCount, getSucursalesActivas } from './actions'
 import { ArticulosView } from './components/ArticulosView'
 
 export default async function ArticulosPage() {
-  const { perfil } = await getSession()
+  const { perfil, sucursalId } = await getSession()
   if (!perfil?.empresa_id) redirect('/panel/login')
 
-  const [{ data: articulos, total }, modelos, marcas, marcasAuto, stockBajoCount] = await Promise.all([
-    buscarArticulos('', 1),
+  const [{ data: articulos, total }, modelos, marcas, marcasAuto, sucursales, stockBajoCount] = await Promise.all([
+    buscarArticulos('', 1, null, null, sucursalId),
     getModelosAuto(),
     getMarcasRepuesto(),
     getMarcasAuto(),
-    getStockBajoCount(),
+    getSucursalesActivas(),
+    getStockBajoCount(sucursalId),
   ])
 
   return (
@@ -22,6 +23,8 @@ export default async function ArticulosPage() {
       modelos={modelos}
       marcas={marcas}
       marcasAuto={marcasAuto}
+      sucursales={sucursales}
+      sucursalInicialId={sucursalId}
       stockBajoCount={stockBajoCount}
     />
   )

@@ -1,8 +1,12 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createPublicClient } from '@/lib/supabase/public'
+import { getPreciosPublicos } from '@/lib/catalogo/preciosPublicos'
 import { getIsAdminPublico } from '../actions'
 import { CatalogoPageClient } from './CatalogoPageClient'
+
+// Los precios de catálogo cambian desde el panel y deben refrescarse sin redeploy.
+export const revalidate = 300
 
 type Props = { params: Promise<{ modelo: string }> }
 
@@ -68,11 +72,17 @@ export default async function CatalogoModeloPage({ params }: Props) {
     .order('nombre')
 
   const isAdmin = await getIsAdminPublico()
+  const precios = await getPreciosPublicos((repuestos ?? []).map((repuesto: any) => repuesto.id))
+  const repuestosConPrecio = (repuestos ?? []).map((repuesto: any) => ({
+    ...repuesto,
+    precio_venta: precios[repuesto.id]?.precioVenta ?? null,
+    precio_venta_dolar: precios[repuesto.id]?.precioVentaDolar ?? null,
+  }))
 
   return (
     <CatalogoPageClient
       modelo={modelo}
-      repuestos={repuestos ?? []}
+      repuestos={repuestosConPrecio}
       isAdmin={isAdmin}
     />
   )

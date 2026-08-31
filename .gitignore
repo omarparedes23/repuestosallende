@@ -59,6 +59,7 @@ claude.md
 !openspec/changes/guia-traslado-inventario-segura/**/*.md
 !openspec/changes/numeracion-series-guias/**/*.md
 !openspec/changes/alta-automatica-producto-destino-guia/**/*.md
+!openspec/erp-profesional-roadmap.md
 
 # data migration (CSVs con datos sensibles)
 *.csv

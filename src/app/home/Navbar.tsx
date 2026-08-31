@@ -74,11 +74,11 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-3">
             <Link
               href="/tablet/login"
-              className="w-9 h-9 flex items-center justify-center rounded-lg text-white/40 hover:text-white/80 hover:bg-white/10 transition-colors"
-              aria-label="Acceso al sistema interno"
-              title="Sistema interno"
+              className="inline-flex items-center gap-2 rounded-lg border border-white/25 px-3 py-2 text-sm font-semibold text-white/90 transition-colors hover:border-gold hover:bg-white/10 hover:text-gold"
+              aria-label="Acceso al sistema"
             >
               <Lock className="w-4 h-4" />
+              Acceso al sistema
             </Link>
           </div>
 
@@ -129,7 +129,7 @@ export function Navbar() {
                 className="flex items-center gap-2 text-white/60 hover:text-gold py-2 text-sm font-medium transition-colors"
               >
                 <Lock className="w-4 h-4" />
-                Sistema interno
+                Acceso al sistema
               </Link>
             </div>
           </motion.div>
