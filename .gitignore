@@ -55,6 +55,7 @@ claude.md
 !openspec/changes/seguridad-rpc-multitenant/**/*.md
 !openspec/changes/tesoreria-idempotente-cierre-atomico/**/*.md
 !openspec/changes/activar-outbox-fiscal-p1/**/*.md
+!openspec/changes/reportes-ventas-cobros/**/*.md
 
 # data migration (CSVs con datos sensibles)
 *.csv

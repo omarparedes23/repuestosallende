@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   ClipboardList,
   Truck,
+  ReceiptText,
   Calculator,
   Landmark,
   LogOut,
@@ -43,6 +44,7 @@ const NAV: NavSection[] = [
       { label: 'Órdenes de compra', href: '/panel/ordenes-compra', icon: ClipboardList },
       { label: 'Compras',           href: '/panel/compras',        icon: ShoppingBag },
       { label: 'Guías de remisión', href: '/panel/guias',          icon: Truck },
+      { label: 'Ventas',            href: '/panel/ventas',         icon: ReceiptText },
     ],
   },
   {

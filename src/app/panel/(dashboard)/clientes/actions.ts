@@ -188,6 +188,8 @@ export async function registrarCobro(
   if (error) return { error: mapTreasuryError(error.message, 'Error al registrar el cobro') }
 
   revalidatePath('/panel/clientes')
+  revalidatePath('/panel/tesoreria')
+  revalidatePath('/panel/ventas')
   return { error: null }
 }
 
