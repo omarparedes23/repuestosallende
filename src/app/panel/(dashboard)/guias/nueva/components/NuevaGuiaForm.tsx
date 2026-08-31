@@ -3,12 +3,12 @@
 import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, Trash2, ChevronLeft } from 'lucide-react'
-import { buscarProductosParaCompra } from '../../../compras/actions'
-import { crearGuia } from '../../actions'
+import { buscarProductosEnSucursal, crearGuia } from '../../actions'
 import type { ItemGuia } from '../../actions'
+import type { ProductoEnSucursal } from '../../actions'
 
 type Sucursal = { id: string; nombre: string }
-type ItemForm = ItemGuia & { key: string }
+type ItemForm = ItemGuia & { key: string; stockDisponible: number }
 
 type Props = { sucursales: Sucursal[] }
 
@@ -23,42 +23,78 @@ export function NuevaGuiaForm({ sucursales }: Props) {
   const [notas, setNotas] = useState('')
 
   const [productoQuery, setProductoQuery] = useState('')
-  const [productoSugerencias, setProductoSugerencias] = useState<any[]>([])
+  const [productoSugerencias, setProductoSugerencias] = useState<ProductoEnSucursal[]>([])
   const [items, setItems] = useState<ItemForm[]>([])
   const [error, setError] = useState<string | null>(null)
 
   const productoTimer = useRef<NodeJS.Timeout | null>(null)
+  const busquedaActual = useRef(0)
+
+  function limpiarProductos() {
+    busquedaActual.current += 1
+    if (productoTimer.current) clearTimeout(productoTimer.current)
+    setProductoQuery('')
+    setProductoSugerencias([])
+  }
+
+  function cambiarOrigen(nuevoOrigenId: string) {
+    if (nuevoOrigenId === origenId) return
+
+    if (items.length > 0 && !window.confirm('Al cambiar la sucursal origen se eliminarán los artículos agregados. ¿Deseas continuar?')) {
+      return
+    }
+
+    setOrigenId(nuevoOrigenId)
+    setItems([])
+    setError(null)
+    limpiarProductos()
+  }
 
   function onProductoInput(q: string) {
     setProductoQuery(q)
     if (productoTimer.current) clearTimeout(productoTimer.current)
-    if (!q.trim()) { setProductoSugerencias([]); return }
+    if (!q.trim() || !origenId) { setProductoSugerencias([]); return }
+    const solicitud = ++busquedaActual.current
+    const origenDeSolicitud = origenId
     productoTimer.current = setTimeout(async () => {
-      const res = await buscarProductosParaCompra(q)
-      setProductoSugerencias(res)
+      const res = await buscarProductosEnSucursal(q, origenDeSolicitud)
+      if (solicitud === busquedaActual.current && origenDeSolicitud === origenId) {
+        setProductoSugerencias(res)
+      }
     }, 250)
   }
 
-  function agregarProducto(p: any) {
-    const existe = items.find((i) => i.catalogo_id === p.catalogo_id)
+  function agregarProducto(p: ProductoEnSucursal) {
+    const existe = items.find((i) => i.catalogo_id === p.catalogoId)
     if (existe) {
       setItems((prev) =>
         prev.map((i) =>
-          i.catalogo_id === p.catalogo_id ? { ...i, cantidad: i.cantidad + 1 } : i
+          i.catalogo_id === p.catalogoId
+            ? { ...i, cantidad: Math.min(i.cantidad + 1, i.stockDisponible) }
+            : i
         )
       )
     } else {
       setItems((prev) => [
         ...prev,
-        { key: `${p.catalogo_id}-${Date.now()}`, catalogo_id: p.catalogo_id, nombre: p.nombre, cantidad: 1 },
+        {
+          key: `${p.catalogoId}-${Date.now()}`,
+          catalogo_id: p.catalogoId,
+          nombre: p.nombre,
+          cantidad: 1,
+          stockDisponible: p.stockDisponible,
+        },
       ])
     }
-    setProductoQuery('')
-    setProductoSugerencias([])
+    limpiarProductos()
   }
 
   function actualizarCantidad(key: string, cantidad: number) {
-    setItems((prev) => prev.map((i) => (i.key === key ? { ...i, cantidad } : i)))
+    setItems((prev) => prev.map((i) => (
+      i.key === key
+        ? { ...i, cantidad: Math.min(Math.max(cantidad, 1), i.stockDisponible) }
+        : i
+    )))
   }
 
   function eliminarItem(key: string) {
@@ -69,6 +105,10 @@ export function NuevaGuiaForm({ sucursales }: Props) {
     if (!origenId || !destinoId) { setError('Selecciona origen y destino.'); return }
     if (origenId === destinoId) { setError('Origen y destino deben ser distintos.'); return }
     if (items.length === 0) { setError('Agrega al menos un artículo.'); return }
+    if (items.some((item) => item.cantidad < 1 || item.cantidad > item.stockDisponible)) {
+      setError('Corrige las cantidades para que no excedan el stock disponible.')
+      return
+    }
 
     setError(null)
     startTransition(async () => {
@@ -77,7 +117,7 @@ export function NuevaGuiaForm({ sucursales }: Props) {
         serie.trim() || null,
         correlativo.trim() || null,
         notas.trim() || null,
-        items.map(({ key: _key, ...rest }) => rest)
+        items.map(({ catalogo_id, nombre, cantidad }) => ({ catalogo_id, nombre, cantidad }))
       )
       if (result.error) {
         setError(result.error)
@@ -108,7 +148,7 @@ export function NuevaGuiaForm({ sucursales }: Props) {
             <label className="block text-sm font-semibold" style={{ color: '#374151' }}>Sucursal origen</label>
             <select
               value={origenId}
-              onChange={(e) => setOrigenId(e.target.value)}
+              onChange={(e) => cambiarOrigen(e.target.value)}
               className="w-full rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62] bg-white"
               style={{ borderColor: '#D1D5DB' }}
             >
@@ -183,16 +223,19 @@ export function NuevaGuiaForm({ sucursales }: Props) {
             >
               {productoSugerencias.map((p) => (
                 <button
-                  key={p.catalogo_id}
+                  key={p.productoId}
                   type="button"
                   onClick={() => agregarProducto(p)}
                   className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors"
                   style={{ color: '#111827' }}
                 >
                   {p.nombre}
-                  {p.codigo_oem && (
-                    <span className="ml-2 text-xs font-mono" style={{ color: '#9CA3AF' }}>{p.codigo_oem}</span>
+                  {p.codigoOem && (
+                    <span className="ml-2 text-xs font-mono" style={{ color: '#9CA3AF' }}>{p.codigoOem}</span>
                   )}
+                  <span className="ml-2 text-xs" style={{ color: '#059669' }}>
+                    Stock: {p.stockDisponible}
+                  </span>
                 </button>
               ))}
             </div>
@@ -229,11 +272,16 @@ export function NuevaGuiaForm({ sucursales }: Props) {
                     <input
                       type="number"
                       min="1"
+                      max={item.stockDisponible}
+                      step="0.001"
                       value={item.cantidad}
-                      onChange={(e) => actualizarCantidad(item.key, parseInt(e.target.value) || 1)}
+                      onChange={(e) => actualizarCantidad(item.key, Number(e.target.value) || 1)}
                       className="w-20 rounded-lg border-2 px-2 py-1.5 text-sm text-center outline-none focus:border-[#002D62]"
                       style={{ borderColor: '#D1D5DB' }}
                     />
+                    <p className="mt-1 text-xs" style={{ color: '#6B7280' }}>
+                      Disponible: {item.stockDisponible}
+                    </p>
                   </td>
                   <td className="px-4 py-3">
                     <button

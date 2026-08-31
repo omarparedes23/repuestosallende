@@ -19,7 +19,8 @@ export function GuiasView({ initialGuias }: Props) {
   const router = useRouter()
   const [guias, setGuias] = useState(initialGuias)
   const [query, setQuery] = useState('')
-  const [, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
 
   const filtered = query.trim()
     ? guias.filter(
@@ -31,15 +32,25 @@ export function GuiasView({ initialGuias }: Props) {
     : guias
 
   function handleAvanzar(g: GuiaRow, nuevoEstado: 'emitida' | 'en_transito') {
+    setError(null)
     startTransition(async () => {
-      await avanzarEstadoGuia(g.id, nuevoEstado)
+      const actionError = await avanzarEstadoGuia(g.id, nuevoEstado)
+      if (actionError) {
+        setError(actionError)
+        return
+      }
       setGuias((prev) => prev.map((x) => (x.id === g.id ? { ...x, estado: nuevoEstado } : x)))
     })
   }
 
   function handleRecibir(g: GuiaRow) {
+    setError(null)
     startTransition(async () => {
-      await recibirGuia(g.id)
+      const actionError = await recibirGuia(g.id)
+      if (actionError) {
+        setError(actionError)
+        return
+      }
       setGuias((prev) => prev.map((x) => (x.id === g.id ? { ...x, estado: 'recibida' } : x)))
     })
   }
@@ -75,6 +86,12 @@ export function GuiasView({ initialGuias }: Props) {
           style={{ borderColor: '#D1D5DB' }}
         />
       </div>
+
+      {error && (
+        <p className="text-sm font-medium" style={{ color: '#DC2626' }} role="alert">
+          {error}
+        </p>
+      )}
 
       {/* Table */}
       <div className="rounded-2xl border overflow-hidden" style={{ borderColor: '#E5E7EB' }}>
@@ -147,6 +164,7 @@ export function GuiasView({ initialGuias }: Props) {
                       {g.estado === 'borrador' && (
                         <button
                           onClick={() => handleAvanzar(g, 'emitida')}
+                          disabled={isPending}
                           className="text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
                           style={{ color: '#2563EB' }}
                         >
@@ -156,6 +174,7 @@ export function GuiasView({ initialGuias }: Props) {
                       {g.estado === 'emitida' && (
                         <button
                           onClick={() => handleAvanzar(g, 'en_transito')}
+                          disabled={isPending}
                           className="text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-amber-50 transition-colors"
                           style={{ color: '#D97706' }}
                         >
@@ -165,6 +184,7 @@ export function GuiasView({ initialGuias }: Props) {
                       {g.estado === 'en_transito' && (
                         <button
                           onClick={() => handleRecibir(g)}
+                          disabled={isPending}
                           className="text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-green-50 transition-colors"
                           style={{ color: '#059669' }}
                         >

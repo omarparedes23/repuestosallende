@@ -21,7 +21,7 @@ export type RaMetodoPago     = 'efectivo' | 'yape' | 'tarjeta' | 'transferencia'
 export type RaTipoComprobante = 'ticket' | 'boleta' | 'factura'
 export type RaEstadoVenta    = 'pendiente' | 'completada' | 'anulada' | 'error_sunat'
 export type RaTipoKardex     = 'entrada' | 'salida' | 'ajuste'
-export type RaMotivoKardex   = 'venta' | 'compra' | 'ajuste_manual' | 'devolucion' | 'merma'
+export type RaMotivoKardex   = 'venta' | 'compra' | 'ajuste_manual' | 'devolucion' | 'merma' | 'traslado'
 
 // ── Enums: migration 030 (Facturación multimoneda) ─────────
 export type RaMoneda = 'PEN' | 'USD'
@@ -1194,7 +1194,25 @@ export interface Database {
       }
       ra_recibir_guia: {
         Args: { p_guia_id: string }
-        Returns: void
+        Returns: Json
+      }
+      ra_crear_guia: {
+        Args: {
+          p_sucursal_origen_id: string
+          p_sucursal_destino_id: string
+          p_serie: string | null
+          p_correlativo: number | null
+          p_notas: string | null
+          p_items: Json
+        }
+        Returns: Json
+      }
+      ra_avanzar_estado_guia: {
+        Args: {
+          p_guia_id: string
+          p_nuevo_estado: RaEstadoGuia
+        }
+        Returns: Json
       }
       ra_contar_stock_bajo: {
         Args: { p_empresa_id: string }
