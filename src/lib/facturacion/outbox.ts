@@ -8,6 +8,28 @@ type OutboxJob = {
   request_payload: OseComprobanteInput
 }
 
+type CreditNoteOutboxJob = OutboxJob
+
+type CreditNotePayload = {
+  tipo: 'NOTA_CREDITO'
+  serie: string
+  correlativo: number
+  fechaEmision: string
+  motivoCodigo: '06' | '07'
+  motivoDescripcion: string
+  documentoReferencia: {
+    tipo: 'BOLETA' | 'FACTURA'
+    numeroCompleto: string
+  }
+  comprobanteOriginal: OseComprobanteInput
+  items: OseComprobanteInput['items']
+  subtotal: number
+  igv: number
+  total: number
+  moneda: OseComprobanteInput['moneda']
+  tipoCambio?: number
+}
+
 export type SunatOutboxError = {
   error_code: string | null
   error_message: string | null
@@ -43,6 +65,62 @@ async function processJob(
   } as never)
   if (error) throw new Error(`No se pudo finalizar outbox ${job.id}: ${error.message}`)
   return { finalized: data === true, outcome }
+}
+
+function buildCreditNoteInput(payload: CreditNotePayload): OseComprobanteInput {
+  const original = payload.comprobanteOriginal
+  if (!original?.rucEmisor || !original.razonSocial || !original.cliente
+    || !payload.documentoReferencia?.numeroCompleto || !Array.isArray(payload.items)) {
+    throw new Error('Payload de nota de crédito incompleto')
+  }
+  return {
+    tipo: 'NOTA_CREDITO',
+    serie: payload.serie,
+    correlativo: payload.correlativo,
+    rucEmisor: original.rucEmisor,
+    razonSocial: original.razonSocial,
+    fechaEmision: payload.fechaEmision,
+    cliente: original.cliente,
+    items: payload.items,
+    subtotal: payload.subtotal,
+    igv: payload.igv,
+    total: payload.total,
+    moneda: payload.moneda,
+    tipoCambio: payload.tipoCambio,
+    notaCredito: {
+      comprobanteReferenciadoId: payload.documentoReferencia.numeroCompleto,
+      tipoDocReferenciado: payload.documentoReferencia.tipo === 'FACTURA' ? '01' : '03',
+      motivoCodigo: payload.motivoCodigo,
+      motivoDescripcion: payload.motivoDescripcion,
+    },
+  }
+}
+
+async function processCreditNoteJob(
+  supabase: ReturnType<typeof adminClient>,
+  job: CreditNoteOutboxJob
+): Promise<ProcessedJob> {
+  let result: OseComprobanteResult
+  try {
+    result = await emitirComprobante(buildCreditNoteInput(job.request_payload as unknown as CreditNotePayload), job.document_key)
+  } catch (cause) {
+    result = {
+      kind: 'rejected', exito: false,
+      error: cause instanceof Error ? cause.message : 'Payload de nota de crédito inválido',
+    }
+  }
+  const { data, error } = await supabase.rpc('ra_finish_sunat_nota_credito_outbox', {
+    p_job_id: job.id,
+    p_lease_token: job.lease_token,
+    p_outcome: result.kind,
+    p_external_id: result.id_externo ?? null,
+    p_http_status: null,
+    p_error_code: result.kind === 'uncertain' ? 'UNCERTAIN_RESULT_REQUIRES_RECONCILIATION' : null,
+    p_error_message: result.error ?? null,
+    p_response_payload: null,
+  } as never)
+  if (error) throw new Error(`No se pudo finalizar outbox NC ${job.id}: ${error.message}`)
+  return { finalized: data === true, outcome: result.kind }
 }
 
 export async function processSunatOutbox(batchSize = 10) {
@@ -84,6 +162,22 @@ export async function processSunatOutboxForVenta(ventaId: string) {
     processed: result.finalized ? 1 : 0,
     outcome: result.outcome,
   }
+}
+
+export async function processSunatNotaCreditoOutboxForDevolucion(devolucionId: string, forceRetry = false) {
+  const supabase = adminClient()
+  const workerId = `immediate-nc:${crypto.randomUUID()}`
+  const { data, error } = await supabase.rpc('ra_claim_sunat_nota_credito_outbox_for_devolucion', {
+    p_worker_id: workerId,
+    p_devolucion_id: devolucionId,
+    p_lease_seconds: 120,
+    p_force_retry: forceRetry,
+  } as never)
+  if (error) throw new Error(`No se pudo reclamar la outbox NC: ${error.message}`)
+  const job = (data ?? [])[0] as CreditNoteOutboxJob | undefined
+  if (!job) return { claimed: 0, processed: 0, outcome: null }
+  const result = await processCreditNoteJob(supabase, job)
+  return { claimed: 1, processed: result.finalized ? 1 : 0, outcome: result.outcome }
 }
 
 

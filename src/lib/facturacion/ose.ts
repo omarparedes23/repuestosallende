@@ -15,7 +15,7 @@ export type OseItem = {
 }
 
 export type OseComprobanteInput = {
-  tipo: 'BOLETA' | 'FACTURA'
+  tipo: 'BOLETA' | 'FACTURA' | 'NOTA_CREDITO'
   serie: string
   correlativo: number
   rucEmisor: string
@@ -32,6 +32,12 @@ export type OseComprobanteInput = {
   total: number
   moneda: RaMoneda      // default 'PEN'
   tipoCambio?: number   // solo se envía si moneda !== 'PEN'
+  notaCredito?: {
+    comprobanteReferenciadoId: string
+    tipoDocReferenciado: '01' | '03'
+    motivoCodigo: '06' | '07'
+    motivoDescripcion: string
+  }
 }
 
 export type OseComprobanteResult = {
@@ -98,6 +104,7 @@ export async function emitirComprobante(
       igv: input.igv,
       totalPagar: input.total,
     },
+    ...(input.tipo === 'NOTA_CREDITO' && input.notaCredito ? { notaCredito: input.notaCredito } : {}),
   }
 
   try {

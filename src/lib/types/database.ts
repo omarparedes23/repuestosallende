@@ -38,6 +38,9 @@ export type RaEstadoCompra = 'confirmada' | 'anulada'
 // ── Enums: migration 035 (Cuentas por pagar) ────────────────
 export type RaCxpTipoMovimiento = 'cargo' | 'abono'
 
+// ── Migrations 055–056 (Devoluciones y notas de crédito) ───────────────
+export type RaEstadoDevolucion = 'solicitada' | 'liquidada' | 'rechazada'
+
 export interface Database {
   public: {
     Tables: {
@@ -1167,6 +1170,76 @@ export interface Database {
           motivo?: string
         }
       }
+      ra_devoluciones: {
+        Row: {
+          id: string
+          empresa_id: string
+          venta_id: string
+          sucursal_id: string
+          estado: RaEstadoDevolucion
+          motivo: string
+          venta_created_at: string
+          solicitante_id: string
+          aprobador_id: string | null
+          receptor_id: string | null
+          liquidador_id: string | null
+          approved_at: string | null
+          received_at: string | null
+          liquidated_at: string | null
+          solicitud_operation_id: string
+          solicitud_request_hash: string
+          operation_id: string | null
+          request_hash: string | null
+          result_snapshot: Json | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          empresa_id: string
+          venta_id: string
+          sucursal_id: string
+          estado?: RaEstadoDevolucion
+          motivo: string
+          venta_created_at: string
+          solicitante_id: string
+          solicitud_operation_id: string
+          solicitud_request_hash: string
+        }
+        Update: Record<string, never>
+      }
+      ra_sunat_nota_credito_outbox: {
+        Row: {
+          id: string
+          empresa_id: string
+          devolucion_id: string
+          venta_id: string
+          document_key: string
+          tipo_referenciado: RaTipoComprobante
+          motivo_codigo: '06' | '07'
+          motivo_descripcion: string
+          serie: string
+          correlativo: number
+          request_payload: Json
+          status: 'pending' | 'processing' | 'retry' | 'submitted' | 'accepted' | 'rejected' | 'dead_letter'
+          attempt_count: number
+          next_attempt_at: string
+          last_attempt_at: string | null
+          lease_token: string | null
+          lease_expires_at: string | null
+          worker_id: string | null
+          external_id: string | null
+          http_status: number | null
+          error_code: string | null
+          error_message: string | null
+          response_payload: Json | null
+          completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: Record<string, never>
+        Update: Record<string, never>
+      }
     }
     Views: {
       [_ in never]: never
@@ -1272,6 +1345,14 @@ export interface Database {
           p_compra_id: string
           p_motivo: string
         }
+        Returns: Json
+      }
+      ra_solicitar_devolucion_v1: {
+        Args: { p_operation_id: string; p_venta_id: string; p_items: Json; p_motivo: string }
+        Returns: Json
+      }
+      ra_liquidar_devolucion_v1: {
+        Args: { p_operation_id: string; p_devolucion_id: string; p_referencias?: Json }
         Returns: Json
       }
       ra_abrir_caja_v1: {
@@ -1396,6 +1477,8 @@ export type RaVenta           = Tables<'ra_ventas'>
 export type RaVentaItem       = Tables<'ra_venta_items'>
 export type RaVentaPago       = Tables<'ra_venta_pagos'>
 export type RaKardex          = Tables<'ra_kardex'>
+export type RaDevolucion      = Tables<'ra_devoluciones'>
+export type RaNotaCreditoOutbox = Tables<'ra_sunat_nota_credito_outbox'>
 
 // ── Tipos derivados: migration 032 (Cuentas corrientes) ─────
 export type RaCuentaCorrienteMovimiento = Tables<'ra_cuenta_corriente_movimientos'>

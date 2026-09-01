@@ -60,6 +60,23 @@ describe('emitirComprobante — payload moneda/tipoCambio', () => {
     expect(options.headers['Idempotency-Key']).toBe('venta-uuid')
   })
 
+  it('envía referencia y motivo SUNAT al emitir una nota de crédito', async () => {
+    await emitirComprobante(inputBase({
+      tipo: 'NOTA_CREDITO', serie: 'BC001', correlativo: 1,
+      notaCredito: {
+        comprobanteReferenciadoId: 'B001-00000001', tipoDocReferenciado: '03',
+        motivoCodigo: '07', motivoDescripcion: 'Devolución por ítem',
+      },
+    }), 'devolucion-uuid')
+    const [, options] = fetchMock.mock.calls[0]
+    const body = JSON.parse(options.body)
+    expect(body.tipo).toBe('NOTA_CREDITO')
+    expect(body.notaCredito).toEqual(expect.objectContaining({
+      comprobanteReferenciadoId: 'B001-00000001', tipoDocReferenciado: '03', motivoCodigo: '07',
+    }))
+    expect(options.headers['Idempotency-Key']).toBe('devolucion-uuid')
+  })
+
   it('clasifica RESULTADO_INCIERTO sin habilitar reintento', async () => {
     fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ estado: 'RESULTADO_INCIERTO' }) })
     await expect(emitirComprobante(inputBase(), 'venta-uuid')).resolves.toMatchObject({ kind: 'uncertain', exito: false })
