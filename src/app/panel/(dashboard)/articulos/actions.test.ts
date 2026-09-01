@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as sessionModule from '@/lib/session'
-import { buscarArticulos, getStockBajoCount, getSucursalesActivas } from './actions'
+import { buscarArticulos, getMovimientosKardex, getStockBajoCount, getSucursalesActivas, resolverDocumentoKardex } from './actions'
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/r2', () => ({
@@ -81,6 +81,73 @@ describe('articulos actions', () => {
     expect(rpc).toHaveBeenCalledWith('ra_contar_stock_bajo', {
       p_empresa_id: 'empresa-1',
       p_sucursal_id: 'sucursal-2',
+    })
+  })
+
+  it('deriva catálogo y sucursal desde el producto antes de consultar kardex', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { catalogo_id: 'catalogo-1', sucursal_id: 'sucursal-1' }, error: null,
+    })
+    const productoEmpresa = vi.fn().mockReturnValue({ maybeSingle })
+    const productoId = vi.fn().mockReturnValue({ eq: productoEmpresa })
+    const kardexRange = vi.fn().mockResolvedValue({ data: [], count: 0, error: null })
+    const kardexOrder = vi.fn().mockReturnValue({ range: kardexRange })
+    const kardexSucursal = vi.fn().mockReturnValue({ order: kardexOrder })
+    const kardexCatalogo = vi.fn().mockReturnValue({ eq: kardexSucursal })
+    const kardexEmpresa = vi.fn().mockReturnValue({ eq: kardexCatalogo })
+    const supabase = {
+      from: vi.fn()
+        .mockReturnValueOnce({ select: vi.fn().mockReturnValue({ eq: productoId }) })
+        .mockReturnValueOnce({ select: vi.fn().mockReturnValue({ eq: kardexEmpresa }) }),
+    }
+    vi.spyOn(sessionModule, 'getSessionFast').mockResolvedValue({
+      supabase: supabase as never,
+      user: { id: 'user-1' } as never,
+      perfil: { id: 'user-1', empresa_id: 'empresa-1', rol: 'administrador', activo: true } as never,
+      sucursalId: null,
+    })
+
+    await expect(getMovimientosKardex('11111111-1111-4111-8111-111111111111')).resolves.toMatchObject({ total: 0, error: null })
+    expect(productoId).toHaveBeenCalledWith('id', '11111111-1111-4111-8111-111111111111')
+    expect(productoEmpresa).toHaveBeenCalledWith('empresa_id', 'empresa-1')
+    expect(kardexEmpresa).toHaveBeenCalledWith('empresa_id', 'empresa-1')
+    expect(kardexCatalogo).toHaveBeenCalledWith('catalogo_id', 'catalogo-1')
+    expect(kardexSucursal).toHaveBeenCalledWith('sucursal_id', 'sucursal-1')
+  })
+
+  it('resuelve cada documento de kardex por motivo, sin cruzar tipos', () => {
+    const compraId = '11111111-1111-4111-8111-111111111111'
+    const ventaId = '22222222-2222-4222-8222-222222222222'
+    const guiaId = '33333333-3333-4333-8333-333333333333'
+    const compras = new Map([[compraId, { nro_documento: 'F001-45', tipo_documento: 'factura' }]])
+    const ventas = new Map([[ventaId, { numero_completo: 'B001-00000088' }]])
+    const guias = new Map([[guiaId, { serie: 'T001', correlativo: 9 }]])
+
+    expect(resolverDocumentoKardex('compra', compraId, compras, ventas, guias)).toEqual({
+      documento: { etiqueta: 'Compra · F001-45', href: `/panel/compras/${compraId}` },
+      documentoNoDisponible: false,
+    })
+    expect(resolverDocumentoKardex('venta', ventaId, compras, ventas, guias)).toEqual({
+      documento: { etiqueta: 'Venta · B001-00000088', href: null },
+      documentoNoDisponible: false,
+    })
+    expect(resolverDocumentoKardex('traslado', guiaId, compras, ventas, guias)).toEqual({
+      documento: { etiqueta: 'Guía · T001-00000009', href: `/panel/guias/${guiaId}` },
+      documentoNoDisponible: false,
+    })
+  })
+
+  it('conserva un movimiento con referencia histórica ausente', () => {
+    expect(resolverDocumentoKardex('venta', '44444444-4444-4444-8444-444444444444', new Map(), new Map(), new Map())).toEqual({
+      documento: null,
+      documentoNoDisponible: true,
+    })
+  })
+
+  it('no inventa documento para ajustes aunque tengan referencia', () => {
+    expect(resolverDocumentoKardex('ajuste_manual', '55555555-5555-4555-8555-555555555555', new Map(), new Map(), new Map())).toEqual({
+      documento: null,
+      documentoNoDisponible: false,
     })
   })
 })

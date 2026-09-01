@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Search, Pencil, AlertTriangle, Package, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { Search, Pencil, AlertTriangle, Package, ChevronLeft, ChevronRight, Loader2, History } from 'lucide-react'
 import { ArticuloEditForm } from './ArticuloEditForm'
+import { KardexDialog } from './KardexDialog'
 import { buscarArticulos, getStockBajoCount } from '../actions'
 import type { ArticuloRow, MarcaOption, ModeloOption, SucursalOption } from '../actions'
 import { FILAS_POR_PAGINA } from '../constants'
@@ -30,6 +31,9 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
   const [loading, setLoading] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<ArticuloRow | null>(null)
+  const [kardexOpen, setKardexOpen] = useState(false)
+  const [articuloKardex, setArticuloKardex] = useState<ArticuloRow | null>(null)
+  const [kardexVersion, setKardexVersion] = useState(0)
 
   const refetch = useCallback(async (q: string, p: number, m: string, ma: string, s: string) => {
     setLoading(true)
@@ -84,6 +88,16 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
   function handleClose() {
     setFormOpen(false)
   }
+
+  function handleKardex(a: ArticuloRow) {
+    setArticuloKardex(a)
+    setKardexVersion((version) => version + 1)
+    setKardexOpen(true)
+  }
+
+  const sucursalKardexNombre = articuloKardex
+    ? sucursales.find((s) => s.id === articuloKardex.sucursal_id)?.nombre ?? null
+    : null
 
   return (
     <>
@@ -199,14 +213,24 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
                         </p>
                       )}
                     </div>
-                    <button
-                      onClick={() => handleEdit(a)}
-                      className="p-2 rounded-lg shrink-0"
-                      style={{ backgroundColor: '#F3F4F6' }}
-                      aria-label="Editar precios y stock mínimo"
-                    >
-                      <Pencil size={16} style={{ color: '#374151' }} />
-                    </button>
+                    <div className="flex gap-1 shrink-0">
+                      <button
+                        onClick={() => handleKardex(a)}
+                        className="p-2 rounded-lg"
+                        style={{ backgroundColor: '#EAF2FF' }}
+                        aria-label="Ver movimientos de kardex"
+                      >
+                        <History size={16} style={{ color: '#002D62' }} />
+                      </button>
+                      <button
+                        onClick={() => handleEdit(a)}
+                        className="p-2 rounded-lg"
+                        style={{ backgroundColor: '#F3F4F6' }}
+                        aria-label="Editar precios y stock mínimo"
+                      >
+                        <Pencil size={16} style={{ color: '#374151' }} />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between">
@@ -294,6 +318,14 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
                       </td>
                       <td className="px-5 py-4">
                         <button
+                          onClick={() => handleKardex(a)}
+                          className="p-1.5 rounded-lg transition-colors hover:bg-blue-50"
+                          title="Ver movimientos de kardex"
+                          aria-label="Ver movimientos de kardex"
+                        >
+                          <History size={15} style={{ color: '#002D62' }} />
+                        </button>
+                        <button
                           onClick={() => handleEdit(a)}
                           className="p-1.5 rounded-lg transition-colors hover:bg-gray-100"
                           title="Editar precios y stock mínimo"
@@ -345,6 +377,13 @@ export function ArticulosView({ initialArticulos, initialTotal, modelos, marcas,
         onSaved={() => refetch(query, pagina, marcaId, marcaAutoId, sucursalId)}
         articulo={editing}
         modelos={modelos}
+      />
+      <KardexDialog
+        key={kardexVersion}
+        open={kardexOpen}
+        articulo={articuloKardex}
+        sucursalNombre={sucursalKardexNombre}
+        onClose={() => setKardexOpen(false)}
       />
     </>
   )

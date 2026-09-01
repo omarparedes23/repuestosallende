@@ -25,6 +25,83 @@ export type ArticuloRow = {
 
 export type ModeloOption = { id: string; nombre: string }
 
+export type DocumentoKardex = {
+  etiqueta: string
+  href: string | null
+}
+
+export type MovimientoKardex = {
+  id: string
+  tipo: 'entrada' | 'salida' | 'ajuste'
+  motivo: string
+  cantidad: number
+  stock_anterior: number
+  stock_nuevo: number
+  notas: string | null
+  created_at: string
+  documento: DocumentoKardex | null
+  documentoNoDisponible: boolean
+}
+
+export type MovimientosKardexPage = {
+  data: MovimientoKardex[]
+  total: number
+  error: string | null
+}
+
+const KARDEX_FILAS_POR_PAGINA = 25
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function formatoGuia(serie: string | null, correlativo: number | null): string | null {
+  if (!serie || correlativo === null) return null
+  return `${serie}-${String(correlativo).padStart(8, '0')}`
+}
+
+export function resolverDocumentoKardex(
+  motivo: string,
+  referenciaId: string | null,
+  compras: Map<string, { nro_documento: string | null; tipo_documento: string }>,
+  ventas: Map<string, { numero_completo: string | null }>,
+  guias: Map<string, { serie: string | null; correlativo: number | null }>
+): { documento: DocumentoKardex | null; documentoNoDisponible: boolean } {
+  if (!referenciaId) return { documento: null, documentoNoDisponible: false }
+
+  if (motivo === 'compra') {
+    const compra = compras.get(referenciaId)
+    return compra
+      ? {
+          documento: {
+            etiqueta: `Compra · ${compra.nro_documento ?? 'Sin documento'}`,
+            href: `/panel/compras/${referenciaId}`,
+          },
+          documentoNoDisponible: false,
+        }
+      : { documento: null, documentoNoDisponible: true }
+  }
+
+  if (motivo === 'venta') {
+    const venta = ventas.get(referenciaId)
+    return venta
+      ? {
+          documento: { etiqueta: `Venta · ${venta.numero_completo ?? referenciaId.slice(0, 8).toUpperCase()}`, href: null },
+          documentoNoDisponible: false,
+        }
+      : { documento: null, documentoNoDisponible: true }
+  }
+
+  if (motivo === 'traslado') {
+    const guia = guias.get(referenciaId)
+    return guia
+      ? {
+          documento: { etiqueta: `Guía · ${formatoGuia(guia.serie, guia.correlativo) ?? 'Sin numerar'}`, href: `/panel/guias/${referenciaId}` },
+          documentoNoDisponible: false,
+        }
+      : { documento: null, documentoNoDisponible: true }
+  }
+
+  return { documento: null, documentoNoDisponible: false }
+}
+
 export async function getModelosAuto(): Promise<ModeloOption[]> {
   const { supabase: raw } = await getSessionFast()
   const supabase = raw as any
@@ -167,6 +244,93 @@ export async function buscarArticulos(
   if (error) return { data: [], total: 0, error: error.message }
 
   return { data: (data ?? []).map(mapArticuloRow), total: count ?? 0, error: null }
+}
+
+/**
+ * Historial de solo lectura de una fila física de inventario. El id recibido
+ * nunca decide empresa, catálogo ni sucursal: esas dimensiones se obtienen de
+ * ra_productos bajo la sesión actual antes de consultar el kardex.
+ */
+export async function getMovimientosKardex(
+  productoId: string,
+  pagina = 1
+): Promise<MovimientosKardexPage> {
+  if (!UUID_RE.test(productoId)) return { data: [], total: 0, error: 'Artículo inválido.' }
+
+  const { supabase: raw, perfil } = await getSessionFast()
+  const supabase = raw as any
+  if (!perfil?.empresa_id) return { data: [], total: 0, error: 'No autenticado.' }
+
+  const { data: producto, error: productoError } = await supabase
+    .from('ra_productos')
+    .select('catalogo_id, sucursal_id')
+    .eq('id', productoId)
+    .eq('empresa_id', perfil.empresa_id)
+    .maybeSingle()
+
+  if (productoError || !producto) return { data: [], total: 0, error: 'Artículo no disponible.' }
+
+  const offset = Math.max(0, Math.floor(pagina) - 1) * KARDEX_FILAS_POR_PAGINA
+  const { data: kardex, count, error } = await supabase
+    .from('ra_kardex')
+    .select('id, tipo, motivo, cantidad, stock_anterior, stock_nuevo, referencia_id, notas, created_at', { count: 'exact' })
+    .eq('empresa_id', perfil.empresa_id)
+    .eq('catalogo_id', producto.catalogo_id)
+    .eq('sucursal_id', producto.sucursal_id)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + KARDEX_FILAS_POR_PAGINA - 1)
+
+  if (error) return { data: [], total: 0, error: 'No se pudo consultar el kardex.' }
+
+  const rows = (kardex ?? []) as Array<{
+    id: string
+    tipo: 'entrada' | 'salida' | 'ajuste'
+    motivo: string
+    cantidad: number
+    stock_anterior: number
+    stock_nuevo: number
+    referencia_id: string | null
+    notas: string | null
+    created_at: string
+  }>
+  const referencias = (motivo: string) => rows
+    .filter((row) => row.motivo === motivo && row.referencia_id)
+    .map((row) => row.referencia_id as string)
+
+  const compraIds = referencias('compra')
+  const ventaIds = referencias('venta')
+  const guiaIds = referencias('traslado')
+  const [comprasResult, ventasResult, guiasResult] = await Promise.all([
+    compraIds.length
+      ? supabase.from('ra_compras').select('id, nro_documento, tipo_documento').eq('empresa_id', perfil.empresa_id).in('id', compraIds)
+      : Promise.resolve({ data: [] }),
+    ventaIds.length
+      ? supabase.from('ra_ventas').select('id, numero_completo').eq('empresa_id', perfil.empresa_id).in('id', ventaIds)
+      : Promise.resolve({ data: [] }),
+    guiaIds.length
+      ? supabase.from('ra_guias_remision').select('id, serie, correlativo').eq('empresa_id', perfil.empresa_id).in('id', guiaIds)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  if (comprasResult.error || ventasResult.error || guiasResult.error) {
+    return { data: [], total: 0, error: 'No se pudo resolver el documento de origen.' }
+  }
+
+  const compraRows = (comprasResult.data ?? []) as Array<{ id: string; nro_documento: string | null; tipo_documento: string }>
+  const ventaRows = (ventasResult.data ?? []) as Array<{ id: string; numero_completo: string | null }>
+  const guiaRows = (guiasResult.data ?? []) as Array<{ id: string; serie: string | null; correlativo: number | null }>
+  const compras = new Map(compraRows.map((row) => [row.id, row]))
+  const ventas = new Map(ventaRows.map((row) => [row.id, row]))
+  const guias = new Map(guiaRows.map((row) => [row.id, row]))
+
+  return {
+    data: rows.map((row) => ({
+      ...row,
+      ...resolverDocumentoKardex(row.motivo, row.referencia_id, compras, ventas, guias),
+    })),
+    total: count ?? 0,
+    error: null,
+  }
 }
 
 export async function getStockBajoCount(sucursalId: string | null = null): Promise<number> {

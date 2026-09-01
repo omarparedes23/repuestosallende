@@ -13,15 +13,15 @@ export default function CatalogoLayout({ children }: { children: React.ReactNode
     <div className="min-h-screen bg-[#f1f5f9] flex flex-col">
       <nav className="bg-[#002D62] shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-20">
             <Link href="/" className="flex items-center gap-3 group" aria-label={siteConfig.razonSocial}>
-              <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center p-1.5 shadow-sm flex-shrink-0 relative overflow-hidden">
+              <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center p-2 shadow-sm flex-shrink-0 relative overflow-hidden">
                 <Image
                   src={siteConfig.imagenes.logo}
                   alt={`${siteConfig.marcaCorta} — logo`}
                   fill
-                  sizes="40px"
-                  className="object-contain p-1"
+                  sizes="64px"
+                  className="object-contain p-1.5"
                 />
               </div>
               <div className="hidden sm:block">

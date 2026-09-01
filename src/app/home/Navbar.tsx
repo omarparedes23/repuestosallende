@@ -36,14 +36,14 @@ export function Navbar() {
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-20">
           <a href="#hero" className="flex items-center group" aria-label={siteConfig.razonSocial}>
             <Image
               src={siteConfig.imagenes.logo}
               alt={`${siteConfig.razonSocial} — logo`}
-              width={192}
-              height={48}
-              style={{ width: 'auto', height: '3rem' }}
+              width={256}
+              height={64}
+              style={{ width: 'auto', height: '4rem' }}
               className="object-contain transition-transform duration-300 group-hover:scale-105"
               priority
             />
