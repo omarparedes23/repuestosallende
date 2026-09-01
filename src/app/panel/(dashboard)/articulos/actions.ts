@@ -4,6 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { getSession, getSessionFast } from '@/lib/session'
 import { subirImagen, IMAGENES_TIPOS_PERMITIDOS, IMAGEN_MAX_BYTES } from '@/lib/r2'
 import { FILAS_POR_PAGINA } from './constants'
+import { resolverDocumentoKardex, type DocumentoKardex } from './kardex-documento'
+
+export type { DocumentoKardex } from './kardex-documento'
 
 export type ArticuloRow = {
   id: string
@@ -24,11 +27,6 @@ export type ArticuloRow = {
 }
 
 export type ModeloOption = { id: string; nombre: string }
-
-export type DocumentoKardex = {
-  etiqueta: string
-  href: string | null
-}
 
 export type MovimientoKardex = {
   id: string
@@ -51,56 +49,6 @@ export type MovimientosKardexPage = {
 
 const KARDEX_FILAS_POR_PAGINA = 25
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-function formatoGuia(serie: string | null, correlativo: number | null): string | null {
-  if (!serie || correlativo === null) return null
-  return `${serie}-${String(correlativo).padStart(8, '0')}`
-}
-
-export function resolverDocumentoKardex(
-  motivo: string,
-  referenciaId: string | null,
-  compras: Map<string, { nro_documento: string | null; tipo_documento: string }>,
-  ventas: Map<string, { numero_completo: string | null }>,
-  guias: Map<string, { serie: string | null; correlativo: number | null }>
-): { documento: DocumentoKardex | null; documentoNoDisponible: boolean } {
-  if (!referenciaId) return { documento: null, documentoNoDisponible: false }
-
-  if (motivo === 'compra') {
-    const compra = compras.get(referenciaId)
-    return compra
-      ? {
-          documento: {
-            etiqueta: `Compra · ${compra.nro_documento ?? 'Sin documento'}`,
-            href: `/panel/compras/${referenciaId}`,
-          },
-          documentoNoDisponible: false,
-        }
-      : { documento: null, documentoNoDisponible: true }
-  }
-
-  if (motivo === 'venta') {
-    const venta = ventas.get(referenciaId)
-    return venta
-      ? {
-          documento: { etiqueta: `Venta · ${venta.numero_completo ?? referenciaId.slice(0, 8).toUpperCase()}`, href: null },
-          documentoNoDisponible: false,
-        }
-      : { documento: null, documentoNoDisponible: true }
-  }
-
-  if (motivo === 'traslado') {
-    const guia = guias.get(referenciaId)
-    return guia
-      ? {
-          documento: { etiqueta: `Guía · ${formatoGuia(guia.serie, guia.correlativo) ?? 'Sin numerar'}`, href: `/panel/guias/${referenciaId}` },
-          documentoNoDisponible: false,
-        }
-      : { documento: null, documentoNoDisponible: true }
-  }
-
-  return { documento: null, documentoNoDisponible: false }
-}
 
 export async function getModelosAuto(): Promise<ModeloOption[]> {
   const { supabase: raw } = await getSessionFast()

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as sessionModule from '@/lib/session'
-import { buscarArticulos, getMovimientosKardex, getStockBajoCount, getSucursalesActivas, resolverDocumentoKardex } from './actions'
+import { buscarArticulos, getMovimientosKardex, getStockBajoCount, getSucursalesActivas } from './actions'
+import { resolverDocumentoKardex } from './kardex-documento'
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/r2', () => ({
