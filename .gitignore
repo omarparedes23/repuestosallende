@@ -61,6 +61,7 @@ claude.md
 !openspec/changes/numeracion-series-guias/**/*.md
 !openspec/changes/alta-automatica-producto-destino-guia/**/*.md
 !openspec/changes/reversos-comerciales-fiscales/**/*.md
+!openspec/changes/postventa-cambio-garantia-anulacion-fiscal/**/*.md
 !openspec/erp-profesional-roadmap.md
 
 # data migration (CSVs con datos sensibles)
