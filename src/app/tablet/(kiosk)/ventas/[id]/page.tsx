@@ -18,6 +18,7 @@ export default async function VentaDetallePage({ params }: Props) {
       <VentaDetalle
         venta={venta}
         puedeEnviarSunat={perfil?.rol === 'administrador' || perfil?.rol === 'superadmin'}
+        puedeSolicitarDevolucion={perfil?.rol === 'vendedor'}
       />
     </div>
   )

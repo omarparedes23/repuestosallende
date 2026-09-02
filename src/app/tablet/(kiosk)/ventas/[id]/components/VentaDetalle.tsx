@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useActionState } from 'react'
+import { useState, useMemo, useActionState, useTransition } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, User, Receipt, Printer, Send } from 'lucide-react'
 import {
@@ -13,10 +13,12 @@ import { simboloMoneda } from '@/lib/calc/moneda'
 import { calcularVuelto } from '@/lib/calc/vuelto'
 import { TicketPrintPortal } from '@/app/tablet/components/ticket/TicketPrintPortal'
 import type { TicketReceiptData } from '@/app/tablet/components/ticket/TicketReceipt'
+import { solicitarDevolucion } from '@/app/tablet/(kiosk)/devoluciones/actions'
 
 type Props = {
   venta: VentaDetalleType
   puedeEnviarSunat: boolean
+  puedeSolicitarDevolucion: boolean
 }
 
 const METODO_LABELS: Record<string, string> = {
@@ -45,8 +47,13 @@ const initialEnvioSunatManualState: EnvioSunatManualState = {
   tone: 'info',
 }
 
-export function VentaDetalle({ venta, puedeEnviarSunat }: Props) {
+export function VentaDetalle({ venta, puedeEnviarSunat, puedeSolicitarDevolucion }: Props) {
   const [showPrint, setShowPrint] = useState(false)
+  const [showReturn, setShowReturn] = useState(false)
+  const [returnMessage, setReturnMessage] = useState<string | null>(null)
+  const [returnPending, startReturnTransition] = useTransition()
+  const [motivoDevolucion, setMotivoDevolucion] = useState('')
+  const [cantidadesDevolucion, setCantidadesDevolucion] = useState<Record<string, number>>({})
   const [envioState, enviarFormAction, enviando] = useActionState(
     enviarVentaAOseSunat,
     initialEnvioSunatManualState
@@ -61,6 +68,21 @@ export function VentaDetalle({ venta, puedeEnviarSunat }: Props) {
 
   const handleReimprimir = () => setShowPrint(true)
   const handleCerrarPrint = () => setShowPrint(false)
+
+  function solicitar() {
+    const items = venta.items
+      .map((item) => ({ ventaItemId: item.id, cantidad: cantidadesDevolucion[item.id] ?? 0 }))
+      .filter((item) => item.cantidad > 0)
+    startReturnTransition(async () => {
+      const result = await solicitarDevolucion({ ventaId: venta.id, motivo: motivoDevolucion, items })
+      setReturnMessage(result.message)
+      if (result.status === 'success') {
+        setShowReturn(false)
+        setMotivoDevolucion('')
+        setCantidadesDevolucion({})
+      }
+    })
+  }
 
   const idVenta = venta.numero_completo ?? `#${venta.id.slice(0, 8).toUpperCase()}`
   const esTicket = venta.tipo_comprobante === 'ticket'
@@ -279,6 +301,41 @@ export function VentaDetalle({ venta, puedeEnviarSunat }: Props) {
         {/* Botones de acción */}
         {!esAnulada && (
           <div className="mt-4 space-y-2">
+            {puedeSolicitarDevolucion && venta.estado === 'completada' && (
+              <button
+                type="button"
+                onClick={() => { setReturnMessage(null); setShowReturn((visible) => !visible) }}
+                className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold"
+                style={{ backgroundColor: '#FFF7ED', color: '#C2410C' }}
+              >
+                Solicitar devolución
+              </button>
+            )}
+            {showReturn && (
+              <section className="rounded-2xl border p-4 space-y-3" style={{ borderColor: '#FED7AA', backgroundColor: '#FFFBEB' }}>
+                <div>
+                  <h3 className="font-bold" style={{ color: '#9A3412' }}>Solicitud de devolución</h3>
+                  <p className="text-xs mt-1" style={{ color: '#9A3412' }}>No modifica stock ni dinero. Registra la recepción física al recibir la pieza.</p>
+                </div>
+                {venta.items.map((item) => (
+                  <label key={item.id} className="flex items-center justify-between gap-3 text-sm" style={{ color: '#374151' }}>
+                    <span className="min-w-0"><b>{item.nombre_producto}</b><br /><span className="text-xs">Vendidos: {item.cantidad}</span></span>
+                    <input
+                      type="number" min="0" max={item.cantidad} step="1"
+                      value={cantidadesDevolucion[item.id] ?? 0}
+                      onChange={(event) => setCantidadesDevolucion((current) => ({ ...current, [item.id]: Math.min(item.cantidad, Math.max(0, Number(event.target.value) || 0)) }))}
+                      className="w-16 rounded-lg border px-2 py-1.5 text-right"
+                      style={{ borderColor: '#FDBA74' }}
+                    />
+                  </label>
+                ))}
+                <textarea value={motivoDevolucion} onChange={(event) => setMotivoDevolucion(event.target.value)} maxLength={500} placeholder="Motivo de la devolución" className="w-full rounded-xl border p-2 text-sm" style={{ borderColor: '#FDBA74' }} />
+                <button type="button" disabled={returnPending} onClick={solicitar} className="w-full rounded-xl px-4 py-2.5 text-sm font-bold disabled:opacity-50" style={{ backgroundColor: '#C2410C', color: '#FFF' }}>
+                  {returnPending ? 'Registrando…' : 'Crear solicitud'}
+                </button>
+              </section>
+            )}
+            {returnMessage && <p className="text-sm text-center" style={{ color: returnMessage.startsWith('Solicitud creada') ? '#047857' : '#B91C1C' }}>{returnMessage}</p>}
             {puedeReimprimir && (
               <button
                 onClick={handleReimprimir}
