@@ -48,4 +48,4 @@
 - [ ] Ejecutar pruebas focalizadas y revisar lint enfocado, sin limpiar deuda global preexistente. El `next build` queda para una validación separada autorizada.
 - [ ] Ejecutar prueba manual OSE exclusivamente en tenant TEST: NC inicial, replay y conflicto 409; adjuntar evidencia sin secretos.
 - [ ] Revisar drift del ledger, advisors, grants y políticas en TEST después de aplicar 058.
-- [ ] Completar `verify-report.md` con resultados, límites de bandeja manual, rollback real de RPC y pendientes de fase 2/3.
+- [x] Completar `verify-report.md` con resultados, límites de bandeja manual, rollback real de RPC y pendientes de fase 2/3. → Ver `verify-report.md`; QA visual y OSE TEST continúan explícitamente pendientes antes de archive.
