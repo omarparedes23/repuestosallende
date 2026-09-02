@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ShoppingCart, Users, ClipboardList, Archive, LayoutDashboard, Store } from 'lucide-react'
+import { ShoppingCart, Users, ClipboardList, Archive, LayoutDashboard, Store, RotateCcw } from 'lucide-react'
 import { cambiarSucursal } from '@/app/tablet/sucursal/actions'
 
 const TABS = [
@@ -10,6 +10,7 @@ const TABS = [
   { label: 'Clientes', href: '/tablet/clientes', icon: Users },
   { label: 'Ventas', href: '/tablet/ventas', icon: ClipboardList },
   { label: 'Caja', href: '/tablet/caja', icon: Archive },
+  { label: 'Devoluciones', href: '/tablet/devoluciones', icon: RotateCcw },
 ]
 
 type Props = { rol?: string | null }

@@ -46,4 +46,18 @@ describe('liquidarDevolucionYEmitirNotaCredito', () => {
     await expect(liquidarDevolucionYEmitirNotaCredito({ operationId, devolucionId, referencias: {} }))
       .resolves.toEqual(expect.objectContaining({ status: 'liquidated', fiscal: 'pending_review' }))
   })
+
+  it('permite liquidar al administrador global sin sucursal activa', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { devolucionId }, error: null })
+    vi.spyOn(sessionModule, 'getSession').mockResolvedValue({
+      supabase: { rpc } as never,
+      user: { id: 'admin-global' } as never,
+      perfil: { id: 'admin-global', empresa_id: 'empresa-1', rol: 'administrador', activo: true, sucursal_id: null } as never,
+      sucursalId: null,
+    })
+
+    await expect(liquidarDevolucionYEmitirNotaCredito({ operationId, devolucionId, referencias: {} }))
+      .resolves.toEqual(expect.objectContaining({ status: 'liquidated' }))
+    expect(rpc).toHaveBeenCalledWith('ra_liquidar_devolucion_v1', expect.objectContaining({ p_devolucion_id: devolucionId }))
+  })
 })
