@@ -38,8 +38,8 @@ export type RaEstadoCompra = 'confirmada' | 'anulada'
 // ── Enums: migration 035 (Cuentas por pagar) ────────────────
 export type RaCxpTipoMovimiento = 'cargo' | 'abono'
 
-// ── Migrations 055–056 (Devoluciones y notas de crédito) ───────────────
-export type RaEstadoDevolucion = 'solicitada' | 'liquidada' | 'rechazada'
+// ── Migrations 055–065 (Devoluciones y notas de crédito) ───────────────
+export type RaEstadoDevolucion = 'solicitada' | 'recibida' | 'aprobada' | 'liquidada' | 'rechazada'
 
 export interface Database {
   public: {
@@ -1186,6 +1186,20 @@ export interface Database {
           approved_at: string | null
           received_at: string | null
           liquidated_at: string | null
+          recepcion_operativa_por: string | null
+          recepcion_operativa_at: string | null
+          recepcion_recibido: boolean | null
+          condicion_declarada: 'apto_reventa' | 'dañado' | 'incompleto' | 'no_recibido' | null
+          recepcion_observacion: string | null
+          recepcion_operation_id: string | null
+          recepcion_request_hash: string | null
+          aprobacion_operation_id: string | null
+          aprobacion_request_hash: string | null
+          rechazo_operation_id: string | null
+          rechazo_request_hash: string | null
+          rechazo_motivo: string | null
+          reingreso_aprobado: boolean | null
+          reingreso_override_motivo: string | null
           solicitud_operation_id: string
           solicitud_request_hash: string
           operation_id: string | null
@@ -1353,6 +1367,18 @@ export interface Database {
       }
       ra_liquidar_devolucion_v1: {
         Args: { p_operation_id: string; p_devolucion_id: string; p_referencias?: Json }
+        Returns: Json
+      }
+      ra_registrar_recepcion_devolucion_v1: {
+        Args: { p_operation_id: string; p_devolucion_id: string; p_recibido: boolean; p_condicion_declarada: string; p_observacion?: string | null }
+        Returns: Json
+      }
+      ra_aprobar_devolucion_v1: {
+        Args: { p_operation_id: string; p_devolucion_id: string; p_reingreso_aprobado: boolean; p_reingreso_override_motivo?: string | null }
+        Returns: Json
+      }
+      ra_rechazar_devolucion_v1: {
+        Args: { p_operation_id: string; p_devolucion_id: string; p_motivo: string }
         Returns: Json
       }
       ra_abrir_caja_v1: {

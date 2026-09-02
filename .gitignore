@@ -44,6 +44,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# supabase cli
+supabase/.temp/
+
 # agent / tools
 .atl/
 claude.md
@@ -69,6 +72,7 @@ claude.md
 *.ps1
 !supabase/tests/compra-atomica-fase5-conc-runner.ps1
 !supabase/tests/tesoreria-*.ps1
+!supabase/tests/devoluciones-postventa-*.ps1
 *.bat
 sync_stock_checkpoint.json
 sync_stock.log
