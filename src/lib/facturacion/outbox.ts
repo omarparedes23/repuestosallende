@@ -58,10 +58,10 @@ async function processJob(
     p_lease_token: job.lease_token,
     p_outcome: outcome,
     p_external_id: result.id_externo ?? null,
-    p_http_status: null,
-    p_error_code: outcome === 'uncertain' ? 'UNCERTAIN_RESULT_REQUIRES_RECONCILIATION' : null,
+    p_http_status: result.http_status ?? null,
+    p_error_code: outcome === 'uncertain' ? 'UNCERTAIN_RESULT_REQUIRES_RECONCILIATION' : result.error_code ?? null,
     p_error_message: result.error ?? null,
-    p_response_payload: null,
+    p_response_payload: result.response_payload ?? null,
   } as never)
   if (error) throw new Error(`No se pudo finalizar outbox ${job.id}: ${error.message}`)
   return { finalized: data === true, outcome }
@@ -114,10 +114,10 @@ async function processCreditNoteJob(
     p_lease_token: job.lease_token,
     p_outcome: result.kind,
     p_external_id: result.id_externo ?? null,
-    p_http_status: null,
-    p_error_code: result.kind === 'uncertain' ? 'UNCERTAIN_RESULT_REQUIRES_RECONCILIATION' : null,
+    p_http_status: result.http_status ?? null,
+    p_error_code: result.kind === 'uncertain' ? 'UNCERTAIN_RESULT_REQUIRES_RECONCILIATION' : result.error_code ?? null,
     p_error_message: result.error ?? null,
-    p_response_payload: null,
+    p_response_payload: result.response_payload ?? null,
   } as never)
   if (error) throw new Error(`No se pudo finalizar outbox NC ${job.id}: ${error.message}`)
   return { finalized: data === true, outcome: result.kind }

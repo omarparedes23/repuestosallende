@@ -22,6 +22,7 @@ navegador y la emisión manual contra el tenant OSE TEST.
 | Concurrencia | PASS | Runner de dos sesiones: una liquidación confirma y la otra recibe `RA_RETURN_QUANTITY_EXCEEDED`; commits reales y retiro con residuo cero. |
 | Stock, kardex, caja y NC | PASS | Flujo feliz aislado verificó stock, kardex, egreso de caja, auditoría y outbox NC. |
 | Gate fiscal | PASS | `RA_RETURN_FISCAL_RECONCILIATION_REQUIRED` se cubre en suite SQL y se muestra en la acción/UI. |
+| Serie NC inválida | PASS preventivo | 067 bloquea una serie que no cumpla `^[BF][A-Z0-9]{3}$` antes de efectos comerciales. |
 
 ## Aplicación
 
@@ -51,6 +52,10 @@ navegador y la emisión manual contra el tenant OSE TEST.
    no se reenvía automáticamente.
 5. Fases 2 y 3 continúan fuera de alcance: cambio atómico de producto,
    garantías/RMA y baja fiscal real.
+6. La NC `FC001-00000001` ya rechazada permanece como evidencia TEST. OSE
+   confirmó que `F001-00000007` sí está emitida y aceptada; el rechazo se
+   atribuye a que `FC001` tiene cinco caracteres, mientras el contrato OSE
+   exige cuatro. La configuración de serie futura requiere decisión operativa.
 
 ## Rollback operativo
 

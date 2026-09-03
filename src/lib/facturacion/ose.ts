@@ -49,6 +49,25 @@ export type OseComprobanteResult = {
   xml_url?: string
   hash?: string
   error?: string
+  error_code?: string
+  http_status?: number
+  response_payload?: Record<string, unknown>
+}
+
+function detalleErrorOse(json: Record<string, unknown>, fallback: string) {
+  const base = typeof json.errorMensaje === 'string'
+    ? json.errorMensaje
+    : typeof json.detail === 'string'
+      ? json.detail
+      : typeof json.title === 'string'
+        ? json.title
+        : fallback
+  const errors = json.errors
+  if (!errors || typeof errors !== 'object' || Array.isArray(errors)) return base
+  const detalles = Object.entries(errors as Record<string, unknown>)
+    .map(([field, value]) => `${field}: ${String(value)}`)
+    .join('; ')
+  return detalles ? `${base} — ${detalles}` : base
 }
 
 export async function emitirComprobante(
@@ -118,20 +137,32 @@ export async function emitirComprobante(
       body: JSON.stringify(payload),
     })
 
-    const json = await res.json().catch(() => ({}))
-    const estado: string = json.estado ?? ''
-    const common = { id_externo: json.id, pdf_url: json.pdfUrl, xml_url: json.xmlUrl, hash: json.sunatHash }
+    const json = await res.json().catch(() => ({})) as Record<string, unknown>
+    const estado = typeof json.estado === 'string' ? json.estado : ''
+    const common = {
+      id_externo: typeof json.id === 'string' ? json.id : undefined,
+      pdf_url: typeof json.pdfUrl === 'string' ? json.pdfUrl : undefined,
+      xml_url: typeof json.xmlUrl === 'string' ? json.xmlUrl : undefined,
+      hash: typeof json.sunatHash === 'string' ? json.sunatHash : undefined,
+      http_status: res.status,
+      response_payload: json,
+    }
     if (estado === 'EMITIDA') return { kind: 'accepted', exito: true, sunat_aceptada: true, ...common }
     if (estado === 'RESERVADO' || estado === 'ENVIANDO' || res.status === 202)
       return { kind: 'submitted', exito: true, sunat_aceptada: false, ...common }
     if (estado === 'RESULTADO_INCIERTO')
-      return { kind: 'uncertain', exito: false, error: json.errorMensaje ?? 'Resultado incierto; requiere reconciliación', ...common }
-    const message = json.errorMensaje ?? json.detail ?? json.code ?? `HTTP ${res.status}`
+      return { kind: 'uncertain', exito: false, error: detalleErrorOse(json, 'Resultado incierto; requiere reconciliación'), ...common }
+    const errorCode = typeof json.errorCodigo === 'string'
+      ? json.errorCodigo
+      : typeof json.code === 'string'
+        ? json.code
+        : undefined
+    const message = detalleErrorOse(json, errorCode ?? `HTTP ${res.status}`)
     if (estado === 'ERROR_REINTENTABLE' || res.status === 503)
-      return { kind: 'temporary_error', exito: false, error: message, ...common }
+      return { kind: 'temporary_error', exito: false, error: message, error_code: errorCode, ...common }
     if (estado === 'RECHAZADA' || res.status === 409 || res.status === 422 || (res.status >= 400 && res.status < 500))
-      return { kind: 'rejected', exito: false, error: message, ...common }
-    if (!res.ok) return { kind: 'temporary_error', exito: false, error: message, ...common }
+      return { kind: 'rejected', exito: false, error: message, error_code: errorCode, ...common }
+    if (!res.ok) return { kind: 'temporary_error', exito: false, error: message, error_code: errorCode, ...common }
 
     return {
       kind: 'uncertain', exito: false, error: `Estado OSE no reconocido: ${estado || 'vacío'}`, ...common,

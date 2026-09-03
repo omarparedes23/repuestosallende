@@ -122,6 +122,7 @@ function returnErrorMessage(message?: string): string {
   if (message?.includes('RA_CASHBOX_NOT_OPEN')) return 'La devolución requiere una caja abierta en la sucursal emisora.'
   if (message?.includes('RA_RETURN_FISCAL_RECONCILIATION_REQUIRED')) return 'El comprobante original todavía no fue aceptado o rechazado por SUNAT; no se puede liquidar.'
   if (message?.includes('RA_CREDIT_NOTE_SERIES_NOT_CONFIGURED')) return 'No hay serie de nota de crédito configurada para la sucursal.'
+  if (message?.includes('RA_CREDIT_NOTE_SERIES_INVALID')) return 'La serie de nota de crédito debe tener cuatro caracteres, por ejemplo FC01 o BC01. Corrige la configuración antes de liquidar.'
   if (message?.includes('RA_RETURN_REFERENCE_REQUIRED')) return 'Falta la referencia del reembolso digital.'
   if (message?.includes('RA_IDEMPOTENCY_CONFLICT')) return 'La operación ya fue usada con datos diferentes.'
   return 'No se pudo liquidar la devolución; no se confirmaron efectos parciales.'

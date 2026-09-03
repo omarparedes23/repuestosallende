@@ -86,4 +86,16 @@ describe('emitirComprobante — payload moneda/tipoCambio', () => {
     fetchMock.mockResolvedValueOnce({ ok: false, status: 503, json: async () => ({ estado: 'ERROR_REINTENTABLE' }) })
     await expect(emitirComprobante(inputBase(), 'venta-uuid')).resolves.toMatchObject({ kind: 'temporary_error', exito: false })
   })
+
+  it('persiste el detalle ProblemDetail de un rechazo fiscal', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false, status: 400,
+      json: async () => ({ detail: 'Validación fallida', code: 'SUNAT_400', errors: { notaCredito: 'Comprobante referenciado no existe' } }),
+    })
+    await expect(emitirComprobante(inputBase(), 'devolucion-uuid')).resolves.toMatchObject({
+      kind: 'rejected', http_status: 400, error_code: 'SUNAT_400',
+      error: 'Validación fallida — notaCredito: Comprobante referenciado no existe',
+      response_payload: expect.objectContaining({ errors: { notaCredito: 'Comprobante referenciado no existe' } }),
+    })
+  })
 })
