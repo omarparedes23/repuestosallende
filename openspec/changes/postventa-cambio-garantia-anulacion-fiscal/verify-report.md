@@ -22,7 +22,8 @@ navegador y la emisión manual contra el tenant OSE TEST.
 | Concurrencia | PASS | Runner de dos sesiones: una liquidación confirma y la otra recibe `RA_RETURN_QUANTITY_EXCEEDED`; commits reales y retiro con residuo cero. |
 | Stock, kardex, caja y NC | PASS | Flujo feliz aislado verificó stock, kardex, egreso de caja, auditoría y outbox NC. |
 | Gate fiscal | PASS | `RA_RETURN_FISCAL_RECONCILIATION_REQUIRED` se cubre en suite SQL y se muestra en la acción/UI. |
-| Serie NC inválida | PASS preventivo | 067 bloquea una serie que no cumpla `^[BF][A-Z0-9]{3}$` antes de efectos comerciales. |
+| Serie NC inválida | PASS preventivo | 067 bloquea una serie que no cumpla `^[BF][A-Z0-9]{3}$` antes de efectos comerciales; 068 añade la misma regla como `CHECK` de configuración. |
+| Series OSE TEST | PASS | 068 normalizó `FC001/BC001` a `FC01/BC01` y `FC005/BC005` a `FC05/BC05`; las series del fixture también quedaron en cuatro caracteres. FC01/BC01 de Tienda Principal reinician en correlativo 1, pues la NC rechazada nunca fue registrada por OSE. |
 
 ## Aplicación
 
@@ -54,8 +55,9 @@ navegador y la emisión manual contra el tenant OSE TEST.
    garantías/RMA y baja fiscal real.
 6. La NC `FC001-00000001` ya rechazada permanece como evidencia TEST. OSE
    confirmó que `F001-00000007` sí está emitida y aceptada; el rechazo se
-   atribuye a que `FC001` tiene cinco caracteres, mientras el contrato OSE
-   exige cuatro. La configuración de serie futura requiere decisión operativa.
+   atribuye a que `FC001` tenía cinco caracteres, mientras el contrato OSE
+   exige cuatro. La migración 068 ya normalizó la configuración TEST; falta
+   probar una NC nueva contra el tenant con la serie válida.
 
 ## Rollback operativo
 
