@@ -1,6 +1,6 @@
 # Verificación — operación de devoluciones postventa
 
-Fecha: 2026-09-03  
+Fecha: 2026-09-03
 Alcance: Fase 1 de `postventa-cambio-garantia-anulacion-fiscal`.
 
 ## Veredicto actual
