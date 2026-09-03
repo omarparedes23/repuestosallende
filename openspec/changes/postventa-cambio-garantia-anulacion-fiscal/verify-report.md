@@ -7,9 +7,8 @@ Alcance: Fase 1 de `postventa-cambio-garantia-anulacion-fiscal`.
 
 **Implementación y contrato de datos: PASS.**
 
-La fase queda aplicada en Supabase TEST y versionada en los commits `efa2e37`,
-`c44abda` y `1dc9190`. No se declara archivada todavía: faltan QA visual de
-navegador y la emisión manual contra el tenant OSE TEST.
+La fase queda aplicada en Supabase TEST y versionada en Git. No se declara
+archivada todavía: falta el QA visual de navegador.
 
 ## Evidencia de base de datos TEST
 
@@ -24,6 +23,8 @@ navegador y la emisión manual contra el tenant OSE TEST.
 | Gate fiscal | PASS | `RA_RETURN_FISCAL_RECONCILIATION_REQUIRED` se cubre en suite SQL y se muestra en la acción/UI. |
 | Serie NC inválida | PASS preventivo | 067 bloquea una serie que no cumpla `^[BF][A-Z0-9]{3}$` antes de efectos comerciales; 068 añade la misma regla como `CHECK` de configuración. |
 | Series OSE TEST | PASS | 068 normalizó `FC001/BC001` a `FC01/BC01` y `FC005/BC005` a `FC05/BC05`; las series del fixture también quedaron en cuatro caracteres. FC01/BC01 de Tienda Principal reinician en correlativo 1, pues la NC rechazada nunca fue registrada por OSE. |
+| NC real contra OSE TEST | PASS | La devolución de una boleta nueva emitió `BC01-00000001`, aceptada por OSE con HTTP 201. La outbox conserva `external_id`, `http_status` y `response_payload`. |
+| Idempotencia NC OSE | PASS | El replay con el mismo `Idempotency-Key` devolvió el mismo documento e `idempotencyReplayed=true`; con payload distinto devolvió HTTP 409. La prueba no creó documentos nuevos. |
 
 ## Aplicación
 
@@ -41,9 +42,9 @@ navegador y la emisión manual contra el tenant OSE TEST.
 1. **QA visual de navegador: pendiente.** La conexión de navegador de esta
    sesión no disponía de su cliente local, por lo que no se simuló una sesión
    visual ni se declarará como realizada.
-2. **OSE TEST manual: pendiente.** Falta tenant/API key TEST autorizada para
-   emitir boleta y factura de prueba, NC, replay de `Idempotency-Key`, conflicto
-   409 y baja fiscal futura. No se realizaron emisiones externas.
+2. **OSE TEST de NC: completada.** Se ejecutó contra el tenant TEST con
+   `NODE_OPTIONS=--use-system-ca`: aceptación de una NC nueva, replay y
+   conflicto 409. La baja fiscal real continúa fuera del alcance de fase 1.
 3. **Tipos generados: pendiente menor.** `database.ts` fue actualizado contra
    el esquema TEST vivo. La CLI oficial no pudo generar el archivo completo en
    este entorno porque requiere Docker/Podman para el generador. Se debe
@@ -56,8 +57,8 @@ navegador y la emisión manual contra el tenant OSE TEST.
 6. La NC `FC001-00000001` ya rechazada permanece como evidencia TEST. OSE
    confirmó que `F001-00000007` sí está emitida y aceptada; el rechazo se
    atribuye a que `FC001` tenía cinco caracteres, mientras el contrato OSE
-   exige cuatro. La migración 068 ya normalizó la configuración TEST; falta
-   probar una NC nueva contra el tenant con la serie válida.
+   exige cuatro. La migración 068 normalizó la configuración TEST y la NC nueva
+   `BC01-00000001` fue aceptada por OSE.
 
 ## Rollback operativo
 
@@ -69,6 +70,6 @@ debe ser compensatoria y auditada.
 
 ## Condición para `sdd-archive`
 
-Completar los puntos 1 y 2 con evidencia reproducible, regenerar tipos cuando
-el entorno permita el generador y actualizar este informe. Hasta entonces el
-cambio permanece activo y no se archiva prematuramente.
+Completar el punto 1 con evidencia reproducible y regenerar tipos cuando el
+entorno permita el generador. Hasta entonces el cambio permanece activo y no se
+archiva prematuramente.

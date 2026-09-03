@@ -67,7 +67,7 @@ async function processJob(
   return { finalized: data === true, outcome }
 }
 
-function buildCreditNoteInput(payload: CreditNotePayload): OseComprobanteInput {
+export function buildCreditNoteInput(payload: CreditNotePayload): OseComprobanteInput {
   const original = payload.comprobanteOriginal
   if (!original?.rucEmisor || !original.razonSocial || !original.cliente
     || !payload.documentoReferencia?.numeroCompleto || !Array.isArray(payload.items)) {

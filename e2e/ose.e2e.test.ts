@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import { emitirComprobante, consultarComprobantePorNumero, type OseComprobanteInput } from '../src/lib/facturacion/ose'
-import { processSunatOutbox } from '../src/lib/facturacion/outbox'
+import { buildCreditNoteInput, processSunatNotaCreditoOutboxForDevolucion, processSunatOutbox } from '../src/lib/facturacion/outbox'
 
 // Suite E2E opt-in contra el OSE beta real del VPS.
 // Se ejecuta SOLO con RUN_OSE_E2E=1 npm run test:e2e:ose (vitest.e2e.config.ts).
@@ -40,6 +40,7 @@ let ventaA: { operationId: string; ventaId: string; correlativo?: number; outbox
 let ventaB: { operationId: string; ventaId: string; correlativo?: number; outboxEstado?: string; externalId?: string; hash?: string; pagoRef?: string } | undefined
 let userId: string | undefined
 let outboxKeyB: string | undefined
+let vendedorId: string | undefined
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -336,6 +337,163 @@ describeE2E('OSE beta E2E — venta-transaccional-idempotente', () => {
     // La identidad fiscal de B es consultable (reconciliación), no se reintenta a ciegas.
     const porNumero = await consultarComprobantePorNumero('BOLETA', SERIE_BOLETA, ventaB!.correlativo!)
     expect(porNumero).toBeTruthy()
+  })
+
+  it('11. devolución y NC real: aceptación, replay y conflicto de idempotencia', async () => {
+    const vendedorEmail = `e2e.ose.vendedor.${Date.now()}@test.local`
+    const vendedorPassword = randomUUID().replaceAll('-', '') + 'Aa1!'
+    const { data: vendedorCreado, error: vendedorCreateError } = await adminClient.auth.admin.createUser({
+      email: vendedorEmail,
+      password: vendedorPassword,
+      email_confirm: true,
+      user_metadata: { nombre: 'E2E OSE vendedor TEST' },
+    })
+    expect(vendedorCreateError).toBeNull()
+    vendedorId = vendedorCreado?.user?.id
+    expect(vendedorId).toBeTruthy()
+
+    const { error: vendedorPerfilError } = await adminClient
+      .from('ra_perfiles' as never)
+      .update({ empresa_id: EMPRESA, sucursal_id: SUCURSAL, rol: 'vendedor', activo: true })
+      .eq('id', vendedorId!)
+    expect(vendedorPerfilError).toBeNull()
+
+    const anon = createClient(SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const { data: vendedorSession, error: vendedorSignInError } = await anon.auth.signInWithPassword({
+      email: vendedorEmail,
+      password: vendedorPassword,
+    })
+    expect(vendedorSignInError).toBeNull()
+    const vendedorClient = createClient(SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${vendedorSession!.session!.access_token}` } },
+    })
+
+    const ventaOperationId = randomUUID()
+    const pagoReferencia = `e2e-nc-${Date.now()}`
+    const ventaRpc = await vendedorClient.rpc('ra_confirmar_venta', {
+      p_operation_id: ventaOperationId,
+      p_sucursal_id: SUCURSAL,
+      p_tipo_comprobante: 'boleta',
+      p_cliente_id: null,
+      p_items: [{ productoId: PRODUCTO_ID, cantidad: 1, descuento: 0 }],
+      p_pagos: [{ metodoPago: 'efectivo', monto: 118, referencia: pagoReferencia }],
+      p_moneda: 'PEN',
+      p_tipo_cambio: null,
+      p_fecha_vencimiento: null,
+    } as never)
+    expect(ventaRpc.error).toBeNull()
+    const ventaResult = ventaRpc.data as { status: string; sale: { id: string } }
+    expect(ventaResult.status).toBe('confirmed')
+
+    const ventaFiscal = await processSunatOutbox(10)
+    expect(ventaFiscal.claimed).toBeGreaterThan(0)
+    const ventaOutbox = await pollOutbox(ventaResult.sale.id, 90_000)
+    expect(ventaOutbox.status).toBe('accepted')
+
+    const { data: ventaItemData, error: ventaItemError } = await adminClient
+      .from('ra_venta_items' as never)
+      .select('id')
+      .eq('venta_id', ventaResult.sale.id)
+      .single()
+    expect(ventaItemError).toBeNull()
+    const ventaItem = ventaItemData as unknown as { id: string }
+
+    const solicitudOperationId = randomUUID()
+    const solicitud = await vendedorClient.rpc('ra_solicitar_devolucion_v1', {
+      p_operation_id: solicitudOperationId,
+      p_venta_id: ventaResult.sale.id,
+      p_items: [{ ventaItemId: ventaItem.id, cantidad: 1, reingresaStock: true }],
+      p_motivo: 'E2E NC TEST',
+    } as never)
+    expect(solicitud.error).toBeNull()
+    const devolucionId = (solicitud.data as { devolucionId: string }).devolucionId
+    expect(devolucionId).toBeTruthy()
+
+    const recepcion = await vendedorClient.rpc('ra_registrar_recepcion_devolucion_v1', {
+      p_operation_id: randomUUID(),
+      p_devolucion_id: devolucionId,
+      p_recibido: true,
+      p_condicion_declarada: 'apto_reventa',
+      p_observacion: null,
+    } as never)
+    expect(recepcion.error).toBeNull()
+
+    const aprobacion = await authedClient.rpc('ra_aprobar_devolucion_v1', {
+      p_operation_id: randomUUID(),
+      p_devolucion_id: devolucionId,
+      p_reingreso_aprobado: true,
+      p_reingreso_override_motivo: null,
+    } as never)
+    expect(aprobacion.error).toBeNull()
+
+    const liquidacionOperationId = randomUUID()
+    const liquidacion = await authedClient.rpc('ra_liquidar_devolucion_v1', {
+      p_operation_id: liquidacionOperationId,
+      p_devolucion_id: devolucionId,
+      p_referencias: {},
+    } as never)
+    expect(liquidacion.error).toBeNull()
+    expect((liquidacion.data as { status: string }).status).toBe('liquidated')
+
+    const ncProcesada = await processSunatNotaCreditoOutboxForDevolucion(devolucionId)
+    expect(ncProcesada).toEqual({ claimed: 1, processed: 1, outcome: 'accepted' })
+
+    const { data: ncData, error: ncError } = await adminClient
+      .from('ra_sunat_nota_credito_outbox' as never)
+      .select('status,serie,correlativo,document_key,request_payload,http_status,error_code,error_message,response_payload,external_id')
+      .eq('devolucion_id', devolucionId)
+      .single()
+    expect(ncError).toBeNull()
+    const nc = ncData as unknown as {
+      status: string; serie: string; correlativo: number; document_key: string; request_payload: unknown
+      http_status: number | null; error_code: string | null; error_message: string | null
+      response_payload: Record<string, unknown> | null; external_id: string | null
+    }
+    expect(nc.status).toBe('accepted')
+    expect(nc.serie).toMatch(/^[BF][A-Z0-9]{3}$/)
+    expect(nc.http_status).toBe(200)
+    expect(nc.error_code).toBeNull()
+    expect(nc.error_message).toBeNull()
+    expect(nc.response_payload).toBeTruthy()
+    expect(nc.external_id).toBeTruthy()
+
+    // El mismo Idempotency-Key se responde desde OSE sin crear otro comprobante.
+    const ncInput = buildCreditNoteInput(nc.request_payload as Parameters<typeof buildCreditNoteInput>[0])
+    const ncReplay = await emitirComprobante(ncInput, nc.document_key)
+    expect(ncReplay.kind).toBe('accepted')
+    expect(ncReplay.id_externo).toBe(nc.external_id)
+    expect(ncReplay.response_payload?.idempotencyReplayed).toBe(true)
+
+    const ncConflict = await emitirComprobante({
+      ...ncInput,
+      notaCredito: { ...ncInput.notaCredito!, motivoDescripcion: 'E2E NC payload conflict' },
+    }, nc.document_key)
+    expect(ncConflict.kind).toBe('rejected')
+    expect(ncConflict.http_status).toBe(409)
+
+    const replayLiquidacion = await authedClient.rpc('ra_liquidar_devolucion_v1', {
+      p_operation_id: liquidacionOperationId,
+      p_devolucion_id: devolucionId,
+      p_referencias: {},
+    } as never)
+    expect(replayLiquidacion.error).toBeNull()
+    expect((replayLiquidacion.data as { replayed: boolean }).replayed).toBe(true)
+
+    const conflictoLiquidacion = await authedClient.rpc('ra_liquidar_devolucion_v1', {
+      p_operation_id: liquidacionOperationId,
+      p_devolucion_id: devolucionId,
+      p_referencias: { efectivo: 'conflicto-e2e' },
+    } as never)
+    expect(conflictoLiquidacion.error?.message).toContain('RA_IDEMPOTENCY_CONFLICT')
+
+    const ncDuplicada = await adminClient
+      .from('ra_sunat_nota_credito_outbox' as never)
+      .select('id')
+      .eq('devolucion_id', devolucionId)
+    expect((ncDuplicada.data as unknown[]).length).toBe(1)
   })
 })
 
