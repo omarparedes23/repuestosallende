@@ -69,10 +69,13 @@ export function VentaDetalle({ venta, puedeEnviarSunat, puedeSolicitarDevolucion
   const handleReimprimir = () => setShowPrint(true)
   const handleCerrarPrint = () => setShowPrint(false)
 
+  const itemsDevolucion = venta.items
+    .map((item) => ({ ventaItemId: item.id, cantidad: cantidadesDevolucion[item.id] ?? 0 }))
+    .filter((item) => item.cantidad > 0)
+  const solicitudInvalida = itemsDevolucion.length === 0 || motivoDevolucion.trim().length < 3
+
   function solicitar() {
-    const items = venta.items
-      .map((item) => ({ ventaItemId: item.id, cantidad: cantidadesDevolucion[item.id] ?? 0 }))
-      .filter((item) => item.cantidad > 0)
+    const items = itemsDevolucion
     startReturnTransition(async () => {
       const result = await solicitarDevolucion({ ventaId: venta.id, motivo: motivoDevolucion, items })
       setReturnMessage(result.message)
@@ -330,7 +333,7 @@ export function VentaDetalle({ venta, puedeEnviarSunat, puedeSolicitarDevolucion
                   </label>
                 ))}
                 <textarea value={motivoDevolucion} onChange={(event) => setMotivoDevolucion(event.target.value)} maxLength={500} placeholder="Motivo de la devolución" className="w-full rounded-xl border p-2 text-sm" style={{ borderColor: '#FDBA74' }} />
-                <button type="button" disabled={returnPending} onClick={solicitar} className="w-full rounded-xl px-4 py-2.5 text-sm font-bold disabled:opacity-50" style={{ backgroundColor: '#C2410C', color: '#FFF' }}>
+                <button type="button" disabled={returnPending || solicitudInvalida} onClick={solicitar} className="w-full rounded-xl px-4 py-2.5 text-sm font-bold disabled:opacity-50" style={{ backgroundColor: '#C2410C', color: '#FFF' }}>
                   {returnPending ? 'Registrando…' : 'Crear solicitud'}
                 </button>
               </section>
