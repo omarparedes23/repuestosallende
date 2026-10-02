@@ -1,62 +1,49 @@
 // Domain types layered on top of the generated Supabase schema.
 // database.generated.ts is produced by `npm run db:types` and must never be edited by hand.
-// Status columns are stored as text + CHECK constraints in Postgres, so the generator
-// types them as string; ColumnOverrides narrows them to the domain unions below.
-import type { Database as GeneratedDatabase, Json } from './database.generated'
+// Postgres enums already arrive typed from the generator; the aliases below only name them.
+// Columns still stored as text/char (moneda, outbox status, ...) are narrowed by ColumnOverrides.
+import { Constants, type Database as GeneratedDatabase, type Json } from './database.generated'
 
 export type { Json }
 
-export type RaRol = 'superadmin' | 'administrador' | 'vendedor' | 'lectura'
+type PublicEnums = GeneratedDatabase['public']['Enums']
 
-// ── Enums: migrations 008–009 (Panel back-office) ──────────
-export type RaEstadoPagoCompra = 'pendiente' | 'parcial' | 'pagado'
-export type RaEstadoGuia       = 'borrador' | 'emitida' | 'en_transito' | 'recibida'
+// ── Postgres enums ─────────────────────────────────────────
+export type RaRol = PublicEnums['ra_rol']
+export type RaEstadoPagoCompra = PublicEnums['ra_estado_pago_compra']
+export type RaEstadoGuia = PublicEnums['ra_estado_guia']
+export type RaTipoCliente = PublicEnums['ra_tipo_cliente']
+export type RaTipoDocumento = PublicEnums['ra_tipo_documento']
+export type RaEstadoCaja = PublicEnums['ra_estado_caja']
+export type RaTipoMovimiento = PublicEnums['ra_tipo_movimiento']
+export type RaMetodoPago = PublicEnums['ra_metodo_pago']
+export type RaTipoComprobante = PublicEnums['ra_tipo_comprobante']
+export type RaEstadoVenta = PublicEnums['ra_estado_venta']
+export type RaTipoKardex = PublicEnums['ra_tipo_kardex']
+export type RaMotivoKardex = PublicEnums['ra_motivo_kardex']
+export type RaCcTipoMovimiento = PublicEnums['ra_cc_tipo_movimiento']
+export type RaEstadoOrdenCompra = PublicEnums['ra_estado_orden_compra']
+export type RaEstadoCompra = PublicEnums['ra_estado_compra']
+export type RaCxpTipoMovimiento = PublicEnums['ra_cxp_tipo_movimiento']
+export type RaEstadoDevolucion = PublicEnums['ra_estado_devolucion']
 
-// ── Enums: migration 003 (Tablet POS) ──────────────────────
-export type RaTipoCliente    = 'mayorista' | 'minorista'
-// Values validated at runtime are declared once as const arrays; the union derives from them.
-export const RA_TIPOS_DOCUMENTO = ['DNI', 'RUC', 'CE', 'PASAPORTE'] as const
-export const RA_METODOS_PAGO = ['efectivo', 'yape', 'tarjeta', 'transferencia', 'credito'] as const
-export const RA_TIPOS_COMPROBANTE = ['ticket', 'boleta', 'factura'] as const
-export const RA_ESTADOS_VENTA = ['pendiente', 'completada', 'anulada', 'error_sunat'] as const
-
-export type RaTipoDocumento   = (typeof RA_TIPOS_DOCUMENTO)[number]
-export type RaEstadoCaja      = 'abierta' | 'cerrada'
-export type RaTipoMovimiento  = 'ingreso' | 'egreso'
-export type RaMetodoPago      = (typeof RA_METODOS_PAGO)[number]
-export type RaTipoComprobante = (typeof RA_TIPOS_COMPROBANTE)[number]
-export type RaEstadoVenta     = (typeof RA_ESTADOS_VENTA)[number]
+// Runtime value lists come from the generator too, so they cannot drift from the database.
+export const RA_TIPOS_DOCUMENTO = Constants.public.Enums.ra_tipo_documento
+export const RA_METODOS_PAGO = Constants.public.Enums.ra_metodo_pago
+export const RA_TIPOS_COMPROBANTE = Constants.public.Enums.ra_tipo_comprobante
+export const RA_ESTADOS_VENTA = Constants.public.Enums.ra_estado_venta
 
 export function esValorDe<T extends string>(valores: readonly T[], value: string): value is T {
   return (valores as readonly string[]).includes(value)
 }
-export type RaTipoKardex     = 'entrada' | 'salida' | 'ajuste'
-export type RaMotivoKardex   = 'venta' | 'compra' | 'ajuste_manual' | 'devolucion' | 'merma' | 'traslado'
 
-// ── Enums: migration 030 (Facturación multimoneda) ─────────
+// ── Columns stored as text/char + CHECK (not Postgres enums) ─
 export type RaMoneda = 'PEN' | 'USD'
-
-// ── Enums: migration 032 (Cuentas corrientes / cobranzas) ──
-export type RaCcTipoMovimiento = 'cargo' | 'abono'
-
-// ── Enums: migration 033 (Órdenes de compra) ────────────────
-export type RaEstadoOrdenCompra = 'borrador' | 'confirmada' | 'recibida' | 'anulada'
-
-// ── Enums: migration 034 (Compras v2) ───────────────────────
-export type RaEstadoCompra = 'confirmada' | 'anulada'
-
-// ── Enums: migration 035 (Cuentas por pagar) ────────────────
-export type RaCxpTipoMovimiento = 'cargo' | 'abono'
 
 export type RaEstadoOutboxSunat =
   | 'pending' | 'processing' | 'retry' | 'submitted' | 'accepted' | 'rejected' | 'dead_letter'
 
-// ── Liquidaciones de caja ───────────────────────────────────
 export type RaEstadoRevisionLiquidacion = 'pendiente_revision' | 'validada' | 'observada'
-
-// ── Migrations 055–065 (Devoluciones y notas de crédito) ───────────────
-export type RaEstadoDevolucion = 'solicitada' | 'recibida' | 'aprobada' | 'liquidada' | 'rechazada'
-
 
 // ── Column narrowing over the generated schema ─────────────
 // Keeps nullability/optionality from the generated type and swaps only the value type.
@@ -65,40 +52,16 @@ type Narrow<T, P> = {
 }
 
 type ColumnOverrides = {
-  ra_perfiles: { rol: RaRol }
-  ra_compras: { estado_pago: RaEstadoPagoCompra; moneda: RaMoneda; estado: RaEstadoCompra }
-  ra_guias_remision: { estado: RaEstadoGuia }
-  ra_clientes: { tipo_cliente: RaTipoCliente; tipo_documento: RaTipoDocumento }
-  ra_cajas: { estado: RaEstadoCaja }
-  ra_movimientos_caja: { tipo: RaTipoMovimiento; metodo_pago: RaMetodoPago }
-  ra_ventas: {
-    tipo_venta: RaTipoCliente
-    tipo_comprobante: RaTipoComprobante
-    estado: RaEstadoVenta
-    moneda: RaMoneda
-  }
-  ra_venta_pagos: { metodo_pago: RaMetodoPago }
-  ra_kardex: { tipo: RaTipoKardex; motivo: RaMotivoKardex }
-  ra_cuenta_corriente_movimientos: {
-    tipo: RaCcTipoMovimiento
-    moneda_cobro: RaMoneda
-    metodo_pago: RaMetodoPago
-  }
-  ra_ordenes_compra: { estado: RaEstadoOrdenCompra }
-  ra_cuentas_por_pagar_movimientos: { tipo: RaCxpTipoMovimiento; metodo_pago: RaMetodoPago }
-  ra_auditoria_estado_pago_compras: {
-    estado_anterior: RaEstadoPagoCompra
-    estado_nuevo: RaEstadoPagoCompra
-  }
-  ra_devoluciones: { estado: RaEstadoDevolucion }
-  ra_sunat_nota_credito_outbox: { tipo_referenciado: RaTipoComprobante; status: RaEstadoOutboxSunat }
+  ra_compras: { moneda: RaMoneda }
+  ra_ventas: { moneda: RaMoneda }
+  ra_cuenta_corriente_movimientos: { moneda_cobro: RaMoneda }
+  ra_sunat_nota_credito_outbox: { status: RaEstadoOutboxSunat }
   ra_liquidaciones: { estado_revision: RaEstadoRevisionLiquidacion }
 }
 
 type ArgOverrides = {
   ra_avanzar_estado_guia: { p_nuevo_estado: RaEstadoGuia }
   ra_revisar_liquidacion_v1: { p_decision: Exclude<RaEstadoRevisionLiquidacion, 'pendiente_revision'> }
-  ra_confirmar_venta: { p_tipo_comprobante: RaTipoComprobante }
   ra_registrar_cobro_v2: { p_metodo_pago: RaMetodoPago }
   ra_registrar_pago_proveedor_v2: { p_metodo_pago: RaMetodoPago }
 }
