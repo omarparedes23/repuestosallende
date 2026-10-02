@@ -4,6 +4,7 @@ import type { RaMetodoPago, RaMoneda, RaTipoComprobante } from '@/lib/types/data
 import type { TicketReceiptData } from '@/app/tablet/components/ticket/TicketReceipt'
 import type { TotalesVenta } from '@/lib/calc/totales'
 import { calcularVuelto } from '@/lib/calc/vuelto'
+import { itemsSinPrecio, precioParaMoneda } from '@/lib/calc/precios'
 import type { VentaResult } from '../../actions'
 
 export type LineaPago = {
@@ -39,13 +40,43 @@ export function lineasParaTotal(total: number): LineaPago[] {
 
 /** Precio de lista del ítem en la moneda dada — la referencia que nunca se edita. */
 export function precioDeLista(item: CartItem, moneda: RaMoneda): number | null {
-  return moneda === 'USD' ? item.precioDolar : item.precioMinorista
+  return precioParaMoneda(item, moneda)
 }
 
-/** Productos sin precio en dólares (solo relevante si la moneda es USD). */
-export function itemsSinPrecioDolar(items: CartItem[], moneda: RaMoneda): CartItem[] {
-  return moneda === 'USD' ? items.filter((i) => i.precioDolar == null) : []
+export type BloqueoDeCobro =
+  | { tipo: 'ninguno' }
+  | {
+      tipo: 'falta_precio'
+      /** Productos sin precio en la moneda de venta elegida. */
+      items: CartItem[]
+      /** Moneda a la que se puede cambiar para cobrar todo el carrito, o null. */
+      puedeCambiarA: RaMoneda | null
+      /** El carrito mezcla productos solo en soles con productos solo en dólares. */
+      mezcla: boolean
+    }
+
+/**
+ * Decide si el cobro está bloqueado por falta de precio en la moneda elegida.
+ * Sin conversión entre monedas: solo se puede cambiar de moneda si TODOS los
+ * ítems tienen precio en la otra.
+ */
+export function bloqueoDeCobro(items: CartItem[], moneda: RaMoneda): BloqueoDeCobro {
+  const faltantes = itemsSinPrecio(items, moneda)
+  if (faltantes.length === 0) return { tipo: 'ninguno' }
+  const otra: RaMoneda = moneda === 'USD' ? 'PEN' : 'USD'
+  const puedeCambiarA = itemsSinPrecio(items, otra).length === 0 ? otra : null
+  const soloSoles = items.some((i) => i.precioMinorista != null && i.precioDolar == null)
+  const soloDolares = items.some((i) => i.precioDolar != null && i.precioMinorista == null)
+  return {
+    tipo: 'falta_precio',
+    items: faltantes,
+    puedeCambiarA,
+    mezcla: puedeCambiarA == null && soloSoles && soloDolares,
+  }
 }
+
+export const MENSAJE_CARRITO_MIXTO =
+  'El carrito mezcla productos en soles y en dólares. Aún no se puede cobrar en una sola venta: separa los productos en dos ventas.'
 
 /** El precio editado se traduce a un descuento por línea: (lista - editado) * cantidad. */
 export function aplicarPreciosEditados(

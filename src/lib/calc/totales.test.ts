@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calcularTotalesVenta } from './totales'
+import { calcularTotalesParciales, calcularTotalesVenta } from './totales'
 import type { CartItem } from '@/app/tablet/stores/posStore'
 
 function itemBase(overrides: Partial<CartItem> = {}): CartItem {
@@ -10,6 +10,7 @@ function itemBase(overrides: Partial<CartItem> = {}): CartItem {
     codigoOem: 'OEM-1',
     imagenUrl: null,
     stockActual: 10,
+    moneda: 'PEN',
     precioMinorista: 50,
     precioDolar: null,
     cantidad: 2,
@@ -53,6 +54,37 @@ describe('calcularTotalesVenta', () => {
   it('USD sin precioDolar: lanza error en vez de calcular con null', () => {
     const items = [itemBase({ precioDolar: null })]
 
-    expect(() => calcularTotalesVenta(items, 'boleta', 'USD')).toThrow()
+    expect(() => calcularTotalesVenta(items, 'boleta', 'USD')).toThrow(
+      'El repuesto "Filtro de aceite" no tiene precio en dólares'
+    )
+  })
+
+  it('PEN sin precioMinorista: lanza error en vez de calcular con 0', () => {
+    const items = [itemBase({ moneda: 'USD', precioMinorista: null, precioDolar: 18.95 })]
+
+    expect(() => calcularTotalesVenta(items, 'ticket', 'PEN')).toThrow(
+      'El repuesto "Filtro de aceite" no tiene precio en soles'
+    )
+  })
+
+  it('carrito mixto: lanza si cualquier ítem no tiene precio en la moneda', () => {
+    const items = [
+      itemBase({ productoId: 'a', precioMinorista: 50, precioDolar: null }),
+      itemBase({ productoId: 'b', nombre: 'Bujía', precioMinorista: null, precioDolar: 5 }),
+    ]
+
+    expect(() => calcularTotalesVenta(items, 'ticket', 'PEN')).toThrow('Bujía')
+    expect(() => calcularTotalesVenta(items, 'ticket', 'USD')).toThrow('Filtro de aceite')
+  })
+
+  it('calcularTotalesParciales excluye ítems sin precio y no lanza', () => {
+    const items = [
+      itemBase({ productoId: 'a', precioMinorista: 50, precioDolar: null, cantidad: 1 }),
+      itemBase({ productoId: 'b', precioMinorista: null, precioDolar: 5, cantidad: 1 }),
+    ]
+
+    expect(calcularTotalesParciales(items, 'ticket', 'PEN').total).toBe(50)
+    expect(calcularTotalesParciales(items, 'ticket', 'USD').total).toBe(5)
+    expect(calcularTotalesParciales([items[1]], 'ticket', 'PEN').total).toBe(0)
   })
 })

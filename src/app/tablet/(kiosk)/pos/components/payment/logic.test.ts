@@ -12,7 +12,7 @@ import {
   esCreditoInvalido,
   esIntentoConservado,
   hayPagoSinReferencia,
-  itemsSinPrecioDolar,
+  bloqueoDeCobro,
   limiteCreditoExcedido,
   lineasParaTotal,
   montoNumerico,
@@ -33,6 +33,7 @@ function item(overrides: Partial<CartItem> = {}): CartItem {
     nombre: 'Filtro',
     codigoOem: null,
     cantidad: 2,
+    moneda: 'PEN',
     precioMinorista: 10,
     precioDolar: 3,
     descuento: 0,
@@ -93,10 +94,8 @@ describe('precios', () => {
     expect(precioDeLista(item(), 'USD')).toBe(3)
     expect(precioDeLista(item({ precioDolar: null }), 'USD')).toBeNull()
   })
-  it('itemsSinPrecioDolar solo aplica en USD', () => {
-    const items = [item(), item({ productoId: 'p2', precioDolar: null })]
-    expect(itemsSinPrecioDolar(items, 'PEN')).toEqual([])
-    expect(itemsSinPrecioDolar(items, 'USD').map((i) => i.productoId)).toEqual(['p2'])
+  it('precioDeLista no convierte un null en 0', () => {
+    expect(precioDeLista(item({ precioMinorista: null }), 'PEN')).toBeNull()
   })
   it('aplicarPreciosEditados convierte el precio editado en descuento por línea', () => {
     const res = aplicarPreciosEditados([item()], 'PEN', { p1: 8 })
@@ -313,5 +312,54 @@ describe('construirTicketData', () => {
     expect(data.cliente).toEqual({ nombre: 'Juan', tipoDocumento: 'DNI', nroDocumento: '' })
     expect(data.fecha).toBe(fecha)
     expect(data.vuelto).toBe(7.4)
+  })
+})
+
+describe('bloqueoDeCobro', () => {
+  const ambos = item({ productoId: 'ambos' })
+  const soloSoles = item({ productoId: 'soles', precioDolar: null })
+  const soloDolares = item({ productoId: 'dolares', precioMinorista: null })
+  const ninguno = item({ productoId: 'nada', precioMinorista: null, precioDolar: null })
+
+  it('sin bloqueo cuando todos tienen precio en la moneda', () => {
+    expect(bloqueoDeCobro([ambos, soloSoles], 'PEN')).toEqual({ tipo: 'ninguno' })
+    expect(bloqueoDeCobro([ambos, soloDolares], 'USD')).toEqual({ tipo: 'ninguno' })
+    expect(bloqueoDeCobro([], 'PEN')).toEqual({ tipo: 'ninguno' })
+  })
+
+  it('falta precio y todos existen en la otra moneda: ofrece cambiar', () => {
+    const r = bloqueoDeCobro([soloDolares, ambos], 'PEN')
+    expect(r).toEqual({
+      tipo: 'falta_precio',
+      items: [soloDolares],
+      puedeCambiarA: 'USD',
+      mezcla: false,
+    })
+    const r2 = bloqueoDeCobro([soloSoles, ambos], 'USD')
+    expect(r2).toMatchObject({ tipo: 'falta_precio', puedeCambiarA: 'PEN', mezcla: false })
+  })
+
+  it('carrito mezcla soles-only con dólares-only: no se puede cambiar y hay mezcla', () => {
+    const r = bloqueoDeCobro([soloSoles, soloDolares], 'PEN')
+    expect(r).toEqual({
+      tipo: 'falta_precio',
+      items: [soloDolares],
+      puedeCambiarA: null,
+      mezcla: true,
+    })
+    expect(bloqueoDeCobro([soloSoles, soloDolares], 'USD')).toMatchObject({
+      items: [soloSoles],
+      puedeCambiarA: null,
+      mezcla: true,
+    })
+  })
+
+  it('ítem sin ningún precio: bloquea sin ofrecer cambio ni hablar de mezcla', () => {
+    expect(bloqueoDeCobro([ambos, ninguno], 'PEN')).toEqual({
+      tipo: 'falta_precio',
+      items: [ninguno],
+      puedeCambiarA: null,
+      mezcla: false,
+    })
   })
 })

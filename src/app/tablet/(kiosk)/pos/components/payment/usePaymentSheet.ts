@@ -15,6 +15,7 @@ import { getVentaDetalle, type VentaDetalle } from '../../../ventas/actions'
 import { useClienteSelector } from './useClienteSelector'
 import {
   MENSAJE_SIN_REFERENCIA,
+  bloqueoDeCobro,
   actualizarLinea,
   actualizarPrecioEditado,
   aplicarPreciosEditados,
@@ -24,7 +25,6 @@ import {
   esCreditoInvalido,
   esIntentoConservado,
   hayPagoSinReferencia,
-  itemsSinPrecioDolar,
   limiteCreditoExcedido,
   lineasParaTotal,
   pagoCubreTotal,
@@ -97,9 +97,9 @@ export function usePaymentSheet(onClose: () => void) {
   const simbolo = simboloMoneda(moneda)
   const tipoCambioInvalido = tipoCambioEsInvalido(moneda, tipoCambio)
 
-  // Productos sin precio en dólares: si el cajero elige USD con esto en el carrito,
-  // se bloquea el cobro en vez de dejar que el cálculo explote.
-  const itemsSinDolar = useMemo(() => itemsSinPrecioDolar(items, moneda), [items, moneda])
+  // Productos sin precio en la moneda elegida: se bloquea el cobro en vez de
+  // dejar que el cálculo explote (sin conversión entre monedas).
+  const bloqueo = useMemo(() => bloqueoDeCobro(items, moneda), [items, moneda])
 
   const itemsConDescuento = useMemo(
     () => aplicarPreciosEditados(items, moneda, preciosEditados),
@@ -108,10 +108,10 @@ export function usePaymentSheet(onClose: () => void) {
 
   const totales = useMemo(
     () =>
-      itemsSinDolar.length === 0
+      bloqueo.tipo === 'ninguno'
         ? calcularTotalesVenta(itemsConDescuento, tipoComprobante, moneda)
         : null,
-    [itemsConDescuento, tipoComprobante, moneda, itemsSinDolar]
+    [itemsConDescuento, tipoComprobante, moneda, bloqueo]
   )
 
   // Resync de las líneas cuando cambia el total (comprobante, moneda o precios
@@ -256,7 +256,7 @@ export function usePaymentSheet(onClose: () => void) {
     setTipoCambio,
     simbolo,
     tipoCambioInvalido,
-    itemsSinDolar,
+    bloqueo,
     items,
     preciosEditados,
     updatePrecioEditado,

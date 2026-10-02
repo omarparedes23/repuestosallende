@@ -11,6 +11,7 @@ function itemFixture(
     codigoOem: null,
     imagenUrl: null,
     stockActual: 10,
+    moneda: 'PEN' as const,
     precioMinorista: 50,
     precioDolar: 12,
     ...overrides,
@@ -24,6 +25,30 @@ beforeEach(() => {
     tipoComprobante: 'ticket',
     items: [],
     pagos: [],
+  })
+})
+
+describe('posStore — totales por moneda', () => {
+  it('getSubtotal en PEN excluye ítems sin precio en soles (no los cuenta como 0)', () => {
+    const s = usePosStore.getState()
+    s.addItem(itemFixture({ productoId: 'a', precioMinorista: 50, precioDolar: null }))
+    s.addItem(itemFixture({ productoId: 'b', precioMinorista: null, precioDolar: 12 }))
+    expect(usePosStore.getState().getSubtotal('PEN')).toBe(50)
+    expect(usePosStore.getState().getSubtotal()).toBe(50)
+  })
+
+  it('getSubtotal en USD usa precioDolar y excluye ítems sin precio en dólares', () => {
+    const s = usePosStore.getState()
+    s.addItem(itemFixture({ productoId: 'a', precioMinorista: 50, precioDolar: null }))
+    s.addItem(itemFixture({ productoId: 'b', precioMinorista: null, precioDolar: 12 }))
+    expect(usePosStore.getState().getSubtotal('USD')).toBe(12)
+  })
+
+  it('getTotal aplica IGV solo si no es ticket', () => {
+    usePosStore.getState().addItem(itemFixture({ precioMinorista: 100 }))
+    expect(usePosStore.getState().getTotal('PEN')).toBe(100)
+    usePosStore.getState().setTipoComprobante('boleta')
+    expect(usePosStore.getState().getTotal('PEN')).toBeCloseTo(118)
   })
 })
 

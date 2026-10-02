@@ -12,7 +12,10 @@ export type ProductoBuscado = {
   nombre: string
   codigoOem: string | null
   imagenUrl: string | null
-  precioMinorista: number
+  moneda: RaMoneda
+  /** Precio en soles (null si el producto no tiene). */
+  precioMinorista: number | null
+  /** Precio en dólares (null si el producto no tiene). */
   precioDolar: number | null
   stockActual: number
 }
@@ -66,7 +69,7 @@ export async function buscarProductos(
     .from('ra_catalogo_repuestos')
     .select(
       `id, nombre, codigo_oem, imagen_url,
-       ra_productos!inner ( id, precio_venta, precio_venta_dolar, stock_actual, empresa_id, sucursal_id, activo )`
+       ra_productos!inner ( id, moneda, precio_venta, precio_venta_dolar, stock_actual, empresa_id, sucursal_id, activo )`
     )
     .eq('activo', true)
     .eq('ra_productos.empresa_id', perfil.empresa_id)
@@ -96,7 +99,8 @@ export async function buscarProductos(
       nombre: row.nombre,
       codigoOem: row.codigo_oem,
       imagenUrl: row.imagen_url,
-      precioMinorista: p.precio_venta ?? 0,
+      moneda: p.moneda === 'USD' ? 'USD' : 'PEN',
+      precioMinorista: p.precio_venta ?? null,
       precioDolar: p.precio_venta_dolar ?? null,
       stockActual: p.stock_actual,
     }))

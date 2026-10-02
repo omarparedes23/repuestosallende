@@ -71,6 +71,7 @@ export function ProductGrid({ marcas }: Props) {
         codigoOem: producto.codigoOem,
         imagenUrl: producto.imagenUrl,
         stockActual: producto.stockActual,
+        moneda: producto.moneda,
         precioMinorista: producto.precioMinorista,
         precioDolar: producto.precioDolar,
       })

@@ -3,8 +3,13 @@
 import { useState } from 'react'
 import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react'
 import { usePosStore } from '@/app/tablet/stores/posStore'
-import { calcularTotalesVenta } from '@/lib/calc/totales'
-import { simboloMoneda } from '@/lib/calc/moneda'
+import { calcularTotalesParciales } from '@/lib/calc/totales'
+import {
+  monedaDePrevisualizacion,
+  notaSinPrecio,
+  precioParaMoneda,
+  simboloPrecio,
+} from '@/lib/calc/precios'
 import { PaymentSheet } from './PaymentSheet'
 
 export function KioskCart() {
@@ -14,10 +19,12 @@ export function KioskCart() {
   const removeItem = usePosStore((s) => s.removeItem)
   const updateCantidad = usePosStore((s) => s.updateCantidad)
 
-  // El carrito se arma y previsualiza siempre en soles — la moneda de cobro
-  // recién se elige dentro de PaymentSheet, al momento de cobrar.
-  const totales = calcularTotalesVenta(items, tipoComprobante, 'PEN')
-  const simbolo = simboloMoneda('PEN')
+  // El carrito se previsualiza en soles (o en dólares si todo el carrito solo existe
+  // en dólares) — la moneda de cobro recién se elige dentro de PaymentSheet.
+  // Los ítems sin precio en esa moneda se excluyen del total.
+  const monedaPrevia = monedaDePrevisualizacion(items)
+  const totales = calcularTotalesParciales(items, tipoComprobante, monedaPrevia)
+  const simbolo = simboloPrecio(monedaPrevia)
 
   if (items.length === 0) {
     return (
@@ -43,8 +50,8 @@ export function KioskCart() {
         {/* Items list */}
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {items.map((item) => {
-            const precio = item.precioMinorista
-            const subtotalItem = precio * item.cantidad - item.descuento
+            const precio = precioParaMoneda(item, monedaPrevia)
+            const subtotalItem = precio == null ? null : precio * item.cantidad - item.descuento
 
             return (
               <div
@@ -62,8 +69,13 @@ export function KioskCart() {
                     </p>
                   )}
                   <p className="text-sm font-bold mt-1" style={{ color: '#FFD700' }}>
-                    {simbolo} {subtotalItem.toFixed(2)}
+                    {subtotalItem == null ? '—' : `${simbolo} ${subtotalItem.toFixed(2)}`}
                   </p>
+                  {precio == null && (
+                    <p className="text-xs font-semibold" style={{ color: '#F87171' }}>
+                      {notaSinPrecio(item, monedaPrevia)}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex flex-col items-center gap-1">
@@ -101,7 +113,7 @@ export function KioskCart() {
                   </div>
 
                   <p className="text-xs" style={{ color: '#93B4D4' }}>
-                    {simbolo} {precio.toFixed(2)}
+                    {precio == null ? '—' : `${simbolo} ${precio.toFixed(2)}`}
                   </p>
                 </div>
               </div>

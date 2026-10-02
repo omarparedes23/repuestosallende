@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { ShoppingBag, X } from 'lucide-react'
 import { usePosStore } from '@/app/tablet/stores/posStore'
-import { calcularTotalesVenta } from '@/lib/calc/totales'
-import { simboloMoneda } from '@/lib/calc/moneda'
+import { calcularTotalesParciales } from '@/lib/calc/totales'
+import { monedaDePrevisualizacion, simboloPrecio } from '@/lib/calc/precios'
 import { ProductGrid } from './ProductGrid'
 import { KioskCart } from './KioskCart'
 import type { MarcaOption } from './ProductGrid'
@@ -19,9 +19,11 @@ export function KioskPosClient({ marcas }: Props) {
   const [showCartMobile, setShowCartMobile] = useState(false)
 
   const cantidadItems = items.reduce((sum, item) => sum + item.cantidad, 0)
-  // Previsualización siempre en soles — la moneda de cobro se elige en PaymentSheet.
-  const totales = calcularTotalesVenta(items, tipoComprobante, 'PEN')
-  const simbolo = simboloMoneda('PEN')
+  // Previsualización en soles (o en dólares si el carrito solo existe en dólares);
+  // la moneda de cobro se elige en PaymentSheet. Ítems sin precio se excluyen.
+  const monedaPrevia = monedaDePrevisualizacion(items)
+  const totales = calcularTotalesParciales(items, tipoComprobante, monedaPrevia)
+  const simbolo = simboloPrecio(monedaPrevia)
 
   return (
     <div className="flex flex-col h-full relative">

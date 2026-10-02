@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import type { RaTipoCliente, RaTipoComprobante, RaMetodoPago } from '@/lib/types/database'
+import { itemsConPrecio, precioParaMoneda } from '@/lib/calc/precios'
+import type { RaMoneda, RaTipoCliente, RaTipoComprobante, RaMetodoPago } from '@/lib/types/database'
 
 export type CartItem = {
   productoId: string
@@ -8,7 +9,10 @@ export type CartItem = {
   codigoOem: string | null
   imagenUrl: string | null
   stockActual: number
-  precioMinorista: number
+  moneda: RaMoneda
+  /** Precio en soles; null si el producto no tiene precio en soles. */
+  precioMinorista: number | null
+  /** Precio en dólares; null si el producto no tiene precio en dólares. */
   precioDolar: number | null
   cantidad: number
   descuento: number
@@ -52,8 +56,8 @@ interface PosState {
   updateDescuento: (productoId: string, descuento: number) => void
   clearCart: () => void
 
-  getSubtotal: () => number
-  getTotal: () => number
+  getSubtotal: (moneda?: RaMoneda) => number
+  getTotal: (moneda?: RaMoneda) => number
   getItemCount: () => number
 
   resetPosState: () => void
@@ -110,16 +114,17 @@ export const usePosStore = create<PosState>()((set, get) => ({
 
   clearCart: () => set({ items: [], pagos: [], cliente: null }),
 
-  getSubtotal: () => {
+  // Ítems sin precio en la moneda indicada se excluyen (nunca valen 0).
+  getSubtotal: (moneda = 'PEN') => {
     const { items } = get()
-    return items.reduce((sum, item) => {
-      return sum + item.precioMinorista * item.cantidad - item.descuento
+    return itemsConPrecio(items, moneda).reduce((sum, item) => {
+      return sum + (precioParaMoneda(item, moneda) ?? 0) * item.cantidad - item.descuento
     }, 0)
   },
 
-  getTotal: () => {
+  getTotal: (moneda = 'PEN') => {
     const { tipoComprobante } = get()
-    const subtotal = get().getSubtotal()
+    const subtotal = get().getSubtotal(moneda)
     const igv = tipoComprobante !== 'ticket' ? subtotal * 0.18 : 0
     return subtotal + igv
   },

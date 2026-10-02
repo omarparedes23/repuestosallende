@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import { Plus } from 'lucide-react'
 import type { ProductoBuscado } from '../actions'
-import { simboloMoneda } from '@/lib/calc/moneda'
+import { precioPrincipal, simboloPrecio } from '@/lib/calc/precios'
 
 type Props = {
   producto: ProductoBuscado
@@ -11,7 +11,7 @@ type Props = {
 }
 
 export function ProductCard({ producto, onAdd }: Props) {
-  const precio = producto.precioMinorista
+  const precio = precioPrincipal(producto)
 
   const stockBadgeColor =
     producto.stockActual <= 3 ? '#DC2626' : producto.stockActual <= 10 ? '#D97706' : '#059669'
@@ -62,12 +62,19 @@ export function ProductCard({ producto, onAdd }: Props) {
         </div>
 
         <div className="flex items-center justify-between gap-2 mt-1">
-          <span className="text-lg font-bold" style={{ color: '#002D62' }}>
-            {simboloMoneda('PEN')} {precio.toFixed(2)}
-          </span>
+          {precio ? (
+            <span className="text-lg font-bold" style={{ color: '#002D62' }}>
+              {simboloPrecio(precio.moneda)} {precio.monto.toFixed(2)}
+            </span>
+          ) : (
+            <span className="text-sm font-semibold" style={{ color: '#DC2626' }}>
+              Sin precio
+            </span>
+          )}
           <button
             onClick={() => onAdd(producto)}
-            disabled={producto.stockActual === 0}
+            disabled={producto.stockActual === 0 || !precio}
+            title={precio ? undefined : 'Sin precio: no se puede agregar al carrito'}
             className="flex items-center justify-center w-10 h-10 rounded-xl font-bold transition-colors disabled:opacity-40"
             style={{ backgroundColor: '#002D62', color: '#FFD700' }}
             aria-label={`Agregar ${producto.nombre}`}

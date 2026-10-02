@@ -1,5 +1,6 @@
 import { Decimal } from 'decimal.js'
 import type { CartItem } from '@/app/tablet/stores/posStore'
+import { itemsConPrecio, precioParaMoneda } from './precios'
 import type { RaMoneda, RaTipoComprobante } from '@/lib/types/database'
 
 export type ItemCalculado = {
@@ -28,13 +29,14 @@ export function calcularTotalesVenta(
   let subtotalAcc = new Decimal(0)
 
   const itemsCalc: ItemCalculado[] = items.map((item) => {
-    if (moneda === 'USD' && item.precioDolar == null) {
+    const precioLista = precioParaMoneda(item, moneda)
+    if (precioLista == null) {
       throw new Error(
-        `El repuesto "${item.nombre}" no tiene precio en dólares cargado`
+        `El repuesto "${item.nombre}" no tiene precio en ${moneda === 'USD' ? 'dólares' : 'soles'}`
       )
     }
 
-    const precio = new Decimal(moneda === 'USD' ? item.precioDolar! : item.precioMinorista)
+    const precio = new Decimal(precioLista)
     const cantidad = new Decimal(item.cantidad)
     const descuento = new Decimal(item.descuento)
     const subtotalItem = precio.mul(cantidad).minus(descuento).toDecimalPlaces(2)
@@ -65,4 +67,16 @@ export function calcularTotalesVenta(
     total: total.toNumber(),
     items: itemsCalc,
   }
+}
+
+/**
+ * Totales de previsualización: excluye los ítems sin precio en la moneda dada
+ * (no lanza). Para cobrar usar `calcularTotalesVenta`, que sí exige todos los precios.
+ */
+export function calcularTotalesParciales(
+  items: CartItem[],
+  tipoComprobante: RaTipoComprobante,
+  moneda: RaMoneda
+): TotalesVenta {
+  return calcularTotalesVenta(itemsConPrecio(items, moneda), tipoComprobante, moneda)
 }

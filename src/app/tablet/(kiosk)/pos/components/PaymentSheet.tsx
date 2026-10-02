@@ -10,6 +10,7 @@ import { ProductosPanel } from './payment/ProductosPanel'
 import { ResumenTotales, VueltoBox } from './payment/ResumenTotales'
 import { VencimientoCredito } from './payment/VencimientoCredito'
 import { VentaExitosa } from './payment/VentaExitosa'
+import { MENSAJE_CARRITO_MIXTO } from './payment/logic'
 import { usePaymentSheet } from './payment/usePaymentSheet'
 
 type Props = {
@@ -19,6 +20,7 @@ type Props = {
 export function PaymentSheet({ onClose }: Props) {
   const s = usePaymentSheet(onClose)
   const { totales, simbolo, clienteSelector } = s
+  const destino = s.bloqueo.tipo === 'falta_precio' ? s.bloqueo.puedeCambiarA : null
 
   if (s.success && totales) {
     return (
@@ -54,10 +56,25 @@ export function PaymentSheet({ onClose }: Props) {
               tipoCambio={s.tipoCambio}
               setTipoCambio={s.setTipoCambio}
             />
-            {s.itemsSinDolar.length > 0 && (
-              <AlertBox tone="warning">
-                Estos productos no tienen precio en dólares — quitalos del carrito o cobrá en soles:{' '}
-                {s.itemsSinDolar.map((i) => i.nombre).join(', ')}
+            {s.bloqueo.tipo === 'falta_precio' && (
+              <AlertBox tone="danger">
+                <span className="block">
+                  Sin precio en {s.moneda === 'USD' ? 'dólares' : 'soles'}:{' '}
+                  {s.bloqueo.items.map((i) => i.nombre).join(', ')}
+                </span>
+                {s.bloqueo.mezcla && (
+                  <span className="block mt-1">{MENSAJE_CARRITO_MIXTO}</span>
+                )}
+                {destino && (
+                  <button
+                    type="button"
+                    onClick={() => s.setMoneda(destino)}
+                    className="mt-2 rounded-lg px-3 py-1.5 text-sm font-bold"
+                    style={{ backgroundColor: '#002D62', color: '#FFD700' }}
+                  >
+                    {destino === 'USD' ? 'Cambiar a Dólares' : 'Cambiar a Soles'}
+                  </button>
+                )}
               </AlertBox>
             )}
           </div>
