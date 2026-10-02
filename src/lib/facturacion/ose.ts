@@ -12,14 +12,13 @@ export type OseItem = {
   cantidad: number
   valorUnitario: number  // precio sin IGV
   subtotalBase: number   // valorUnitario * cantidad - descuento (sin IGV)
+  numeroPlaca?: string | null  // gasto deducible Art. 37 Renta (catálogo SUNAT 7000)
 }
 
 export type OseComprobanteInput = {
   tipo: 'BOLETA' | 'FACTURA' | 'NOTA_CREDITO'
   serie: string
   correlativo: number
-  rucEmisor: string
-  razonSocial: string
   fechaEmision: string  // YYYY-MM-DD
   cliente: {
     nombre: string
@@ -32,6 +31,11 @@ export type OseComprobanteInput = {
   total: number
   moneda: RaMoneda      // default 'PEN'
   tipoCambio?: number   // solo se envía si moneda !== 'PEN'
+  // Solo aplica a FACTURA (alcance de osesunat). montoCredito/fechaVencimiento
+  // requeridos cuando formaPago='CREDITO'.
+  formaPago?: 'CONTADO' | 'CREDITO'
+  montoCredito?: number
+  fechaVencimiento?: string | null  // YYYY-MM-DD
   notaCredito?: {
     comprobanteReferenciadoId: string
     tipoDocReferenciado: '01' | '03'
@@ -90,11 +94,13 @@ export async function emitirComprobante(
     tipo: input.tipo,
     serie: input.serie,
     correlativo: input.correlativo,
-    rucEmisor: input.rucEmisor,
-    razonSocialEmisor: input.razonSocial,
     fechaEmision: input.fechaEmision,
     moneda,
     ...(moneda !== 'PEN' ? { tipoCambio: input.tipoCambio } : {}),
+    ...(input.formaPago ? { formaPago: input.formaPago } : {}),
+    ...(input.formaPago === 'CREDITO'
+      ? { montoCredito: input.montoCredito, fechaVencimiento: input.fechaVencimiento }
+      : {}),
     cliente: {
       nombre: sinCliente ? 'Consumidor Final' : input.cliente.nombre,
       tipoDocCodigo: sinCliente ? '1' : tipoDocCodigo,
@@ -115,6 +121,7 @@ export async function emitirComprobante(
         igv: igvItem,
         total: totalItem,
         afectoIgv: true,
+        ...(item.numeroPlaca ? { numeroPlaca: item.numeroPlaca } : {}),
       }
     }),
     totales: {
@@ -152,8 +159,8 @@ export async function emitirComprobante(
       return { kind: 'submitted', exito: true, sunat_aceptada: false, ...common }
     if (estado === 'RESULTADO_INCIERTO')
       return { kind: 'uncertain', exito: false, error: detalleErrorOse(json, 'Resultado incierto; requiere reconciliación'), ...common }
-    const errorCode = typeof json.errorCodigo === 'string'
-      ? json.errorCodigo
+    const errorCode = typeof json.errorCode === 'string'
+      ? json.errorCode
       : typeof json.code === 'string'
         ? json.code
         : undefined

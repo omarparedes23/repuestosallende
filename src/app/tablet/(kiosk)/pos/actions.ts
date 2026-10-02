@@ -201,6 +201,7 @@ export async function procesarVenta(input: unknown): Promise<ActionResponse<Vent
     p_moneda: value.moneda,
     p_tipo_cambio: value.tipoCambio,
     p_fecha_vencimiento: value.fechaVencimiento ?? null,
+    p_numero_placa: value.numeroPlaca?.trim() || null,
   } as never)
   if (error || !data) return { data: null, error: ventaErrorMessage(error?.message) }
 

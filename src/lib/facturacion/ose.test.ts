@@ -6,8 +6,6 @@ function inputBase(overrides: Partial<OseComprobanteInput> = {}): OseComprobante
     tipo: 'BOLETA',
     serie: 'B001',
     correlativo: 1,
-    rucEmisor: '20123456789',
-    razonSocial: 'Repuestos Allende SAC',
     fechaEmision: '2026-07-11',
     cliente: { nombre: 'Consumidor Final', tipoDocumento: null, nroDocumento: null },
     items: [{ descripcion: 'Filtro', cantidad: 1, valorUnitario: 10, subtotalBase: 10 }],
@@ -54,6 +52,43 @@ describe('emitirComprobante — payload moneda/tipoCambio', () => {
     expect(body.tipoCambio).toBeUndefined()
   })
 
+  it('no envía rucEmisor/razonSocial: osesunat los resuelve por el tenant del X-Api-Key', async () => {
+    await emitirComprobante(inputBase())
+    const [, options] = fetchMock.mock.calls[0]
+    const body = JSON.parse(options.body)
+    expect(body).not.toHaveProperty('rucEmisor')
+    expect(body).not.toHaveProperty('razonSocialEmisor')
+  })
+
+  it('envía formaPago=CREDITO con montoCredito/fechaVencimiento cuando aplica', async () => {
+    await emitirComprobante(inputBase({
+      tipo: 'FACTURA', formaPago: 'CREDITO', montoCredito: 100, fechaVencimiento: '2026-08-01',
+    }))
+    const [, options] = fetchMock.mock.calls[0]
+    const body = JSON.parse(options.body)
+    expect(body.formaPago).toBe('CREDITO')
+    expect(body.montoCredito).toBe(100)
+    expect(body.fechaVencimiento).toBe('2026-08-01')
+  })
+
+  it('no envía montoCredito/fechaVencimiento cuando formaPago no es CREDITO', async () => {
+    await emitirComprobante(inputBase({ tipo: 'FACTURA', formaPago: 'CONTADO' }))
+    const [, options] = fetchMock.mock.calls[0]
+    const body = JSON.parse(options.body)
+    expect(body.formaPago).toBe('CONTADO')
+    expect(body).not.toHaveProperty('montoCredito')
+    expect(body).not.toHaveProperty('fechaVencimiento')
+  })
+
+  it('envía numeroPlaca por ítem cuando está presente', async () => {
+    await emitirComprobante(inputBase({
+      items: [{ descripcion: 'Filtro', cantidad: 1, valorUnitario: 10, subtotalBase: 10, numeroPlaca: 'ABC-123' }],
+    }))
+    const [, options] = fetchMock.mock.calls[0]
+    const body = JSON.parse(options.body)
+    expect(body.items[0].numeroPlaca).toBe('ABC-123')
+  })
+
   it('envía la clave idempotente estable', async () => {
     await emitirComprobante(inputBase(), 'venta-uuid')
     const [, options] = fetchMock.mock.calls[0]
@@ -96,6 +131,16 @@ describe('emitirComprobante — payload moneda/tipoCambio', () => {
       kind: 'rejected', http_status: 400, error_code: 'SUNAT_400',
       error: 'Validación fallida — notaCredito: Comprobante referenciado no existe',
       response_payload: expect.objectContaining({ errors: { notaCredito: 'Comprobante referenciado no existe' } }),
+    })
+  })
+
+  it('lee errorCode (camelCase) de la respuesta, no errorCodigo', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false, status: 422,
+      json: async () => ({ message: 'SUNAT rechazó el comprobante', errorCode: 'SUNAT_REJECTED' }),
+    })
+    await expect(emitirComprobante(inputBase(), 'venta-uuid')).resolves.toMatchObject({
+      kind: 'rejected', error_code: 'SUNAT_REJECTED',
     })
   })
 })

@@ -69,7 +69,7 @@ async function processJob(
 
 export function buildCreditNoteInput(payload: CreditNotePayload): OseComprobanteInput {
   const original = payload.comprobanteOriginal
-  if (!original?.rucEmisor || !original.razonSocial || !original.cliente
+  if (!original?.cliente
     || !payload.documentoReferencia?.numeroCompleto || !Array.isArray(payload.items)) {
     throw new Error('Payload de nota de crédito incompleto')
   }
@@ -77,8 +77,6 @@ export function buildCreditNoteInput(payload: CreditNotePayload): OseComprobante
     tipo: 'NOTA_CREDITO',
     serie: payload.serie,
     correlativo: payload.correlativo,
-    rucEmisor: original.rucEmisor,
-    razonSocial: original.razonSocial,
     fechaEmision: payload.fechaEmision,
     cliente: original.cliente,
     items: payload.items,

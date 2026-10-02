@@ -83,7 +83,7 @@ describe('processSunatOutboxForVenta', () => {
             tipo: 'NOTA_CREDITO', serie: 'BC001', correlativo: 1, fechaEmision: '2026-09-01',
             motivoCodigo: '07', motivoDescripcion: 'Devolución por ítem',
             documentoReferencia: { tipo: 'BOLETA', numeroCompleto: 'B001-00000001' },
-            comprobanteOriginal: { rucEmisor: '20123456789', razonSocial: 'Empresa SAC', cliente: { nombre: 'Cliente', tipoDocumento: 'DNI', nroDocumento: '12345678' } },
+            comprobanteOriginal: { cliente: { nombre: 'Cliente', tipoDocumento: 'DNI', nroDocumento: '12345678' } },
             items: [{ descripcion: 'Filtro', cantidad: 1, valorUnitario: 10, subtotalBase: 10 }],
             subtotal: 10, igv: 1.8, total: 11.8, moneda: 'PEN',
           },

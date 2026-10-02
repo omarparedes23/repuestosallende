@@ -29,6 +29,9 @@ export const VentaInputSchema = z
     // Optional (no solo nullable): el schema test existente construye inputs
     // sin esta clave y debe seguir pasando cuando no hay línea 'credito'.
     fechaVencimiento: z.string().nullable().optional(),
+    // Placa del vehículo, opcional. Gasto deducible Art. 37 Renta (SUNAT
+    // catálogo 7000) — solo tiene efecto fiscal en factura.
+    numeroPlaca: z.string().trim().max(10).nullable().optional(),
   })
   .refine((v) => (v.moneda === 'USD' ? v.tipoCambio != null : v.tipoCambio == null), {
     error: 'USD exige tipo de cambio > 0; PEN no lleva tipo de cambio',

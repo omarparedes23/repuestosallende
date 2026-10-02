@@ -68,6 +68,12 @@ export async function upsertCliente(
 
   if (!nombre) return 'El nombre del cliente es obligatorio.'
   if (isNaN(limiteCredito) || limiteCredito < 0) return 'El límite de crédito debe ser mayor o igual a 0.'
+  if (tipoDocumento === 'DNI' && nroDocumento && !/^\d{8}$/.test(nroDocumento)) {
+    return 'El DNI debe tener exactamente 8 dígitos.'
+  }
+  if (tipoDocumento === 'RUC' && nroDocumento && !/^\d{11}$/.test(nroDocumento)) {
+    return 'El RUC debe tener exactamente 11 dígitos.'
+  }
 
   const { supabase: raw, perfil } = await getSession()
   const supabase = raw as any

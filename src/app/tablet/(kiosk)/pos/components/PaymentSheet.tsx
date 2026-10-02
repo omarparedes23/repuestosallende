@@ -67,6 +67,7 @@ export function PaymentSheet({ onClose }: Props) {
   const [showPrint, setShowPrint] = useState(false)
   const [lineas, setLineas] = useState<LineaPago[]>([{ metodoPago: 'efectivo', monto: '', referencia: '' }])
   const [fechaVencimiento, setFechaVencimiento] = useState('')
+  const [numeroPlaca, setNumeroPlaca] = useState('')
   const [clienteQuery, setClienteQuery] = useState('')
   const [clienteResults, setClienteResults] = useState<ClienteResumen[]>([])
   const [isSearchingCliente, setIsSearchingCliente] = useState(false)
@@ -242,6 +243,7 @@ export function PaymentSheet({ onClose }: Props) {
         moneda,
         tipoCambio: moneda === 'USD' ? tipoCambio : null,
         fechaVencimiento: tieneLineaCredito ? fechaVencimiento || null : null,
+        numeroPlaca: tipoComprobante === 'factura' ? numeroPlaca.trim() || null : null,
       }
       const attempt: PendingSaleAttemptV1<typeof payload> | null = userId && empresaId
         ? { version: 1, operationId, userId, empresaId, createdAt: new Date().toISOString(), payload, state: 'sending' }
@@ -597,6 +599,24 @@ export function PaymentSheet({ onClose }: Props) {
               ))}
             </div>
           </div>
+
+          {/* Placa del vehículo (opcional, solo factura — gasto deducible Art. 37 Renta) */}
+          {tipoComprobante === 'factura' && (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold" style={{ color: '#374151' }}>
+                Placa del vehículo (opcional)
+              </p>
+              <input
+                type="text"
+                value={numeroPlaca}
+                onChange={(e) => setNumeroPlaca(e.target.value.toUpperCase())}
+                placeholder="ABC-123"
+                maxLength={10}
+                className="w-full rounded-xl border-2 px-4 py-3 text-sm outline-none focus:border-[#002D62]"
+                style={{ borderColor: '#D1D5DB' }}
+              />
+            </div>
+          )}
 
           {/* Resumen */}
           {totales && (

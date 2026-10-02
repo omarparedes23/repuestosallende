@@ -1,40 +1,60 @@
-HANDOFF 2026-08-30
+HANDOFF 2026-09-12
 
-Estado P0:
-- Commit existente: 66ee1e9 feat(treasury): secure idempotent cash closure.
-- Supabase TEST: migraciones 045-048 aplicadas y validadas. Caja compartida
-  por sucursal; efectivo físico separado de pagos digitales conciliables.
-- Runners de venta/cierre y abonos concurrentes habían terminado PASS antes
-  del reset descrito abajo.
+Fase 1 postventa (operacion-devoluciones-postventa): CERRADA y archivada en
+openspec/changes/archive/2026-09-03-postventa-cambio-garantia-anulacion-fiscal/.
+Migraciones 055-068 aplicadas y validadas en Supabase TEST (axcrubvtpqcyscizgoee).
+NC real aceptada por OSE TEST (BC01-00000001, HTTP 201), replay e idempotencia
+409 verificados.
 
-Cambios locales sin commit de esta sesión:
-- POS exige referencia para Yape, transferencia y tarjeta. Para tarjeta el
-  campo dice "N.º de operación / voucher POS" y nunca captura número de tarjeta.
-- Cobranza CxC permite seleccionar explícitamente la sucursal receptora, tanto
-  desde Tesorería global como desde la cuenta del cliente.
-- UUID canónicos históricos de PostgreSQL son aceptados; la RPC mantiene la
-  autorización real empresa/sucursal.
-- OpenSpec/script: changes/reset-ventas-tesoreria-test/.
+Commit suelto de esta sesion:
+- fbfd32b fix(devoluciones): deshabilitar solicitud sin items o motivo valido.
+  Boton "Crear solicitud" en VentaDetalle.tsx ahora exige >=1 item con
+  cantidad > 0 y motivo de 3+ caracteres.
 
-Reset ejecutado en Supabase TEST por agente externo:
-- Dry-run rollback PASS; real PASS.
-- Vacías: outbox 9, CxC 6, liquidaciones 10, movimientos caja 27, pagos 27,
-  items 28, ventas 27, cajas 13; saldos deudores clientes 0.
-- Sin cambios: 43,622 productos (snapshot JSON PASS), stock, precios,
-  catálogo 43,617, kardex 128, compras 51 y CxP 55.
-- Triggers append-only de caja y liquidación restaurados/habilitados.
+Decision de negocio confirmada:
+- Emision fiscal del POS sigue en bandeja manual (opcion A), sin cron ni
+  pg_cron/pg_net. pg_cron ya esta instalado en Supabase TEST y pg_net
+  disponible sin habilitar -- queda documentado como ruta futura mas barata
+  (evita el limite de 1x/dia de Vercel Cron Hobby, sin VPS), pero pospuesto
+  a pedido explicito del dueño de producto. Detalle en Engram
+  postventa/emision-sunat-modelo.
 
-Límite P1:
-- Kardex se conservó por alcance aunque se borraron ventas; puede conservar
-  referencias históricas a ventas inexistentes. Requiere conciliación de
-  inventario P1, no ocultar esa divergencia.
+Fase 2 (cambio-producto-atomico): EN CURSO.
+- Carpeta: openspec/changes/cambio-producto-atomico/ (exploration.md +
+  proposal.md listos; SIN spec/design/tasks todavia -- no aplicar migraciones).
+- Hallazgo tecnico central: el repo ya usa wrapper publico + funcion interna
+  sin permisos (ra_liquidar_devolucion_v1 -> ra_liquidar_devolucion_v1_059;
+  ra_confirmar_venta -> ra_confirmar_venta_v1). Las internas son plpgsql
+  normal, invocables entre si en la misma transaccion. Se propone
+  ra_cambiar_producto_inmediato_v1 que invoca a ambas SIN reescribirlas.
+- Decisiones de negocio ya fijadas (no reabrir):
+  1. Caja: doble movimiento completo (egreso + ingreso), sin neteo real.
+  2. Un solo producto de reemplazo por cambio en este primer alcance.
+  3. tipo_solicitud como parametro OPCIONAL retrocompatible en
+     ra_solicitar_devolucion_v1 (default 'devolucion'); NO firma nueva.
+  4. Se acepta el gate fiscal heredado de fase 1 (bloquear si el comprobante
+     original no tiene outbox accepted/rejected).
+- Proximo paso: sdd-spec de cambio-producto-atomico, luego sdd-design y
+  sdd-tasks. Modo interactivo (pausar y mostrar cada fase); artefactos en
+  openspec/ (no engram-only).
 
-Verificación local final:
-- npm test: 18 archivos, 117 pruebas PASS.
-- npx tsc --noEmit: PASS.
-- git diff --check: PASS.
-- Lint global conserva deuda histórica; no se hizo limpieza masiva.
+Fase 3 (garantias-y-baja-fiscal): SIN INICIAR. Sin carpeta en
+openspec/changes/. Decisiones ya escritas en la exploracion archivada de
+fase 1 (seccion "Fase 3"). La baja fiscal real depende de que el proveedor
+OSE (w3sicad.cloud/osesunat) agregue contrato idempotente a
+/api/v1/resumenes/{bajas,boletas,reversion} -- hoy no lo tiene. No empezar
+sin resolver esa dependencia externa primero.
 
-Preservar worktree:
-- No revertir ni mezclar cambios staged previos de .codex/config.toml,
-  .gitignore y ZIP analíticos. Hay cuatro capturas sin seguimiento.
+Deuda tecnica abierta (no bloqueante):
+- src/lib/types/database.ts actualizado a mano (sin as any/as never); falta
+  regenerar con supabase gen types --db-url (requiere Docker/Podman, no
+  disponible en este entorno).
+- Kardex conserva referencias a ventas borradas por el reset de tesoreria
+  del 2026-08-30 (P1 de inventario, sin resolver).
+- Devolucion de prueba 74b90542 (fase 1) quedo liquidada con NC rejected
+  permanente como evidencia; NC FC001-00000001 (serie de 5 chars, previa a
+  la normalizacion de 068) tambien queda en TEST como evidencia.
+
+Regla de negocio vigente (no tocar):
+fasterp.sandemer.net.pe es SQL Server de PRODUCCION real de Repuestos
+Allende. Solo lectura (SELECT) siempre, en cualquier script o query ad-hoc.
