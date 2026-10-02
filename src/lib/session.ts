@@ -9,7 +9,7 @@ export type { Perfil }
 export const getCachedPerfil = cache(async (userId: string): Promise<Perfil | null> => {
   const supabase = await createClient()
   const { data } = await supabase
-    .from('ra_perfiles' as never)
+    .from('ra_perfiles')
     .select('id, empresa_id, sucursal_id, rol, activo')
     .eq('id', userId)
     .single()

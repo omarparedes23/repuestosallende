@@ -176,7 +176,7 @@ export async function consultarResultadoVenta(operationId: string): Promise<Acti
   if (!user) return { data: null, error: 'No autenticado' }
   const { data, error } = await rawSupabase.rpc('ra_obtener_resultado_venta', {
     p_operation_id: operationId,
-  } as never)
+  })
   if (error) return { data: null, error: ventaErrorMessage(error.message) }
   if (!data || (data as { status?: string }).status === 'not_found') return { data: null, error: null }
   return { data: mapRpcVentaResult(data as unknown as RpcVentaResult), error: null }
@@ -202,7 +202,7 @@ export async function procesarVenta(input: unknown): Promise<ActionResponse<Vent
     p_tipo_cambio: value.tipoCambio,
     p_fecha_vencimiento: value.fechaVencimiento ?? null,
     p_numero_placa: value.numeroPlaca?.trim() || null,
-  } as never)
+  })
   if (error || !data) return { data: null, error: ventaErrorMessage(error?.message) }
 
   const result = data as RpcVentaResult

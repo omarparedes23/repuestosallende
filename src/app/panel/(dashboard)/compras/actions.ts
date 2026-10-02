@@ -272,7 +272,7 @@ export async function consultarResultadoCompra(operationId: string): Promise<Act
 
   const { data, error } = await supabase.rpc('ra_obtener_resultado_compra', {
     p_operation_id: operationId,
-  } as never)
+  })
 
   if (error) return { data: null, error: compraErrorMessage(error.message) }
   if (!data || (data as { status?: string }).status === 'not_found') {
@@ -331,7 +331,7 @@ export async function registrarCompra(input: unknown): Promise<ActionResponse<Co
           referencia: value.abonoInicial.referencia ?? '',
         }
       : null,
-  } as never)
+  })
 
   if (error || !data) {
     return { data: null, error: compraErrorMessage(error?.message) }
@@ -347,7 +347,7 @@ export async function anularCompra(id: string): Promise<string | null> {
   const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) return 'No autenticado.'
 
-  const { error } = await supabase.rpc('ra_anular_compra', { p_compra_id: id } as never)
+  const { error } = await supabase.rpc('ra_anular_compra', { p_compra_id: id })
   if (error) {
     console.error('[anularCompra] RPC error:', error)
     return error.message ?? 'Error al anular la compra.'

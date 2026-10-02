@@ -148,7 +148,7 @@ export async function solicitarDevolucion(input: unknown): Promise<PostventaActi
     p_venta_id: parsed.data.ventaId,
     p_items: parsed.data.items.map((item) => ({ ventaItemId: item.ventaItemId, cantidad: item.cantidad })),
     p_motivo: parsed.data.motivo,
-  } as never)
+  })
   if (error || !data) return { status: 'error', message: returnErrorMessage(error?.message) }
   const result = data as { devolucionId?: string }
   revalidarPostventa(result.devolucionId)
@@ -164,7 +164,7 @@ export async function registrarRecepcionDevolucion(input: unknown): Promise<Post
     p_operation_id: crypto.randomUUID(), p_devolucion_id: parsed.data.devolucionId,
     p_recibido: parsed.data.recibido, p_condicion_declarada: parsed.data.condicionDeclarada,
     p_observacion: parsed.data.observacion?.trim() || null,
-  } as never)
+  })
   if (error || !data) return { status: 'error', message: returnErrorMessage(error?.message) }
   revalidarPostventa(parsed.data.devolucionId)
   return { status: 'success', devolucionId: parsed.data.devolucionId, message: parsed.data.recibido ? 'Recepción registrada; queda pendiente de revisión administrativa.' : 'Se registró que la pieza no fue recibida.' }
@@ -178,7 +178,7 @@ export async function aprobarDevolucion(input: unknown): Promise<PostventaAction
   const { data, error } = await supabase.rpc('ra_aprobar_devolucion_v1', {
     p_operation_id: crypto.randomUUID(), p_devolucion_id: parsed.data.devolucionId,
     p_reingreso_aprobado: parsed.data.reingresoAprobado, p_reingreso_override_motivo: parsed.data.overrideMotivo?.trim() || null,
-  } as never)
+  })
   if (error || !data) return { status: 'error', message: returnErrorMessage(error?.message) }
   revalidarPostventa(parsed.data.devolucionId)
   return { status: 'success', devolucionId: parsed.data.devolucionId, message: 'Devolución aprobada y lista para liquidar.' }
@@ -191,7 +191,7 @@ export async function rechazarDevolucion(input: unknown): Promise<PostventaActio
   if (!user || !perfil?.empresa_id || !isAdmin(perfil.rol)) return { status: 'error', message: 'Solo un administrador puede rechazar devoluciones.' }
   const { data, error } = await supabase.rpc('ra_rechazar_devolucion_v1', {
     p_operation_id: crypto.randomUUID(), p_devolucion_id: parsed.data.devolucionId, p_motivo: parsed.data.motivo,
-  } as never)
+  })
   if (error || !data) return { status: 'error', message: returnErrorMessage(error?.message) }
   revalidarPostventa(parsed.data.devolucionId)
   return { status: 'success', devolucionId: parsed.data.devolucionId, message: 'Devolución rechazada.' }
@@ -211,7 +211,7 @@ export async function liquidarDevolucionYEmitirNotaCredito(input: unknown): Prom
     p_operation_id: parsed.data.operationId,
     p_devolucion_id: parsed.data.devolucionId,
     p_referencias: parsed.data.referencias,
-  } as never)
+  })
   if (error || !data) return { status: 'error', message: returnErrorMessage(error?.message), fiscal: 'not_required' }
 
   const result = data as { devolucionId: string; notaCredito?: { status?: string } }

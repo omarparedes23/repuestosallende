@@ -62,7 +62,7 @@ async function processJob(
     p_error_code: outcome === 'uncertain' ? 'UNCERTAIN_RESULT_REQUIRES_RECONCILIATION' : result.error_code ?? null,
     p_error_message: result.error ?? null,
     p_response_payload: result.response_payload ?? null,
-  } as never)
+  })
   if (error) throw new Error(`No se pudo finalizar outbox ${job.id}: ${error.message}`)
   return { finalized: data === true, outcome }
 }
@@ -116,7 +116,7 @@ async function processCreditNoteJob(
     p_error_code: result.kind === 'uncertain' ? 'UNCERTAIN_RESULT_REQUIRES_RECONCILIATION' : result.error_code ?? null,
     p_error_message: result.error ?? null,
     p_response_payload: result.response_payload ?? null,
-  } as never)
+  })
   if (error) throw new Error(`No se pudo finalizar outbox NC ${job.id}: ${error.message}`)
   return { finalized: data === true, outcome: result.kind }
 }
@@ -128,7 +128,7 @@ export async function processSunatOutbox(batchSize = 10) {
     p_worker_id: workerId,
     p_limit: Math.min(Math.max(batchSize, 1), 10),
     p_lease_seconds: 120,
-  } as never)
+  })
   if (error) throw new Error(`No se pudo reclamar outbox: ${error.message}`)
   const jobs = (data ?? []) as unknown as OutboxJob[]
   let processed = 0
@@ -148,7 +148,7 @@ export async function processSunatOutboxForVenta(ventaId: string) {
     p_worker_id: workerId,
     p_venta_id: ventaId,
     p_lease_seconds: 120,
-  } as never)
+  })
   if (error) throw new Error(`No se pudo reclamar la outbox de la venta: ${error.message}`)
 
   const job = (data ?? [])[0] as OutboxJob | undefined
@@ -170,7 +170,7 @@ export async function processSunatNotaCreditoOutboxForDevolucion(devolucionId: s
     p_devolucion_id: devolucionId,
     p_lease_seconds: 120,
     p_force_retry: forceRetry,
-  } as never)
+  })
   if (error) throw new Error(`No se pudo reclamar la outbox NC: ${error.message}`)
   const job = (data ?? [])[0] as CreditNoteOutboxJob | undefined
   if (!job) return { claimed: 0, processed: 0, outcome: null }

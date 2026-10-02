@@ -225,7 +225,7 @@ export async function obtenerPreviewSerieGuia(
 
   const { data, error } = await supabase.rpc('ra_obtener_preview_serie_guia', {
     p_sucursal_id: sucursalId,
-  } as never)
+  })
   if (error) {
     return {
       preview: null,
@@ -261,7 +261,7 @@ export async function crearGuia(
     p_notas: notas?.trim() || null,
     p_items: items.map(({ catalogo_id, cantidad }) => ({ catalogo_id, cantidad })) as Json,
   }
-  const { data, error } = await supabase.rpc('ra_crear_guia', payload as never)
+  const { data, error } = await supabase.rpc('ra_crear_guia', payload)
   if (error) return { id: null, error: guiaErrorMessage(error.message, 'No se pudo crear la guía.') }
 
   const result = mapRpcGuiaResult(data)
@@ -282,7 +282,7 @@ export async function avanzarEstadoGuia(
     p_guia_id: id,
     p_nuevo_estado: nuevoEstado,
   }
-  const { data, error } = await supabase.rpc('ra_avanzar_estado_guia', payload as never)
+  const { data, error } = await supabase.rpc('ra_avanzar_estado_guia', payload)
 
   if (error) return guiaErrorMessage(error.message, 'No se pudo actualizar el estado de la guía.')
   if (mapRpcGuiaResult(data)?.status !== 'ok') return 'La actualización no devolvió un resultado válido.'
@@ -294,7 +294,7 @@ export async function recibirGuia(id: string): Promise<string | null> {
   const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) return 'No autenticado.'
 
-  const { data, error } = await supabase.rpc('ra_recibir_guia', { p_guia_id: id } as never)
+  const { data, error } = await supabase.rpc('ra_recibir_guia', { p_guia_id: id })
   if (error) return guiaErrorMessage(error.message, 'No se pudo recibir la guía. Verifica que esté en tránsito.')
   if (mapRpcGuiaResult(data)?.status !== 'received') return 'La recepción no devolvió un resultado válido.'
 
