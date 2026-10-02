@@ -44,11 +44,14 @@ describe('posStore — totales por moneda', () => {
     expect(usePosStore.getState().getSubtotal('USD')).toBe(12)
   })
 
-  it('getTotal aplica IGV solo si no es ticket', () => {
+  it('getTotal no suma IGV encima: lo desglosa de precios con IGV incluido', () => {
     usePosStore.getState().addItem(itemFixture({ precioMinorista: 100 }))
     expect(usePosStore.getState().getTotal('PEN')).toBe(100)
     usePosStore.getState().setTipoComprobante('boleta')
-    expect(usePosStore.getState().getTotal('PEN')).toBeCloseTo(118)
+    // precio con IGV incluido: el total no cambia, solo se desglosa
+    expect(usePosStore.getState().getTotal('PEN')).toBe(100)
+    expect(usePosStore.getState().getSubtotal('PEN')).toBe(84.75)
+    expect(usePosStore.getState().getIgv('PEN')).toBe(15.25)
   })
 })
 

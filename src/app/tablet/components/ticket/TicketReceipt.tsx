@@ -153,7 +153,7 @@ export function TicketReceipt({ data }: { data: TicketReceiptData }) {
             <th style={{ textAlign: 'left', paddingBottom: 2 }}>Producto</th>
             <th style={{ textAlign: 'center', paddingBottom: 2, width: 30 }}>Cant</th>
             <th style={{ textAlign: 'right', paddingBottom: 2, width: 60 }}>P.Unit</th>
-            <th style={{ textAlign: 'right', paddingBottom: 2, width: 58 }}>Subtotal</th>
+            <th style={{ textAlign: 'right', paddingBottom: 2, width: 58 }}>Importe</th>
           </tr>
         </thead>
         <tbody>

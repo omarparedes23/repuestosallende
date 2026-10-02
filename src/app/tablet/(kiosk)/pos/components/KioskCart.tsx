@@ -51,7 +51,7 @@ export function KioskCart() {
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {items.map((item) => {
             const precio = precioParaMoneda(item, monedaPrevia)
-            const subtotalItem = precio == null ? null : precio * item.cantidad - item.descuento
+            const subtotalItem = totales.items.find((i) => i.productoId === item.productoId)?.subtotal ?? null
 
             return (
               <div

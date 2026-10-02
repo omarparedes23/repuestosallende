@@ -298,20 +298,23 @@ describe('construirTicketData', () => {
       tipoCambio: null,
       totales,
       lineas: [linea('efectivo', '30'), linea('yape', '0'), linea('yape', '1', ' R ')],
-      vuelto: 7.4,
+      vuelto: 11,
       cliente: cliente({ nro_documento: null }),
       sunatHash: null,
       fecha,
     })
     expect(data.empresa).toEqual({ razonSocial: '2060', ruc: '2060', direccion: '', telefono: '' })
-    expect(data.total).toBe(23.6)
+    expect([data.subtotal, data.igv, data.total]).toEqual([16.95, 3.05, 20])
+    expect(data.items[0].subtotal).toBe(16.95)
+    expect(data.items[0].precioUnitario).toBe(8.474576)
+    expect(data.items[0].descuento).toBe(0)
     expect(data.pagos).toEqual([
       { metodoPago: 'efectivo', monto: 30, referencia: null },
       { metodoPago: 'yape', monto: 1, referencia: 'R' },
     ])
     expect(data.cliente).toEqual({ nombre: 'Juan', tipoDocumento: 'DNI', nroDocumento: '' })
     expect(data.fecha).toBe(fecha)
-    expect(data.vuelto).toBe(7.4)
+    expect(data.vuelto).toBe(11)
   })
 })
 

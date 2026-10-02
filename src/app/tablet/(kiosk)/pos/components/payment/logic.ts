@@ -2,7 +2,7 @@ import { Decimal } from 'decimal.js'
 import type { CartItem, ClienteSnapshot } from '@/app/tablet/stores/posStore'
 import type { RaMetodoPago, RaMoneda, RaTipoComprobante } from '@/lib/types/database'
 import type { TicketReceiptData } from '@/app/tablet/components/ticket/TicketReceipt'
-import type { TotalesVenta } from '@/lib/calc/totales'
+import { IGV_TASA, type TotalesVenta } from '@/lib/calc/totales'
 import { calcularVuelto } from '@/lib/calc/vuelto'
 import { itemsSinPrecio, precioParaMoneda } from '@/lib/calc/precios'
 import type { VentaResult } from '../../actions'
@@ -248,13 +248,25 @@ export function construirTicketData(input: {
     moneda: venta.moneda,
     simbolo: input.simbolo,
     tipoCambio: input.tipoCambio,
-    items: totales.items.map((i) => ({
-      nombre: i.nombre,
-      cantidad: i.cantidad,
-      precioUnitario: i.precioUnitario,
-      descuento: i.descuento,
-      subtotal: i.subtotal,
-    })),
+    // Boleta/factura se imprimen con los mismos valores sin IGV que guarda la base de datos
+    // (y que muestra la reimpresión); el ticket conserva el precio final.
+    items: totales.items.map((i) =>
+      input.tipoComprobante === 'ticket'
+        ? {
+            nombre: i.nombre,
+            cantidad: i.cantidad,
+            precioUnitario: i.precioUnitario,
+            descuento: i.descuento,
+            subtotal: i.subtotal,
+          }
+        : {
+            nombre: i.nombre,
+            cantidad: i.cantidad,
+            precioUnitario: new Decimal(i.precioUnitario).div(1 + IGV_TASA).toDecimalPlaces(6).toNumber(),
+            descuento: new Decimal(i.descuento).div(1 + IGV_TASA).toDecimalPlaces(2).toNumber(),
+            subtotal: i.base,
+          }
+    ),
     subtotal: totales.subtotal,
     igv: totales.igv,
     total: totales.total,

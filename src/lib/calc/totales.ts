@@ -3,20 +3,33 @@ import type { CartItem } from '@/app/tablet/stores/posStore'
 import { itemsConPrecio, precioParaMoneda } from './precios'
 import type { RaMoneda, RaTipoComprobante } from '@/lib/types/database'
 
+/** Tasa de IGV. Los precios de catálogo ya la incluyen (IB_IncIGV = 1). */
+export const IGV_TASA = 0.18
+
+const FACTOR_IGV = new Decimal(1).plus(IGV_TASA)
+const REDONDEO = Decimal.ROUND_HALF_UP
+
 export type ItemCalculado = {
   productoId: string
   catalogoId: string
   nombre: string
   codigoOem: string | null
   cantidad: number
+  /** Precio de lista (con IGV). */
   precioUnitario: number
+  /** Descuento en monto (con IGV). */
   descuento: number
+  /** Importe de la línea que paga el cliente (con IGV): round2(precio * cantidad - descuento). */
   subtotal: number
+  /** Valor de la línea sin IGV (= subtotal en ticket). */
+  base: number
 }
 
 export type TotalesVenta = {
+  /** Base imponible (sin IGV); en ticket es igual al total. */
   subtotal: number
   igv: number
+  /** Lo que paga el cliente (con IGV). */
   total: number
   items: ItemCalculado[]
 }
@@ -26,7 +39,9 @@ export function calcularTotalesVenta(
   tipoComprobante: RaTipoComprobante,
   moneda: RaMoneda
 ): TotalesVenta {
-  let subtotalAcc = new Decimal(0)
+  const conIgv = tipoComprobante !== 'ticket'
+  let brutoAcc = new Decimal(0)
+  let baseAcc = new Decimal(0)
 
   const itemsCalc: ItemCalculado[] = items.map((item) => {
     const precioLista = precioParaMoneda(item, moneda)
@@ -37,10 +52,11 @@ export function calcularTotalesVenta(
     }
 
     const precio = new Decimal(precioLista)
-    const cantidad = new Decimal(item.cantidad)
     const descuento = new Decimal(item.descuento)
-    const subtotalItem = precio.mul(cantidad).minus(descuento).toDecimalPlaces(2)
-    subtotalAcc = subtotalAcc.plus(subtotalItem)
+    const bruto = precio.mul(item.cantidad).minus(descuento).toDecimalPlaces(2, REDONDEO)
+    const base = conIgv ? bruto.div(FACTOR_IGV).toDecimalPlaces(2, REDONDEO) : bruto
+    brutoAcc = brutoAcc.plus(bruto)
+    baseAcc = baseAcc.plus(base)
 
     return {
       productoId: item.productoId,
@@ -48,18 +64,17 @@ export function calcularTotalesVenta(
       nombre: item.nombre,
       codigoOem: item.codigoOem,
       cantidad: item.cantidad,
-      precioUnitario: precio.toDecimalPlaces(2).toNumber(),
-      descuento: descuento.toDecimalPlaces(2).toNumber(),
-      subtotal: subtotalItem.toNumber(),
+      precioUnitario: precio.toDecimalPlaces(2, REDONDEO).toNumber(),
+      descuento: descuento.toDecimalPlaces(2, REDONDEO).toNumber(),
+      subtotal: bruto.toNumber(),
+      base: base.toNumber(),
     }
   })
 
-  const subtotal = subtotalAcc.toDecimalPlaces(2)
-  const igv =
-    tipoComprobante !== 'ticket'
-      ? subtotal.mul('0.18').toDecimalPlaces(2)
-      : new Decimal(0)
-  const total = subtotal.plus(igv).toDecimalPlaces(2)
+  // Precios con IGV incluido: total = Σ bruto; subtotal = Σ base; igv = total - subtotal.
+  const total = brutoAcc.toDecimalPlaces(2, REDONDEO)
+  const subtotal = conIgv ? baseAcc : total
+  const igv = total.minus(subtotal)
 
   return {
     subtotal: subtotal.toNumber(),
@@ -68,6 +83,7 @@ export function calcularTotalesVenta(
     items: itemsCalc,
   }
 }
+
 
 /**
  * Totales de previsualización: excluye los ítems sin precio en la moneda dada

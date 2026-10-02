@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { itemsConPrecio, precioParaMoneda } from '@/lib/calc/precios'
+import { calcularTotalesParciales } from '@/lib/calc/totales'
 import type { RaMoneda, RaTipoCliente, RaTipoComprobante, RaMetodoPago } from '@/lib/types/database'
 
 export type CartItem = {
@@ -57,6 +57,7 @@ interface PosState {
   clearCart: () => void
 
   getSubtotal: (moneda?: RaMoneda) => number
+  getIgv: (moneda?: RaMoneda) => number
   getTotal: (moneda?: RaMoneda) => number
   getItemCount: () => number
 
@@ -115,18 +116,21 @@ export const usePosStore = create<PosState>()((set, get) => ({
   clearCart: () => set({ items: [], pagos: [], cliente: null }),
 
   // Ítems sin precio en la moneda indicada se excluyen (nunca valen 0).
+  // Precios con IGV incluido: misma regla que calcularTotalesVenta / ra_confirmar_venta_v1.
+  // getSubtotal = base imponible (sin IGV en boleta/factura); getTotal = lo que paga el cliente.
   getSubtotal: (moneda = 'PEN') => {
-    const { items } = get()
-    return itemsConPrecio(items, moneda).reduce((sum, item) => {
-      return sum + (precioParaMoneda(item, moneda) ?? 0) * item.cantidad - item.descuento
-    }, 0)
+    const { items, tipoComprobante } = get()
+    return calcularTotalesParciales(items, tipoComprobante, moneda).subtotal
+  },
+
+  getIgv: (moneda = 'PEN') => {
+    const { items, tipoComprobante } = get()
+    return calcularTotalesParciales(items, tipoComprobante, moneda).igv
   },
 
   getTotal: (moneda = 'PEN') => {
-    const { tipoComprobante } = get()
-    const subtotal = get().getSubtotal(moneda)
-    const igv = tipoComprobante !== 'ticket' ? subtotal * 0.18 : 0
-    return subtotal + igv
+    const { items, tipoComprobante } = get()
+    return calcularTotalesParciales(items, tipoComprobante, moneda).total
   },
 
   getItemCount: () => get().items.reduce((sum, i) => sum + i.cantidad, 0),
