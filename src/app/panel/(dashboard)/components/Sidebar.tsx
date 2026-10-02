@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -68,9 +68,12 @@ export function Sidebar({ nombreUsuario, sucursalNombre, sucursalDireccion }: Pr
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
 
-  useEffect(() => {
+  // Cierra el menú al cambiar de ruta (ajuste durante el render, sin efecto).
+  const [prevPathname, setPrevPathname] = useState(pathname)
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname)
     setIsOpen(false)
-  }, [pathname])
+  }
 
   function isActive(href: string, exact = false) {
     return exact ? pathname === href : pathname.startsWith(href)

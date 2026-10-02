@@ -67,24 +67,28 @@ const INITIAL_MESSAGE: Message = {
   content: '¡Hola! Soy el asistente de Repuestos Allende. ¿Qué repuesto necesitas?',
 }
 
+function cargarHistorial(): Message[] {
+  if (typeof window === 'undefined') return [INITIAL_MESSAGE]
+  try {
+    const saved = sessionStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      const parsed = JSON.parse(saved) as Message[]
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+    }
+  } catch {}
+  return [INITIAL_MESSAGE]
+}
+
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE])
+  // Historial de la sesión: lectura lazy (solo en cliente). Es seguro respecto a la
+  // hidratación porque los mensajes solo se renderizan con el chat abierto (isOpen
+  // arranca en false, tanto en servidor como en cliente).
+  const [messages, setMessages] = useState<Message[]>(cargarHistorial)
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-
-  // Cargar historial de la sesión al montar
-  useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved) as Message[]
-        if (Array.isArray(parsed) && parsed.length > 0) setMessages(parsed)
-      }
-    } catch {}
-  }, [])
 
   // Persistir historial en sessionStorage (máx 50 mensajes)
   useEffect(() => {

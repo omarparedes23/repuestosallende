@@ -74,6 +74,7 @@ function QrSunat({ value, size }: { value: string; size: number }) {
   }, [value, size])
 
   if (!dataUrl) return null
+  // eslint-disable-next-line @next/next/no-img-element -- QR como data: URI para impresión; next/image no optimiza data URIs
   return <img src={dataUrl} alt="QR SUNAT" width={size} height={size} style={{ display: 'block', margin: '4px auto' }} />
 }
 

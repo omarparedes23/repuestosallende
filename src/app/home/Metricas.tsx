@@ -11,16 +11,12 @@ import { metricas } from '@/lib/home/content'
 function Contador({ valor, sufijo }: { valor: string; sufijo?: string }) {
   const ref = useRef<HTMLSpanElement>(null)
   const inView = useInView(ref, { once: true, amount: 0.5 })
-  const [display, setDisplay] = useState('0')
+  const objetivo = parseInt(valor, 10)
+  const esNumerico = !Number.isNaN(objetivo)
+  const [animado, setAnimado] = useState(0)
 
   useEffect(() => {
-    if (!inView) return
-    const objetivo = parseInt(valor, 10)
-    if (Number.isNaN(objetivo)) {
-      // Si el valor no es numérico (p.ej. "100%"), lo mostramos directo.
-      setDisplay(valor)
-      return
-    }
+    if (!inView || !esNumerico) return
     const duracion = 1500
     const inicio = performance.now()
     let raf = 0
@@ -28,13 +24,15 @@ function Contador({ valor, sufijo }: { valor: string; sufijo?: string }) {
       const p = Math.min((t - inicio) / duracion, 1)
       // easeOutCubic
       const eased = 1 - Math.pow(1 - p, 3)
-      const actual = Math.round(eased * objetivo)
-      setDisplay(actual.toLocaleString('es-PE'))
+      setAnimado(Math.round(eased * objetivo))
       if (p < 1) raf = requestAnimationFrame(step)
     }
     raf = requestAnimationFrame(step)
     return () => cancelAnimationFrame(raf)
-  }, [inView, valor])
+  }, [inView, esNumerico, objetivo])
+
+  // Si el valor no es numérico (p.ej. "100%"), se muestra directo al entrar en viewport.
+  const display = !inView ? '0' : esNumerico ? animado.toLocaleString('es-PE') : valor
 
   return (
     <span ref={ref} className="tabular-nums">

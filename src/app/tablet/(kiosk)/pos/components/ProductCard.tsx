@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { Plus } from 'lucide-react'
 import type { ProductoBuscado } from '../actions'
 import { simboloMoneda } from '@/lib/calc/moneda'
@@ -21,11 +22,15 @@ export function ProductCard({ producto, onAdd }: Props) {
       style={{ borderColor: '#CBD5E1', backgroundColor: '#FFFFFF' }}
     >
       {producto.imagenUrl ? (
-        <img
-          src={producto.imagenUrl}
-          alt={producto.nombre}
-          className="w-full h-28 object-cover"
-        />
+        <div className="relative w-full h-28">
+          <Image
+            src={producto.imagenUrl}
+            alt={producto.nombre}
+            fill
+            sizes="240px"
+            className="object-cover"
+          />
+        </div>
       ) : (
         <div
           className="w-full h-28 flex items-center justify-center text-3xl font-bold"

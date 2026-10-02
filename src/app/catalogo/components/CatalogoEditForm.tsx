@@ -21,22 +21,36 @@ type Props = {
 }
 
 export function CatalogoEditForm({ open, catalogoId, onClose, onSaved }: Props) {
-  const [articulo, setArticulo] = useState<ArticuloEdicionPublica | null>(null)
-  const [modelos, setModelos] = useState<ModeloOption[]>([])
-  const [loading, setLoading] = useState(false)
+  // null = todavía no cargó para el (open, catalogoId) actual.
+  const [cargado, setCargado] = useState<{
+    articulo: ArticuloEdicionPublica | null
+    modelos: ModeloOption[]
+  } | null>(null)
+
+  // Al abrir o cambiar de producto se descarta lo cargado (ajuste durante el render).
+  const cargaKey = open ? catalogoId : null
+  const [prevCargaKey, setPrevCargaKey] = useState(cargaKey)
+  if (cargaKey !== prevCargaKey) {
+    setPrevCargaKey(cargaKey)
+    setCargado(null)
+  }
 
   useEffect(() => {
     if (!open) return
-    setArticulo(null)
-    setLoading(true)
+    let cancelado = false
     Promise.all([getArticuloParaEdicionPublico(catalogoId), getModelosAuto()]).then(
       ([data, modelosData]) => {
-        setArticulo(data)
-        setModelos(modelosData)
-        setLoading(false)
+        if (!cancelado) setCargado({ articulo: data, modelos: modelosData })
       }
     )
+    return () => {
+      cancelado = true
+    }
   }, [open, catalogoId])
+
+  const loading = open && cargado === null
+  const articulo = cargado?.articulo ?? null
+  const modelos = cargado?.modelos ?? []
 
   const [error, formAction, isPending] = useActionState(
     async (prev: string | null, fd: FormData) => {

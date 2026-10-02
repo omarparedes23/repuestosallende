@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Phone, Package, Filter, Search } from 'lucide-react'
@@ -161,9 +161,12 @@ export function CatalogoPageClient({
   })
 
   // Vuelve a la primera tanda cada vez que cambian los filtros o la búsqueda.
-  useEffect(() => {
+  const filtrosKey = JSON.stringify([categoriaActiva, marcaActiva, busquedaNorm])
+  const [prevFiltrosKey, setPrevFiltrosKey] = useState(filtrosKey)
+  if (filtrosKey !== prevFiltrosKey) {
+    setPrevFiltrosKey(filtrosKey)
     setVisibleCount(PRODUCTOS_POR_TANDA)
-  }, [categoriaActiva, marcaActiva, busquedaNorm])
+  }
 
   const repuestosVisibles = repuestosFiltrados.slice(0, visibleCount)
   const hayMas = visibleCount < repuestosFiltrados.length
