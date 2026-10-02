@@ -199,8 +199,7 @@ export function PaymentSheet({ onClose }: Props) {
   const updatePrecioEditado = (productoId: string, value: string) =>
     setPreciosEditados((prev) => {
       if (value === '') {
-        const { [productoId]: _omit, ...rest } = prev
-        return rest
+        return Object.fromEntries(Object.entries(prev).filter(([id]) => id !== productoId))
       }
       const n = parseFloat(value)
       if (isNaN(n) || n < 0) return prev

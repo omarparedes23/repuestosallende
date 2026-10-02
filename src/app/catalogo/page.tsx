@@ -14,11 +14,12 @@ export const metadata: Metadata = {
 
 async function fetchModelos(): Promise<ModeloConMarca[]> {
   const supabase = createPublicClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('ra_modelos_auto')
     .select('*, marca:ra_marcas_auto(id, nombre)')
     .eq('activo', true)
     .order('nombre')
+  if (error) throw new Error(error.message)
   return (data ?? []) as ModeloConMarca[]
 }
 

@@ -7,17 +7,19 @@ import { KioskPosClient } from './components/KioskPosClient'
 const MARCAS_DESTACADAS = ['FREY', 'MEYLE', 'HENGST', 'INA', 'FEBI', 'MANN', 'MAHLE', 'TRW', 'KS']
 
 export default async function PosPage() {
-  const supabase = (await createClient()) as any
+  const supabase = await createClient()
 
-  const { data: marcasData } = await supabase
+  const { data: marcasData, error } = await supabase
     .from('ra_marcas_repuesto')
     .select('id, nombre')
     .eq('activo', true)
     .in('nombre', MARCAS_DESTACADAS)
 
+  if (error) throw new Error(error.message)
+
   const marcas = MARCAS_DESTACADAS
-    .map((nombre) => marcasData?.find((m: { id: string; nombre: string }) => m.nombre === nombre))
-    .filter((m: unknown): m is { id: string; nombre: string } => !!m)
+    .map((nombre) => marcasData?.find((m) => m.nombre === nombre))
+    .filter((m) => !!m)
 
   return (
     <div className="h-full">

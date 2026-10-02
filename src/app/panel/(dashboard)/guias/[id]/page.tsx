@@ -15,31 +15,12 @@ function formatoNumeroGuia(serie: string | null, correlativo: number | null): st
   return `${serie}-${String(correlativo).padStart(8, '0')}`
 }
 
-type GuiaItem = {
-  id: string
-  nombre_producto: string
-  cantidad: number
-}
-
-type GuiaDetalle = {
-  estado: string
-  serie: string | null
-  correlativo: number | null
-  fecha_emision: string | null
-  fecha_recepcion: string | null
-  created_at: string
-  notas: string | null
-  origen: { nombre: string } | null
-  destino: { nombre: string } | null
-  ra_guia_items: GuiaItem[] | null
-}
-
 export default async function GuiaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) redirect('/panel/login')
 
-  const { data: guiaSinTipar } = await supabase
+  const { data: guia, error } = await supabase
     .from('ra_guias_remision')
     .select(`
       *,
@@ -51,7 +32,7 @@ export default async function GuiaDetailPage({ params }: { params: Promise<{ id:
     .eq('empresa_id', perfil.empresa_id)
     .single()
 
-  const guia = guiaSinTipar as unknown as GuiaDetalle | null
+  if (error && error.code !== 'PGRST116') throw new Error(error.message)
   if (!guia) redirect('/panel/guias')
 
   const cfg = ESTADO_CONFIG[guia.estado] ?? ESTADO_CONFIG.borrador
@@ -135,7 +116,7 @@ export default async function GuiaDetailPage({ params }: { params: Promise<{ id:
             </tr>
           </thead>
           <tbody>
-            {((guia.ra_guia_items ?? []) as GuiaItem[]).map((item, i) => (
+            {guia.ra_guia_items.map((item, i) => (
               <tr
                 key={item.id}
                 className="border-t"

@@ -39,7 +39,6 @@ let adminClient: SupabaseClient
 let ventaA: { operationId: string; ventaId: string; correlativo?: number; outboxEstado?: string } | undefined
 let ventaB: { operationId: string; ventaId: string; correlativo?: number; outboxEstado?: string; externalId?: string; hash?: string; pagoRef?: string } | undefined
 let userId: string | undefined
-let outboxKeyB: string | undefined
 let vendedorId: string | undefined
 
 function sleep(ms: number) {
@@ -192,7 +191,6 @@ describeE2E('OSE beta E2E — venta-transaccional-idempotente', () => {
     expect(resultB.status).toBe('confirmed')
     ventaB.ventaId = resultB.sale.id
     ventaB.correlativo = resultB.sale.correlativo
-    outboxKeyB = `${EMPRESA}:BOLETA:${SERIE_BOLETA}:${ventaB.correlativo}`
 
     const wB = await processSunatOutbox(10)
     expect(wB.claimed).toBeGreaterThan(0)

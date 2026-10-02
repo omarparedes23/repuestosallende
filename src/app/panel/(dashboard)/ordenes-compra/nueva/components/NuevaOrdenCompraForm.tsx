@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Plus, Trash2, ChevronLeft } from 'lucide-react'
+import { Search, Trash2, ChevronLeft } from 'lucide-react'
 import { buscarProveedores, buscarProductosParaCompra, crearOrdenCompra } from '../../actions'
 import type { ItemOrdenCompra } from '../../actions'
 
@@ -110,7 +110,12 @@ export function NuevaOrdenCompraForm() {
         proveedorSeleccionado.id,
         referencia.trim() || null,
         notas.trim() || null,
-        items.map(({ key: _key, ...rest }) => rest)
+        items.map(({ catalogo_id, nombre_producto, cantidad, precio_unitario }) => ({
+          catalogo_id,
+          nombre_producto,
+          cantidad,
+          precio_unitario,
+        }))
       )
       if (result.error) {
         setError(result.error)

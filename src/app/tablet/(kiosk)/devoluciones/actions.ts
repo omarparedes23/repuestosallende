@@ -71,8 +71,7 @@ export type DevolucionBandeja = {
 }
 
 export async function getBandejaDevoluciones(): Promise<{ data: DevolucionBandeja[]; error: string | null }> {
-  const { supabase: rawSupabase, user, perfil, sucursalId } = await getSession()
-  const supabase = rawSupabase as any
+  const { supabase, user, perfil, sucursalId } = await getSession()
   if (!user || !perfil?.empresa_id) return { data: [], error: 'No autenticado.' }
   let query = supabase.from('ra_devoluciones')
     .select('id,estado,motivo,created_at,sucursal_id,recepcion_recibido,condicion_declarada,recepcion_observacion,reingreso_aprobado,rechazo_motivo,ra_ventas(numero_completo)')
@@ -85,16 +84,16 @@ export async function getBandejaDevoluciones(): Promise<{ data: DevolucionBandej
   }
   const { data, error } = await query
   if (error) return { data: [], error: 'No se pudo cargar la bandeja de devoluciones.' }
-  const devolucionIds = (data ?? []).map((row: any) => row.id)
+  const devolucionIds = (data ?? []).map((row) => row.id)
   const { data: notas, error: notasError } = devolucionIds.length
     ? await supabase.from('ra_sunat_nota_credito_outbox')
       .select('devolucion_id,status,serie,correlativo,attempt_count,next_attempt_at,last_attempt_at,error_code,error_message')
       .in('devolucion_id', devolucionIds)
     : { data: [], error: null }
   if (notasError) return { data: [], error: 'No se pudo cargar el estado fiscal de las notas de crédito.' }
-  const notaPorDevolucion = new Map((notas ?? []).map((nota: any) => [nota.devolucion_id, nota]))
+  const notaPorDevolucion = new Map((notas ?? []).map((nota) => [nota.devolucion_id, nota] as const))
   return {
-    data: (data ?? []).map((row: any) => ({
+    data: (data ?? []).map((row) => ({
       id: row.id, estado: row.estado, motivo: row.motivo, created_at: row.created_at, sucursal_id: row.sucursal_id,
       venta_numero: row.ra_ventas?.numero_completo ?? null, recepcion_recibido: row.recepcion_recibido,
       condicion_declarada: row.condicion_declarada, recepcion_observacion: row.recepcion_observacion,
@@ -243,8 +242,7 @@ export async function reintentarNotaCreditoDevolucion(devolucionId: string): Pro
   }
   const response = await supabase.from('ra_devoluciones').select('id, sucursal_id')
     .eq('id', devolucionId).eq('empresa_id', perfil.empresa_id).maybeSingle()
-  const devolucion = response.data as unknown as { id: string; sucursal_id: string } | null
-  const { error } = response
+  const { data: devolucion, error } = response
   if (error || !devolucion || (sucursalId && devolucion.sucursal_id !== sucursalId)) {
     return { status: 'error', message: 'Devolución no disponible para tu empresa o sucursal.', fiscal: 'not_required' }
   }
@@ -253,12 +251,11 @@ export async function reintentarNotaCreditoDevolucion(devolucionId: string): Pro
     .select('status')
     .eq('devolucion_id', devolucionId)
     .maybeSingle()
-  const notaFiscal = nota as unknown as { status: string } | null
-  if (notaError || !notaFiscal) return { status: 'error', message: 'No hay una nota de crédito fiscal pendiente para esta devolución.', fiscal: 'not_required' }
-  if (!['pending', 'retry'].includes(notaFiscal.status)) {
-    const estado = notaFiscal.status === 'submitted'
+  if (notaError || !nota) return { status: 'error', message: 'No hay una nota de crédito fiscal pendiente para esta devolución.', fiscal: 'not_required' }
+  if (!['pending', 'retry'].includes(nota.status)) {
+    const estado = nota.status === 'submitted'
       ? 'El resultado fiscal es incierto; requiere conciliación manual, no reenvío.'
-      : `La nota de crédito está en estado ${notaFiscal.status}; no admite reintento manual.`
+      : `La nota de crédito está en estado ${nota.status}; no admite reintento manual.`
     return { status: 'error', message: estado, fiscal: 'not_required' }
   }
   try {

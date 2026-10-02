@@ -51,13 +51,13 @@ const KARDEX_FILAS_POR_PAGINA = 25
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function getModelosAuto(): Promise<ModeloOption[]> {
-  const { supabase: raw } = await getSessionFast()
-  const supabase = raw as any
-  const { data } = await supabase
+  const { supabase } = await getSessionFast()
+  const { data, error } = await supabase
     .from('ra_modelos_auto')
     .select('id, nombre')
     .eq('activo', true)
     .order('nombre')
+  if (error) throw new Error(error.message)
   return (data ?? []) as ModeloOption[]
 }
 
@@ -65,40 +65,38 @@ export type MarcaOption = { id: string; nombre: string }
 export type SucursalOption = { id: string; nombre: string }
 
 export async function getSucursalesActivas(): Promise<SucursalOption[]> {
-  const { supabase: raw, perfil } = await getSessionFast()
-  // Los tipos manuales aun no incluyen ra_sucursales.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return []
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('ra_sucursales')
     .select('id, nombre')
     .eq('empresa_id', perfil.empresa_id)
     .eq('activo', true)
     .order('nombre')
+  if (error) throw new Error(error.message)
   return (data ?? []) as SucursalOption[]
 }
 
 export async function getMarcasRepuesto(): Promise<MarcaOption[]> {
-  const { supabase: raw } = await getSessionFast()
-  const supabase = raw as any
-  const { data } = await supabase
+  const { supabase } = await getSessionFast()
+  const { data, error } = await supabase
     .from('ra_marcas_repuesto')
     .select('id, nombre')
     .eq('activo', true)
     .order('nombre')
+  if (error) throw new Error(error.message)
   return (data ?? []) as MarcaOption[]
 }
 
 export async function getMarcasAuto(): Promise<MarcaOption[]> {
-  const { supabase: raw } = await getSessionFast()
-  const supabase = raw as any
-  const { data } = await supabase
+  const { supabase } = await getSessionFast()
+  const { data, error } = await supabase
     .from('ra_marcas_auto')
     .select('id, nombre')
     .eq('activo', true)
     .order('nombre')
+  if (error) throw new Error(error.message)
   return (data ?? []) as MarcaOption[]
 }
 
@@ -122,7 +120,27 @@ const SELECT_ARTICULO = `
   )
 `
 
-function mapArticuloRow(row: any): ArticuloRow {
+type ArticuloQueryRow = {
+  id: string
+  catalogo_id: string
+  stock_actual: number
+  stock_minimo: number
+  precio_venta: number | null
+  precio_venta_dolar: number | null
+  precio_compra: number | null
+  activo: boolean
+  sucursal_id: string
+  ra_catalogo_repuestos: {
+    codigo_oem: string | null
+    codigos_alternos: string | null
+    nombre: string
+    imagen_url: string | null
+    ra_categorias: { nombre: string } | null
+    ra_compatibilidades: { modelo_id: string }[]
+  } | null
+}
+
+function mapArticuloRow(row: ArticuloQueryRow): ArticuloRow {
   return {
     id: row.id,
     catalogo_id: row.catalogo_id,
@@ -139,7 +157,7 @@ function mapArticuloRow(row: any): ArticuloRow {
     activo: row.activo,
     sucursal_id: row.sucursal_id,
     modelos_compatibles: (row.ra_catalogo_repuestos?.ra_compatibilidades ?? []).map(
-      (c: any) => c.modelo_id
+      (c) => c.modelo_id
     ),
   }
 }
@@ -156,8 +174,7 @@ export async function buscarArticulos(
   marcaAutoId?: string | null,
   sucursalId?: string | null
 ): Promise<{ data: ArticuloRow[]; total: number; error: string | null }> {
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return { data: [], total: 0, error: 'No autenticado' }
 
   const offset = Math.max(0, pagina - 1) * FILAS_POR_PAGINA
@@ -205,8 +222,7 @@ export async function getMovimientosKardex(
 ): Promise<MovimientosKardexPage> {
   if (!UUID_RE.test(productoId)) return { data: [], total: 0, error: 'Artículo inválido.' }
 
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return { data: [], total: 0, error: 'No autenticado.' }
 
   const { data: producto, error: productoError } = await supabase
@@ -251,13 +267,13 @@ export async function getMovimientosKardex(
   const [comprasResult, ventasResult, guiasResult] = await Promise.all([
     compraIds.length
       ? supabase.from('ra_compras').select('id, nro_documento, tipo_documento').eq('empresa_id', perfil.empresa_id).in('id', compraIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     ventaIds.length
       ? supabase.from('ra_ventas').select('id, numero_completo').eq('empresa_id', perfil.empresa_id).in('id', ventaIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     guiaIds.length
       ? supabase.from('ra_guias_remision').select('id, serie, correlativo').eq('empresa_id', perfil.empresa_id).in('id', guiaIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
   ])
 
   if (comprasResult.error || ventasResult.error || guiasResult.error) {
@@ -282,14 +298,14 @@ export async function getMovimientosKardex(
 }
 
 export async function getStockBajoCount(sucursalId: string | null = null): Promise<number> {
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return 0
 
-  const { data } = await supabase.rpc('ra_contar_stock_bajo', {
+  const { data, error } = await supabase.rpc('ra_contar_stock_bajo', {
     p_empresa_id: perfil.empresa_id,
-    p_sucursal_id: sucursalId,
+    p_sucursal_id: sucursalId ?? undefined,
   })
+  if (error) throw new Error(error.message)
   return Number(data ?? 0)
 }
 
@@ -335,8 +351,7 @@ export async function updatePreciosArticulo(
     return 'Debe ingresar al menos un precio de venta (soles o dólares).'
   }
 
-  const { supabase: raw, perfil } = await getSession()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) return 'No autenticado.'
   if (!ROLES_ADMIN.includes(perfil.rol)) return 'No tienes permisos para editar artículos.'
 
@@ -377,8 +392,7 @@ export async function subirImagenArticulo(
     return 'La imagen no debe superar los 5MB.'
   }
 
-  const { supabase: raw, perfil } = await getSession()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) return 'No autenticado.'
   if (!ROLES_ADMIN.includes(perfil.rol)) return 'No tienes permisos para editar artículos.'
 
@@ -414,8 +428,7 @@ export async function actualizarInfoCatalogo(
 
   if (!nombre) return 'El nombre no puede estar vacío.'
 
-  const { supabase: raw, perfil } = await getSession()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) return 'No autenticado.'
   if (!ROLES_ADMIN.includes(perfil.rol)) return 'No tienes permisos para editar artículos.'
 
@@ -435,8 +448,7 @@ export async function updateCompatibilidad(
   catalogoId: string,
   modeloIds: string[]
 ): Promise<string | null> {
-  const { supabase: raw, perfil } = await getSession()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) return 'No autenticado.'
   if (!ROLES_ADMIN.includes(perfil.rol)) return 'No tienes permisos para editar artículos.'
 

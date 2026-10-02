@@ -184,15 +184,16 @@ async function buscarProductosDB(term: string, filtros?: FiltrosBusqueda): Promi
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
 
-    let { data, error } = await supabase.rpc('ra_chatbot_buscar', {
+    const rpcResult = await supabase.rpc('ra_chatbot_buscar', {
       q: term,
       p_tipo_repuesto: filtros?.tipo_repuesto ?? null,
       p_marca_repuesto: filtros?.marca_repuesto ?? null,
       p_tipo_vehiculo: filtros?.tipo_vehiculo ?? null,
     })
 
-    if (error) {
-      console.error('[chat] rpc error:', JSON.stringify(error))
+    let data = rpcResult.data
+    if (rpcResult.error) {
+      console.error('[chat] rpc error:', JSON.stringify(rpcResult.error))
       return { context: '', cantidadResultados: 0 }
     }
 

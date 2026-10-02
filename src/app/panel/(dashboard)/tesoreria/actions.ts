@@ -14,20 +14,17 @@ export type SucursalCobro = {
 }
 
 export async function getSucursalesParaCobro(): Promise<SucursalCobro[]> {
-  const { supabase: raw, perfil } = await getSessionFast()
-  // Los tipos manuales aún no incluyen ra_sucursales; la consulta queda limitada
-  // a id/nombre y el RPC sigue validando empresa/sucursal en servidor.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return []
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('ra_sucursales')
     .select('id, nombre')
     .eq('empresa_id', perfil.empresa_id)
     .eq('activo', true)
     .order('nombre')
 
+  if (error) throw new Error(error.message)
   return data ?? []
 }
 
@@ -35,8 +32,7 @@ export async function getCuentasPorCobrarGlobal(): Promise<{
   data: MovimientoConVentaYCliente[] | null
   error: string | null
 }> {
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return { data: null, error: 'No autenticado' }
 
   const { data: movimientos, error } = await supabase
@@ -53,15 +49,16 @@ export async function getCuentasPorCobrarGlobal(): Promise<{
   if (error) return { data: null, error: 'Error al obtener cuentas por cobrar' }
 
   const filas = movimientos ?? []
-  const usuarioIds = [...new Set(filas.map((m: any) => m.usuario_id))]
-  const { data: perfiles } = usuarioIds.length
+  const usuarioIds = [...new Set(filas.map((m) => m.usuario_id))]
+  const { data: perfiles, error: perfilesError } = usuarioIds.length
     ? await supabase.from('ra_perfiles').select('id, nombre').in('id', usuarioIds)
-    : { data: [] }
+    : { data: [], error: null }
+  if (perfilesError) return { data: null, error: 'Error al obtener el estado de cuenta' }
   const nombrePorUsuario: Record<string, string> = Object.fromEntries(
-    (perfiles ?? []).map((p: any) => [p.id, p.nombre])
+    (perfiles ?? []).map((p) => [p.id, p.nombre])
   )
 
-  const data: MovimientoConVentaYCliente[] = filas.map((m: any) => ({
+  const data: MovimientoConVentaYCliente[] = filas.map((m) => ({
     ...m,
     usuario_nombre: nombrePorUsuario[m.usuario_id] ?? null,
   }))

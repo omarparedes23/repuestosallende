@@ -27,8 +27,7 @@ export type MovimientoConCompra = {
 }
 
 export async function getProveedores() {
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return { data: null, error: 'No autenticado' }
 
   const { data, error } = await supabase
@@ -55,8 +54,7 @@ export async function upsertProveedor(
 
   if (!nombre) return 'El nombre del proveedor es obligatorio.'
 
-  const { supabase: raw, perfil } = await getSession()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) return 'No autenticado.'
 
   if (id) {
@@ -90,8 +88,7 @@ export async function getEstadoCuentaProveedor(proveedorId: string): Promise<{
   data: MovimientoConCompra[] | null
   error: string | null
 }> {
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return { data: null, error: 'No autenticado' }
 
   const { data: movimientos, error } = await supabase
@@ -108,15 +105,16 @@ export async function getEstadoCuentaProveedor(proveedorId: string): Promise<{
   if (error) return { data: null, error: 'Error al obtener el estado de cuenta' }
 
   const filas = movimientos ?? []
-  const usuarioIds = [...new Set(filas.map((m: any) => m.usuario_id))]
-  const { data: perfiles } = usuarioIds.length
+  const usuarioIds = [...new Set(filas.map((m) => m.usuario_id))]
+  const { data: perfiles, error: perfilesError } = usuarioIds.length
     ? await supabase.from('ra_perfiles').select('id, nombre').in('id', usuarioIds)
-    : { data: [] }
+    : { data: [], error: null }
+  if (perfilesError) return { data: null, error: 'Error al obtener el estado de cuenta' }
   const nombrePorUsuario: Record<string, string> = Object.fromEntries(
-    (perfiles ?? []).map((p: any) => [p.id, p.nombre])
+    (perfiles ?? []).map((p) => [p.id, p.nombre])
   )
 
-  const data: MovimientoConCompra[] = filas.map((m: any) => ({
+  const data: MovimientoConCompra[] = filas.map((m) => ({
     ...m,
     usuario_nombre: nombrePorUsuario[m.usuario_id] ?? null,
   }))
@@ -136,8 +134,7 @@ export async function registrarPagoProveedor(
   if (!uuid.test(operationId) || !uuid.test(compraId)) return { error: 'Identificador de operación inválido.' }
   if (!Number.isFinite(monto) || monto <= 0) return { error: 'El monto debe ser mayor a cero.' }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return { error: 'Fecha inválida.' }
-  const { supabase: raw, perfil, sucursalId } = await getSession()
-  const supabase = raw as any
+  const { supabase, perfil, sucursalId } = await getSession()
   if (!perfil?.empresa_id) return { error: 'No autenticado' }
   if (!['administrador', 'superadmin'].includes(perfil.rol)) return { error: 'Sin permisos.' }
   if (!sucursalId) return { error: 'Tienda no seleccionada.' }
@@ -169,8 +166,7 @@ function mapTreasuryError(message: string | null | undefined, fallback: string):
 }
 
 export async function toggleActivoProveedor(id: string, activo: boolean): Promise<string | null> {
-  const { supabase: raw, perfil } = await getSession()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) return 'No autenticado.'
 
   const { error } = await supabase

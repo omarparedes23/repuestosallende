@@ -3,15 +3,16 @@ import { redirect } from 'next/navigation'
 import { ClientesView } from './components/ClientesView'
 
 export default async function ClientesPage() {
-  const { supabase: raw, perfil } = await getSession()
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) redirect('/panel/login')
-  const supabase = raw as any
 
-  const { data: clientes } = await supabase
+  const { data: clientes, error } = await supabase
     .from('ra_clientes')
     .select('*')
     .eq('empresa_id', perfil.empresa_id)
     .order('nombre')
+
+  if (error) throw new Error(error.message)
 
   return <ClientesView initialClientes={clientes ?? []} />
 }

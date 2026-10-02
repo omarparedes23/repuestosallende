@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { getSession, getSessionFast } from '@/lib/session'
+import type { RaEstadoRevisionLiquidacion } from '@/lib/types/database'
 
 export type CajaActiva = {
   id: string
@@ -24,39 +25,13 @@ export type LiquidacionRevision = {
   sistema_efectivo: number
   conteo_efectivo: number
   diff_efectivo: number
-  estado_revision: 'pendiente_revision' | 'validada' | 'observada'
+  estado_revision: RaEstadoRevisionLiquidacion
   motivo_revision: string | null
   revisado_at: string | null
 }
 
-type LiquidacionRevisionRow = Omit<LiquidacionRevision, 'sucursal_nombre'> & {
-  ra_cajas: { ra_sucursales: { nombre: string } | null } | null
-}
-
-type LiquidacionListClient = {
-  from: (table: 'ra_liquidaciones') => {
-    select: (columns: string) => {
-      eq: (column: string, value: string) => {
-        order: (column: string, options: { ascending: boolean }) => {
-          limit: (count: number) => Promise<{ data: unknown; error: { message: string } | null }>
-        }
-      }
-    }
-  }
-}
-
-type RevisionRpcClient = {
-  rpc: (name: 'ra_revisar_liquidacion_v1', args: {
-    p_operation_id: string
-    p_liquidacion_id: string
-    p_decision: 'validada' | 'observada'
-    p_motivo: string
-  }) => Promise<{ error: { message: string } | null }>
-}
-
 export async function getCajaActiva(): Promise<{ data: CajaActiva | null; error: string | null }> {
-  const { supabase: raw, perfil, sucursalId } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil, sucursalId } = await getSessionFast()
   if (!perfil?.empresa_id) return { data: null, error: 'No autenticado' }
   if (!sucursalId) return { data: null, error: 'Selecciona una sucursal en el Tablet antes de liquidar caja.' }
 
@@ -81,10 +56,12 @@ export async function getCajaActiva(): Promise<{ data: CajaActiva | null; error:
 
   if (cajaError || !caja) return { data: null, error: cajaError?.message ?? null }
 
-  const { data: movimientos } = await supabase
+  const { data: movimientos, error: movimientosError } = await supabase
     .from('ra_movimientos_caja')
     .select('metodo_pago, monto, tipo')
     .eq('caja_id', caja.id)
+
+  if (movimientosError) return { data: null, error: movimientosError.message }
 
   const totales = { efectivo: 0, yape: 0, tarjeta: 0, transferencia: 0, credito: 0 }
   for (const m of movimientos ?? []) {
@@ -115,8 +92,7 @@ export async function cerrarConLiquidacion(
   efectivoContado: number,
   notas: string | null
 ): Promise<string | null> {
-  const { supabase: raw, perfil } = await getSession()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) return 'No autenticado.'
   if (!['administrador', 'superadmin'].includes(perfil.rol)) return 'Sin permisos.'
   if (!UUID.test(operationId) || !UUID.test(cajaId)) return 'Identificador de operación inválido.'
@@ -137,9 +113,8 @@ export async function cerrarConLiquidacion(
 }
 
 export async function getLiquidacionesParaRevision(): Promise<{ data: LiquidacionRevision[]; error: string | null }> {
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as unknown as LiquidacionListClient
-  if (!perfil?.empresa_id) return { data: [], error: 'No autenticado.' }
+  const { supabase, perfil } = await getSessionFast()
+    if (!perfil?.empresa_id) return { data: [], error: 'No autenticado.' }
   if (!['administrador', 'superadmin'].includes(perfil.rol)) return { data: [], error: 'Sin permisos.' }
 
   const { data, error } = await supabase
@@ -152,13 +127,13 @@ export async function getLiquidacionesParaRevision(): Promise<{ data: Liquidacio
     .limit(30)
 
   if (error) return { data: [], error: 'Error al obtener las liquidaciones.' }
-  const filas = (data ?? []) as unknown as LiquidacionRevisionRow[]
+  const filas = data ?? []
   const liquidaciones: LiquidacionRevision[] = filas.map((item) => ({
     id: item.id,
     created_at: item.created_at,
     sistema_efectivo: item.sistema_efectivo,
     conteo_efectivo: item.conteo_efectivo,
-    diff_efectivo: item.diff_efectivo,
+    diff_efectivo: item.diff_efectivo ?? item.conteo_efectivo - item.sistema_efectivo,
     estado_revision: item.estado_revision,
     motivo_revision: item.motivo_revision,
     revisado_at: item.revisado_at,
@@ -173,9 +148,8 @@ export async function revisarLiquidacion(
   decision: 'validada' | 'observada',
   motivo: string
 ): Promise<string | null> {
-  const { supabase: raw, perfil } = await getSession()
-  const supabase = raw as unknown as RevisionRpcClient
-  const motivoNormalizado = motivo.trim()
+  const { supabase, perfil } = await getSession()
+    const motivoNormalizado = motivo.trim()
   if (!perfil?.empresa_id) return 'No autenticado.'
   if (!['administrador', 'superadmin'].includes(perfil.rol)) return 'Sin permisos.'
   if (!UUID.test(operationId) || !UUID.test(liquidacionId)) return 'Identificador de operación inválido.'

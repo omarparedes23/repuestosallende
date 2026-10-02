@@ -6,8 +6,23 @@ import { cerrarCaja, registrarMovimiento } from '../actions'
 import type { RaCaja, RaMovimientoCaja, RaRol } from '@/lib/types/database'
 
 type Props = {
-  caja: RaCaja
-  movimientos: RaMovimientoCaja[]
+  caja: Pick<
+    RaCaja,
+    | 'id'
+    | 'empresa_id'
+    | 'sucursal_id'
+    | 'usuario_id'
+    | 'estado'
+    | 'monto_inicial'
+    | 'monto_final'
+    | 'fecha_apertura'
+    | 'fecha_cierre'
+    | 'notas'
+  >
+  movimientos: Pick<
+    RaMovimientoCaja,
+    'id' | 'caja_id' | 'tipo' | 'concepto' | 'monto' | 'metodo_pago' | 'referencia_id' | 'created_at'
+  >[]
   rol: RaRol
 }
 

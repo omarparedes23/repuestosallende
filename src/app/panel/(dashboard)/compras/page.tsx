@@ -7,7 +7,8 @@ export default async function ComprasPage() {
   const { perfil } = await getSession()
   if (!perfil?.empresa_id) redirect('/panel/login')
 
-  const { data: compras } = await getCompras()
+  const { data: compras, error } = await getCompras()
+  if (error) throw new Error(error)
 
   return <ComprasView initialCompras={compras ?? []} />
 }

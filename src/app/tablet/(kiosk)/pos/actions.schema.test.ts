@@ -47,8 +47,9 @@ describe('VentaInputSchema — moneda/tipoCambio', () => {
   })
 
   it('moneda por defecto es PEN si se omite (tipoCambio explícito en null)', () => {
-    const { moneda, ...rest } = inputBase()
-    const result = VentaInputSchema.safeParse({ ...rest, tipoCambio: null })
+    const input: Record<string, unknown> = inputBase()
+    delete input.moneda
+    const result = VentaInputSchema.safeParse({ ...input, tipoCambio: null })
     expect(result.success).toBe(true)
     if (result.success) {
       expect(result.data.moneda).toBe('PEN')

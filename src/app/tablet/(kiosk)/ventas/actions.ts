@@ -79,8 +79,7 @@ export async function getVentasDelDia(): Promise<{
   data: VentaResumen[]
   error: string | null
 }> {
-  const { supabase: rawSupabase, user, perfil, sucursalId } = await getSessionFast()
-  const supabase = rawSupabase as any
+  const { supabase, user, perfil, sucursalId } = await getSessionFast()
   if (!user || !perfil?.empresa_id) return { data: [], error: 'No autenticado' }
   if (!sucursalId) return { data: [], error: 'Tienda no seleccionada' }
 
@@ -101,7 +100,7 @@ export async function getVentasDelDia(): Promise<{
 
   if (error) return { data: [], error: 'Error cargando ventas' }
 
-  const ventas: VentaResumen[] = (data ?? []).map((v: any) => ({
+  const ventas: VentaResumen[] = (data ?? []).map((v) => ({
     id: v.id,
     created_at: v.created_at,
     tipo_comprobante: v.tipo_comprobante,
@@ -123,8 +122,7 @@ export async function getVentaDetalle(id: string): Promise<{
   data: VentaDetalle | null
   error: string | null
 }> {
-  const { supabase: rawSupabase, user, perfil, sucursalId } = await getSessionFast()
-  const supabase = rawSupabase as any
+  const { supabase, user, perfil, sucursalId } = await getSessionFast()
   if (!user || !perfil?.empresa_id) return { data: null, error: 'No autenticado' }
   if (!sucursalId) return { data: null, error: 'Tienda no seleccionada' }
 
@@ -172,23 +170,23 @@ export async function getVentaDetalle(id: string): Promise<{
     numero_completo: data.numero_completo,
     sunat_hash: data.sunat_hash,
     pdf_url: data.pdf_url,
-    cliente_nombre: (data.ra_clientes as any)?.nombre ?? null,
-    cliente_tipo_documento: (data.ra_clientes as any)?.tipo_documento ?? null,
-    cliente_nro_documento: (data.ra_clientes as any)?.nro_documento ?? null,
+    cliente_nombre: data.ra_clientes?.nombre ?? null,
+    cliente_tipo_documento: data.ra_clientes?.tipo_documento ?? null,
+    cliente_nro_documento: data.ra_clientes?.nro_documento ?? null,
     sunat_error_message: sunatErrorMessage,
     empresa: {
-      nombre: (data.ra_empresas as any)?.nombre ?? '',
-      razon_social: (data.ra_empresas as any)?.razon_social ?? null,
-      ruc: (data.ra_empresas as any)?.ruc ?? null,
-      direccion: (data.ra_empresas as any)?.direccion ?? null,
-      telefono: (data.ra_empresas as any)?.telefono ?? null,
+      nombre: data.ra_empresas?.nombre ?? '',
+      razon_social: data.ra_empresas?.razon_social ?? null,
+      ruc: data.ra_empresas?.ruc ?? null,
+      direccion: data.ra_empresas?.direccion ?? null,
+      telefono: data.ra_empresas?.telefono ?? null,
     },
     sucursal: {
-      nombre: (data.ra_sucursales as any)?.nombre ?? 'Principal',
-      direccion: (data.ra_sucursales as any)?.direccion ?? null,
+      nombre: data.ra_sucursales?.nombre ?? 'Principal',
+      direccion: data.ra_sucursales?.direccion ?? null,
     },
     items: Array.isArray(data.ra_venta_items)
-      ? data.ra_venta_items.map((i: any) => ({
+      ? data.ra_venta_items.map((i) => ({
           id: i.id,
           nombre_producto: i.nombre_producto,
           codigo_oem: i.codigo_oem,
@@ -199,7 +197,7 @@ export async function getVentaDetalle(id: string): Promise<{
         }))
       : [],
     pagos: Array.isArray(data.ra_venta_pagos)
-      ? data.ra_venta_pagos.map((p: any) => ({
+      ? data.ra_venta_pagos.map((p) => ({
           id: p.id,
           metodo_pago: p.metodo_pago,
           monto: p.monto,
@@ -220,7 +218,7 @@ export async function enviarVentaAOseSunat(
     return { message: 'Identificador de venta inválido.', tone: 'error' }
   }
 
-  const { supabase: rawSupabase, user, perfil, sucursalId } = await getSession()
+  const { supabase, user, perfil, sucursalId } = await getSession()
   if (!user || !perfil?.empresa_id) {
     return { message: 'No autenticado.', tone: 'error' }
   }
@@ -231,22 +229,18 @@ export async function enviarVentaAOseSunat(
     return { message: 'Solo el administrador puede enviar comprobantes a OSE/SUNAT.', tone: 'error' }
   }
 
-  const { data: venta, error } = await rawSupabase
+  const { data: venta, error } = await supabase
     .from('ra_ventas')
     .select('id, tipo_comprobante, estado')
     .eq('id', ventaId)
     .eq('empresa_id', perfil.empresa_id)
     .eq('sucursal_id', sucursalId)
     .maybeSingle()
-  const ventaFiscal = venta as unknown as {
-    tipo_comprobante: string
-    estado: string
-  } | null
 
-  if (error || !ventaFiscal) {
+  if (error || !venta) {
     return { message: 'Venta no encontrada en la tienda activa.', tone: 'error' }
   }
-  if (!['boleta', 'factura'].includes(ventaFiscal.tipo_comprobante) || ventaFiscal.estado !== 'pendiente') {
+  if (!['boleta', 'factura'].includes(venta.tipo_comprobante) || venta.estado !== 'pendiente') {
     return { message: 'Solo se pueden enviar boletas o facturas pendientes.', tone: 'error' }
   }
 

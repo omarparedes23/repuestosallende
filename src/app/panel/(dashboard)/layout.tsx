@@ -3,7 +3,7 @@ import { getSession } from '@/lib/session'
 import { Sidebar } from './components/Sidebar'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { supabase: rawSupabase, user, perfil, sucursalId } = await getSession()
+  const { supabase, user, perfil, sucursalId } = await getSession()
 
   if (!user || !perfil) redirect('/panel/login')
 
@@ -11,10 +11,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect('/panel/login')
   }
 
-  // Los tipos manuales aún no incluyen ra_sucursales.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = rawSupabase as any
-  const { data: sucursal } = sucursalId
+  const { data: sucursal, error } = sucursalId && perfil.empresa_id
     ? await supabase
       .from('ra_sucursales')
       .select('nombre, direccion')
@@ -22,7 +19,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
       .eq('empresa_id', perfil.empresa_id)
       .eq('activo', true)
       .maybeSingle()
-    : { data: null }
+    : { data: null, error: null }
+  if (error) throw new Error(error.message)
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#F8FAFC' }}>

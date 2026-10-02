@@ -4,20 +4,21 @@ import { SucursalPickerClient } from './SucursalPickerClient'
 import type { RaSucursal } from '@/lib/types/database'
 
 export default async function SucursalPage() {
-  const { supabase: rawSupabase, user, perfil, sucursalId } = await getSession()
-  const supabase = rawSupabase as any
+  const { supabase, user, perfil, sucursalId } = await getSession()
 
   if (!user || !perfil?.empresa_id) redirect('/tablet/login')
 
   // Vendors have a fixed store — skip picker
   if (sucursalId) redirect('/tablet/pos')
 
-  const { data: sucursales } = await supabase
+  const { data: sucursales, error } = await supabase
     .from('ra_sucursales')
     .select('id, empresa_id, nombre, direccion, activo, created_at')
     .eq('empresa_id', perfil.empresa_id)
     .eq('activo', true)
     .order('nombre')
+
+  if (error) throw new Error(error.message)
 
   return (
     <div className="min-h-screen flex items-center justify-center p-8" style={{ backgroundColor: '#F0F4FF' }}>

@@ -8,23 +8,25 @@ import { getSucursalesParaCobro } from '../../tesoreria/actions'
 
 export default async function ClienteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { supabase: raw, perfil, sucursalId } = await getSession()
+  const { supabase, perfil, sucursalId } = await getSession()
   if (!perfil?.empresa_id) redirect('/panel/login')
-  const supabase = raw as any
 
-  const { data: cliente } = await supabase
+  const { data: cliente, error } = await supabase
     .from('ra_clientes')
     .select('*')
     .eq('id', id)
     .eq('empresa_id', perfil.empresa_id)
     .single()
 
+  if (error && error.code !== 'PGRST116') throw new Error(error.message)
   if (!cliente) redirect('/panel/clientes')
 
-  const [{ data: movimientos }, sucursales] = await Promise.all([
+  const [{ data: movimientos, error: movimientosError }, sucursales] = await Promise.all([
     getEstadoCuenta(id),
     getSucursalesParaCobro(),
   ])
+
+  if (movimientosError) throw new Error(movimientosError)
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6">

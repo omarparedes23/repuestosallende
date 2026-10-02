@@ -40,8 +40,7 @@ export async function getArticuloParaEdicionPublico(
   // Supabase Auth). Usar getSession() aquí solo agregaba latencia al abrir
   // el modal (~1s extra medido en logs locales) sin ganancia real, ya que
   // esta función no escribe nada.
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id || !ROLES_ADMIN.includes(perfil.rol)) return null
 
   const { data, error } = await supabase
@@ -79,7 +78,7 @@ export async function getArticuloParaEdicionPublico(
     precio_compra: data.precio_compra,
     stock_minimo: data.stock_minimo,
     modelos_compatibles: (data.ra_catalogo_repuestos?.ra_compatibilidades ?? []).map(
-      (c: any) => c.modelo_id
+      (c) => c.modelo_id
     ),
   }
 }

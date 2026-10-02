@@ -1,8 +1,7 @@
 'use server'
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- joins de reportes aún no están expresados en los tipos manuales de Supabase. */
-
 import { getSessionFast } from '@/lib/session'
+import { esValorDe, RA_ESTADOS_VENTA, RA_METODOS_PAGO, RA_TIPOS_COMPROBANTE } from '@/lib/types/database'
 import { agruparPorMoneda, calcularResumenCredito } from '@/lib/reportes/ventasCobros'
 
 const PAGE_SIZE = 100
@@ -53,29 +52,30 @@ export type CobroRegistrado = {
   usuarioNombre: string | null
 }
 
-function aplicarRango(query: any, columna: string, filtros: ReporteFiltros) {
-  const esFechaSinHora = columna === 'fecha'
-  if (filtros.desde) query = query.gte(columna, esFechaSinHora ? filtros.desde : `${filtros.desde}T00:00:00`)
-  if (filtros.hasta) query = query.lte(columna, esFechaSinHora ? filtros.hasta : `${filtros.hasta}T23:59:59`)
-  return query
+function rangoFechas(esFechaSinHora: boolean, filtros: ReporteFiltros) {
+  return {
+    desde: filtros.desde ? (esFechaSinHora ? filtros.desde : `${filtros.desde}T00:00:00`) : null,
+    hasta: filtros.hasta ? (esFechaSinHora ? filtros.hasta : `${filtros.hasta}T23:59:59`) : null,
+  }
 }
 
+const REPORTE_VACIO = { data: [], totales: {}, totalFilas: 0, error: null }
+
 export async function getOpcionesReporte(): Promise<{ sucursales: SucursalReporte[]; clientes: ClienteReporte[] }> {
-  const { supabase: raw, perfil } = await getSessionFast()
-  // ra_sucursales aún no forma parte del tipo manual completo.
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return { sucursales: [], clientes: [] }
 
   const [sucursales, clientes] = await Promise.all([
     supabase.from('ra_sucursales').select('id, nombre').eq('empresa_id', perfil.empresa_id).eq('activo', true).order('nombre'),
     supabase.from('ra_clientes').select('id, nombre').eq('empresa_id', perfil.empresa_id).order('nombre'),
   ])
+  if (sucursales.error) throw new Error(sucursales.error.message)
+  if (clientes.error) throw new Error(clientes.error.message)
   return { sucursales: sucursales.data ?? [], clientes: clientes.data ?? [] }
 }
 
 export async function getVentasReporte(filtros: ReporteFiltros): Promise<{ data: VentaReporte[]; totales: Record<string, number>; totalFilas: number; error: string | null }> {
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return { data: [], totales: {}, totalFilas: 0, error: 'No autenticado' }
 
   const pagina = Math.max(1, filtros.pagina ?? 1)
@@ -88,24 +88,32 @@ export async function getVentasReporte(filtros: ReporteFiltros): Promise<{ data:
     .eq('empresa_id', perfil.empresa_id)
     .order('created_at', { ascending: false })
     .range(desdeFila, desdeFila + PAGE_SIZE - 1)
-  query = aplicarRango(query, 'created_at', filtros)
+  const rangoVentas = rangoFechas(false, filtros)
+  if (rangoVentas.desde) query = query.gte('created_at', rangoVentas.desde)
+  if (rangoVentas.hasta) query = query.lte('created_at', rangoVentas.hasta)
   if (filtros.sucursalId) query = query.eq('sucursal_id', filtros.sucursalId)
   if (filtros.clienteId) query = query.eq('cliente_id', filtros.clienteId)
-  if (filtros.tipoComprobante) query = query.eq('tipo_comprobante', filtros.tipoComprobante)
-  if (filtros.estado) query = query.eq('estado', filtros.estado)
-  else query = query.neq('estado', 'anulada')
+  if (filtros.tipoComprobante) {
+    if (!esValorDe(RA_TIPOS_COMPROBANTE, filtros.tipoComprobante)) return REPORTE_VACIO
+    query = query.eq('tipo_comprobante', filtros.tipoComprobante)
+  }
+  if (filtros.estado) {
+    if (!esValorDe(RA_ESTADOS_VENTA, filtros.estado)) return REPORTE_VACIO
+    query = query.eq('estado', filtros.estado)
+  } else query = query.neq('estado', 'anulada')
 
   const { data: ventas, error, count } = await query
   if (error) return { data: [], totales: {}, totalFilas: 0, error: 'Error al obtener ventas' }
 
-  const ventaIds = (ventas ?? []).map((venta: any) => venta.id)
-  const { data: movimientos } = ventaIds.length
+  const ventaIds = (ventas ?? []).map((venta) => venta.id)
+  const { data: movimientos, error: movimientosError } = ventaIds.length
     ? await supabase
       .from('ra_cuenta_corriente_movimientos')
       .select('venta_id, tipo, monto')
       .eq('empresa_id', perfil.empresa_id)
       .in('venta_id', ventaIds)
-    : { data: [] }
+    : { data: [], error: null }
+  if (movimientosError) return { data: [], totales: {}, totalFilas: 0, error: 'Error al obtener ventas' }
 
   const abonosPorVenta: Record<string, number> = {}
   for (const movimiento of movimientos ?? []) {
@@ -114,7 +122,7 @@ export async function getVentasReporte(filtros: ReporteFiltros): Promise<{ data:
     }
   }
 
-  const data = (ventas ?? []).map((venta: any): VentaReporte => {
+  const data = (ventas ?? []).map((venta): VentaReporte => {
     const resumen = calcularResumenCredito(venta.ra_venta_pagos ?? [], abonosPorVenta[venta.id] ?? 0)
     return {
       id: venta.id,
@@ -135,8 +143,7 @@ export async function getVentasReporte(filtros: ReporteFiltros): Promise<{ data:
 }
 
 export async function getCobrosRegistrados(filtros: ReporteFiltros): Promise<{ data: CobroRegistrado[]; totales: Record<string, number>; totalFilas: number; error: string | null }> {
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return { data: [], totales: {}, totalFilas: 0, error: 'No autenticado' }
 
   const pagina = Math.max(1, filtros.pagina ?? 1)
@@ -150,22 +157,28 @@ export async function getCobrosRegistrados(filtros: ReporteFiltros): Promise<{ d
     .eq('tipo', 'abono')
     .order('fecha', { ascending: false })
     .range(desdeFila, desdeFila + PAGE_SIZE - 1)
-  query = aplicarRango(query, 'fecha', filtros)
+  const rangoCobros = rangoFechas(true, filtros)
+  if (rangoCobros.desde) query = query.gte('fecha', rangoCobros.desde)
+  if (rangoCobros.hasta) query = query.lte('fecha', rangoCobros.hasta)
   if (filtros.sucursalId) query = query.eq('sucursal_id', filtros.sucursalId)
   if (filtros.clienteId) query = query.eq('cliente_id', filtros.clienteId)
-  if (filtros.metodoPago) query = query.eq('metodo_pago', filtros.metodoPago)
+  if (filtros.metodoPago) {
+    if (!esValorDe(RA_METODOS_PAGO, filtros.metodoPago)) return REPORTE_VACIO
+    query = query.eq('metodo_pago', filtros.metodoPago)
+  }
   if (filtros.referencia?.trim()) query = query.ilike('referencia', `%${filtros.referencia.trim()}%`)
 
   const { data: filas, error, count } = await query
   if (error) return { data: [], totales: {}, totalFilas: 0, error: 'Error al obtener cobros registrados' }
 
-  const usuarioIds = [...new Set((filas ?? []).map((fila: any) => fila.usuario_id).filter(Boolean))]
-  const { data: perfiles } = usuarioIds.length
+  const usuarioIds = [...new Set((filas ?? []).map((fila) => fila.usuario_id).filter(Boolean))]
+  const { data: perfiles, error: perfilesError } = usuarioIds.length
     ? await supabase.from('ra_perfiles').select('id, nombre').in('id', usuarioIds)
-    : { data: [] }
-  const nombres = Object.fromEntries((perfiles ?? []).map((item: any) => [item.id, item.nombre])) as Record<string, string>
+    : { data: [], error: null }
+  if (perfilesError) return { data: [], totales: {}, totalFilas: 0, error: 'Error al obtener cobros registrados' }
+  const nombres = Object.fromEntries((perfiles ?? []).map((item) => [item.id, item.nombre])) as Record<string, string>
 
-  const data = (filas ?? []).map((fila: any): CobroRegistrado => ({
+  const data = (filas ?? []).map((fila): CobroRegistrado => ({
     id: fila.id,
     fecha: fila.fecha,
     monto: Number(fila.monto),

@@ -104,17 +104,6 @@ function mapRpcCompraResult(raw: unknown, fallbackOperationId: string): CompraRe
   }
 }
 
-type CompraQueryResult = {
-  id: string
-  nro_documento: string | null
-  fecha_compra: string
-  total: number
-  estado_pago: 'pendiente' | 'parcial' | 'pagado'
-  notas: string | null
-  sucursal_id: string
-  ra_proveedores: { nombre: string } | null
-}
-
 export async function getCompras() {
   const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return { data: null, error: 'No autenticado' }
@@ -134,7 +123,7 @@ export async function getCompras() {
     .eq('empresa_id', perfil.empresa_id)
     .order('fecha_compra', { ascending: false })
 
-  const mapped = ((data ?? []) as unknown as CompraQueryResult[]).map((row) => ({
+  const mapped = (data ?? []).map((row) => ({
     id: row.id,
     nro_documento: row.nro_documento,
     fecha_compra: row.fecha_compra,
@@ -152,7 +141,7 @@ export async function buscarProveedores(q: string) {
   const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return []
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('ra_proveedores')
     .select('id, nombre')
     .eq('empresa_id', perfil.empresa_id)
@@ -160,24 +149,18 @@ export async function buscarProveedores(q: string) {
     .ilike('nombre', `%${q}%`)
     .limit(10)
 
+  if (error) {
+    console.error('[buscarProveedores] query error:', error)
+    return []
+  }
   return data ?? []
-}
-
-type ProductoParaCompraQuery = {
-  id: string
-  catalogo_id: string
-  precio_compra: number | null
-  ra_catalogo_repuestos: {
-    nombre: string
-    codigo_oem: string | null
-  } | null
 }
 
 export async function buscarProductosParaCompra(q: string) {
   const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return []
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('ra_productos')
     .select(`
       id,
@@ -190,29 +173,16 @@ export async function buscarProductosParaCompra(q: string) {
     .or(`nombre.ilike.%${q}%,codigo_oem.ilike.%${q}%`, { foreignTable: 'ra_catalogo_repuestos' })
     .limit(20)
 
-  return ((data ?? []) as unknown as ProductoParaCompraQuery[]).map((row) => ({
+  if (error) {
+    console.error('[buscarProductosParaCompra] query error:', error)
+    return []
+  }
+  return (data ?? []).map((row) => ({
     catalogo_id: row.catalogo_id,
     nombre: row.ra_catalogo_repuestos?.nombre ?? '',
     codigo_oem: row.ra_catalogo_repuestos?.codigo_oem ?? null,
     precio_compra: row.precio_compra,
   }))
-}
-
-type OrdenCompraQueryItem = {
-  catalogo_id: string
-  nombre_producto: string
-  cantidad: number
-  precio_unitario: number
-  cantidad_recibida: number
-}
-
-type OrdenCompraQueryResult = {
-  id: string
-  proveedor_id: string | null
-  referencia: string | null
-  estado: string
-  ra_proveedores: { nombre: string } | null
-  ra_orden_compra_items: OrdenCompraQueryItem[]
 }
 
 export async function getOrdenCompra(
@@ -236,7 +206,7 @@ export async function getOrdenCompra(
     .single()
 
   if (error || !data) return { data: null, error: 'Orden de compra no encontrada.' }
-  const oc = data as unknown as OrdenCompraQueryResult
+  const oc = data
   if (!oc.proveedor_id) return { data: null, error: 'La orden de compra no tiene proveedor asociado.' }
   if (oc.estado !== 'confirmada') {
     return { data: null, error: 'Solo se pueden recibir órdenes de compra confirmadas.' }
@@ -291,7 +261,7 @@ export async function registrarCompra(input: unknown): Promise<ActionResponse<Co
 
   let sucursalId = resolvedSucursalId
   if (!sucursalId) {
-    const { data: suc } = await supabase
+    const { data: suc, error: sucError } = await supabase
       .from('ra_sucursales')
       .select('id')
       .eq('empresa_id', perfil.empresa_id)
@@ -299,7 +269,11 @@ export async function registrarCompra(input: unknown): Promise<ActionResponse<Co
       .order('created_at')
       .limit(1)
       .single()
-    sucursalId = (suc as { id: string } | null)?.id ?? null
+    if (sucError && sucError.code !== 'PGRST116') {
+      console.error('[registrarCompra] sucursal query error:', sucError)
+      return { data: null, error: 'Error al resolver la sucursal.' }
+    }
+    sucursalId = suc?.id ?? null
   }
   if (!sucursalId) return { data: null, error: 'No hay sucursal configurada.' }
 

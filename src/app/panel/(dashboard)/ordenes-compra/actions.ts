@@ -22,8 +22,7 @@ export type ItemOrdenCompra = {
 }
 
 export async function getOrdenesCompra() {
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return { data: null, error: 'No autenticado' }
 
   const { data, error } = await supabase
@@ -41,7 +40,7 @@ export async function getOrdenesCompra() {
     .eq('empresa_id', perfil.empresa_id)
     .order('fecha', { ascending: false })
 
-  const mapped = (data ?? []).map((row: any) => ({
+  const mapped = (data ?? []).map((row) => ({
     id: row.id,
     referencia: row.referencia,
     fecha: row.fecha,
@@ -49,8 +48,8 @@ export async function getOrdenesCompra() {
     notas: row.notas,
     sucursal_id: row.sucursal_id,
     proveedor_nombre: row.ra_proveedores?.nombre ?? '—',
-    total_estimado: (row.ra_orden_compra_items ?? []).reduce(
-      (acc: number, i: any) => acc + Number(i.subtotal),
+    total_estimado: row.ra_orden_compra_items.reduce(
+      (acc, i) => acc + Number(i.subtotal),
       0
     ),
   }))
@@ -63,11 +62,10 @@ export async function getOrdenesCompra() {
 // modificado en paralelo por otro agente (Phase 5), y este módulo (Phase 4) no
 // debe depender de su forma final. Mismo patrón exacto que el original.
 export async function buscarProveedores(q: string) {
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return []
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('ra_proveedores')
     .select('id, nombre')
     .eq('empresa_id', perfil.empresa_id)
@@ -75,12 +73,15 @@ export async function buscarProveedores(q: string) {
     .ilike('nombre', `%${q}%`)
     .limit(10)
 
+  if (error) {
+    console.error('[buscarProveedores] query error:', error)
+    return []
+  }
   return data ?? []
 }
 
 export async function buscarProductosParaCompra(q: string) {
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return []
 
   // El filtro de texto va en la consulta SQL (contra la tabla embebida
@@ -89,7 +90,7 @@ export async function buscarProductosParaCompra(q: string) {
   // ra_productos sin filtrar primero y recién ahí buscar el texto: con
   // decenas de miles de productos, esos 20 arbitrarios casi nunca
   // contienen el término buscado (bug real detectado en QA manual).
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('ra_productos')
     .select(`
       id,
@@ -102,7 +103,11 @@ export async function buscarProductosParaCompra(q: string) {
     .or(`nombre.ilike.%${q}%,codigo_oem.ilike.%${q}%`, { foreignTable: 'ra_catalogo_repuestos' })
     .limit(20)
 
-  return (data ?? []).map((row: any) => ({
+  if (error) {
+    console.error('[buscarProductosParaCompra] query error:', error)
+    return []
+  }
+  return (data ?? []).map((row) => ({
     catalogo_id: row.catalogo_id,
     nombre: row.ra_catalogo_repuestos?.nombre ?? '',
     codigo_oem: row.ra_catalogo_repuestos?.codigo_oem ?? null,
@@ -118,13 +123,12 @@ export async function crearOrdenCompra(
 ): Promise<{ id: string | null; error: string | null }> {
   if (items.length === 0) return { id: null, error: 'Debes agregar al menos un artículo.' }
 
-  const { supabase: raw, user, perfil, sucursalId: resolvedSucursalId } = await getSession()
-  const supabase = raw as any
+  const { supabase, user, perfil, sucursalId: resolvedSucursalId } = await getSession()
   if (!perfil?.empresa_id || !user) return { id: null, error: 'No autenticado.' }
 
   let sucursalId = resolvedSucursalId
   if (!sucursalId) {
-    const { data: suc } = await supabase
+    const { data: suc, error: sucError } = await supabase
       .from('ra_sucursales')
       .select('id')
       .eq('empresa_id', perfil.empresa_id)
@@ -132,6 +136,10 @@ export async function crearOrdenCompra(
       .order('created_at')
       .limit(1)
       .single()
+    if (sucError && sucError.code !== 'PGRST116') {
+      console.error('[crearOrdenCompra] sucursal query error:', sucError)
+      return { id: null, error: 'Error al resolver la sucursal.' }
+    }
     sucursalId = suc?.id ?? null
   }
   if (!sucursalId) return { id: null, error: 'No hay sucursal configurada.' }
@@ -180,8 +188,7 @@ export async function crearOrdenCompra(
 }
 
 export async function confirmarOrdenCompra(id: string): Promise<string | null> {
-  const { supabase: raw, perfil } = await getSession()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) return 'No autenticado.'
 
   const { error } = await supabase.rpc('ra_confirmar_orden_compra', { p_orden_compra_id: id })
@@ -195,8 +202,7 @@ export async function confirmarOrdenCompra(id: string): Promise<string | null> {
 }
 
 export async function anularOrdenCompra(id: string): Promise<string | null> {
-  const { supabase: raw, perfil } = await getSession()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) return 'No autenticado.'
 
   const { error } = await supabase.rpc('ra_anular_orden_compra', { p_orden_compra_id: id })

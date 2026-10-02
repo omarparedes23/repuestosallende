@@ -5,8 +5,7 @@ import { TabBar } from '@/app/tablet/components/shared/TabBar'
 import { SessionHydrator } from './SessionHydrator'
 
 export default async function KioskLayout({ children }: { children: React.ReactNode }) {
-  const { supabase: rawSupabase, user, perfil, sucursalId } = await getSession()
-  const supabase = rawSupabase as any
+  const { supabase, user, perfil, sucursalId } = await getSession()
 
   if (!user || !perfil?.empresa_id) {
     redirect('/tablet/login')
@@ -17,13 +16,15 @@ export default async function KioskLayout({ children }: { children: React.ReactN
     redirect('/tablet/sucursal')
   }
 
-  const { data: caja } = await supabase
+  const { data: caja, error: cajaError } = await supabase
     .from('ra_cajas')
     .select('id')
     .eq('empresa_id', perfil.empresa_id)
     .eq('sucursal_id', sucursalId)
     .eq('estado', 'abierta')
     .maybeSingle()
+
+  if (cajaError) throw new Error(cajaError.message)
 
   if (!caja) {
     return (

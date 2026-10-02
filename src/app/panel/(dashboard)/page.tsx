@@ -1,8 +1,10 @@
 import { getSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/lib/types/database'
 import { TrendingUp, AlertTriangle, Archive, ShoppingBag } from 'lucide-react'
 
-async function getDashboardData(empresaId: string, supabase: any) {
+async function getDashboardData(empresaId: string, supabase: SupabaseClient<Database>) {
   const hoy = new Date().toISOString().split('T')[0]
 
   const [ventasHoy, stockBajo, cajasAbiertas, ultimasVentas] = await Promise.all([
@@ -35,9 +37,10 @@ async function getDashboardData(empresaId: string, supabase: any) {
       .limit(5),
   ])
 
-  const totalVentasHoy = (ventasHoy.data ?? []).reduce(
-    (sum: number, v: { total: number }) => sum + v.total, 0
-  )
+  const consultaFallida = [ventasHoy, stockBajo, cajasAbiertas, ultimasVentas].find((r) => r.error)
+  if (consultaFallida?.error) throw new Error(consultaFallida.error.message)
+
+  const totalVentasHoy = (ventasHoy.data ?? []).reduce((sum, v) => sum + v.total, 0)
 
   return {
     totalVentasHoy,
@@ -48,9 +51,8 @@ async function getDashboardData(empresaId: string, supabase: any) {
 }
 
 export default async function PanelDashboardPage() {
-  const { supabase: raw, perfil } = await getSession()
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) redirect('/panel/login')
-  const supabase = raw as any
 
   const { totalVentasHoy, articulosStockBajo, cajasAbiertas, ultimasVentas } =
     await getDashboardData(perfil.empresa_id, supabase)
@@ -156,7 +158,7 @@ export default async function PanelDashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {ultimasVentas.map((v: any, i: number) => (
+              {ultimasVentas.map((v, i) => (
                 <tr
                   key={v.id}
                   className="border-t"

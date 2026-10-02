@@ -19,11 +19,10 @@ const SIMBOLO: Record<string, string> = { PEN: 'S/', USD: '$' }
 
 export default async function CompraDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { supabase: raw, perfil } = await getSession()
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) redirect('/panel/login')
-  const supabase = raw as any
 
-  const { data: compra } = await supabase
+  const { data: compra, error } = await supabase
     .from('ra_compras')
     .select(`
       *,
@@ -40,18 +39,21 @@ export default async function CompraDetailPage({ params }: { params: Promise<{ i
     .eq('empresa_id', perfil.empresa_id)
     .single()
 
+  if (error && error.code !== 'PGRST116') throw new Error(error.message)
   if (!compra) redirect('/panel/compras')
 
   // El botón "Anular" solo se muestra si la compra sigue confirmada y todavía
   // no generó un cargo en cuentas por pagar (ra_anular_compra rechaza si ya
   // hay cargo — esto evita mostrar un botón que siempre va a fallar; la RPC
   // igual valida en el servidor como defensa en profundidad).
-  const { data: cargoExistente } = await supabase
+  const { data: cargoExistente, error: cargoError } = await supabase
     .from('ra_cuentas_por_pagar_movimientos')
     .select('id')
     .eq('compra_id', id)
     .eq('tipo', 'cargo')
     .maybeSingle()
+
+  if (cargoError) throw new Error(cargoError.message)
 
   const puedeAnular = compra.estado === 'confirmada' && !cargoExistente
 
@@ -139,7 +141,7 @@ export default async function CompraDetailPage({ params }: { params: Promise<{ i
             </tr>
           </thead>
           <tbody>
-            {(compra.ra_compra_items ?? []).map((item: any, i: number) => (
+            {compra.ra_compra_items.map((item, i) => (
               <tr
                 key={item.id}
                 className="border-t"

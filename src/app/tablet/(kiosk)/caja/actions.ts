@@ -27,8 +27,7 @@ export async function abrirCaja(
   }
   if (!UUID.test(operationId)) return 'Identificador de operación inválido.'
 
-  const { supabase: supabaseRaw, user, perfil, sucursalId } = await getSession()
-  const supabase = supabaseRaw as any
+  const { supabase, user, perfil, sucursalId } = await getSession()
   if (!user || !perfil?.empresa_id) return 'No autenticado.'
   if (!sucursalId) return 'Tienda no seleccionada. Vuelve al inicio.'
   // Only admins and superadmins can open/close caja
@@ -57,8 +56,7 @@ export async function cerrarCaja(
   const montoFinal = montoFinalStr ? parseFloat(montoFinalStr) : null
   const operationId = String(formData.get('operation_id') ?? '')
 
-  const { supabase: supabaseRaw, user, perfil, sucursalId } = await getSession()
-  const supabase = supabaseRaw as any
+  const { supabase, user, perfil, sucursalId } = await getSession()
   if (!user || !perfil?.empresa_id) return 'No autenticado.'
   if (!sucursalId) return 'Tienda no seleccionada. Vuelve al inicio.'
   if (!['administrador', 'superadmin'].includes(perfil.rol)) {
@@ -67,7 +65,8 @@ export async function cerrarCaja(
   if (!UUID.test(operationId)) return 'Identificador de operación inválido.'
   if (montoFinal === null || !Number.isFinite(montoFinal) || montoFinal < 0) return 'Ingresa un efectivo contado válido.'
 
-  const { data: caja } = await supabase.from('ra_cajas').select('id').eq('sucursal_id', sucursalId).eq('empresa_id', perfil.empresa_id).eq('estado', 'abierta').maybeSingle()
+  const { data: caja, error: cajaError } = await supabase.from('ra_cajas').select('id').eq('sucursal_id', sucursalId).eq('empresa_id', perfil.empresa_id).eq('estado', 'abierta').maybeSingle()
+  if (cajaError) return 'Error al consultar la caja. Intenta de nuevo.'
   if (!caja || !UUID.test(caja.id)) return 'No hay una caja abierta para cerrar.'
 
   const { error } = await supabase.rpc('ra_cerrar_caja_v1', {
@@ -97,8 +96,7 @@ export async function registrarMovimiento(
   if (!['ingreso', 'egreso'].includes(tipo)) return 'Tipo de movimiento inválido.'
   if (!UUID.test(operationId)) return 'Identificador de operación inválido.'
 
-  const { supabase: supabaseRaw, user, perfil, sucursalId } = await getSession()
-  const supabase = supabaseRaw as any
+  const { supabase, user, perfil, sucursalId } = await getSession()
   if (!user || !perfil?.empresa_id) return 'No autenticado.'
   if (!sucursalId) return 'Tienda no seleccionada. Vuelve al inicio.'
 

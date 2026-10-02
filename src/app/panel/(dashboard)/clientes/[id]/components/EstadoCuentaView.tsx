@@ -40,7 +40,7 @@ function estaVencida(fechaVencimiento: string | null): boolean {
   return new Date(fechaVencimiento) < new Date(new Date().toDateString())
 }
 
-export function EstadoCuentaView({ cliente, movimientos, sucursales, sucursalInicialId }: Props) {
+export function EstadoCuentaView({ movimientos, sucursales, sucursalInicialId }: Props) {
   const router = useRouter()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [cobroTarget, setCobroTarget] = useState<VentaCredito | null>(null)

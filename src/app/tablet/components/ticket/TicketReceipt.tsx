@@ -78,7 +78,7 @@ function QrSunat({ value, size }: { value: string; size: number }) {
 }
 
 export function TicketReceipt({ data }: { data: TicketReceiptData }) {
-  const { width, empresa, sucursal, numeroCompleto, fecha, moneda, simbolo, tipoCambio } = data
+  const { width, empresa, sucursal, numeroCompleto, fecha, simbolo, tipoCambio } = data
   const mostrarIgv = data.igv > 0
 
   return (

@@ -154,7 +154,7 @@ export function CatalogoPageClient({
     if (busquedaNorm) {
       const enNombre = r.nombre.toLowerCase().includes(busquedaNorm)
       const enOem = (r.codigo_oem ?? '').toLowerCase().includes(busquedaNorm)
-      const enAlternos = ((r as any).codigos_alternos ?? '').toLowerCase().includes(busquedaNorm)
+      const enAlternos = (r.codigos_alternos ?? '').toLowerCase().includes(busquedaNorm)
       if (!enNombre && !enOem && !enAlternos) return false
     }
     return true

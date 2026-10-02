@@ -46,8 +46,7 @@ export async function buscarClientes(query: string): Promise<{
   data: ClienteResumen[]
   error: string | null
 }> {
-  const { supabase: rawSupabase, user, perfil } = await getSessionFast()
-  const supabase = rawSupabase as any
+  const { supabase, user, perfil } = await getSessionFast()
   if (!user || !perfil?.empresa_id) return { data: [], error: 'No autenticado' }
 
   let q = supabase
@@ -98,8 +97,7 @@ export async function crearCliente(
   const parsed = parseClienteForm(formData)
   if (!parsed.success) return parsed.error.issues[0]?.message ?? 'Datos inválidos.'
 
-  const { supabase: rawSupabase, user, perfil } = await getSession()
-  const supabase = rawSupabase as any
+  const { supabase, user, perfil } = await getSession()
   if (!user || !perfil?.empresa_id) return 'No autenticado.'
   if (!['administrador', 'vendedor'].includes(perfil.rol)) return 'Sin permisos.'
 
@@ -125,8 +123,7 @@ export async function actualizarCliente(
   const parsed = parseClienteForm(formData)
   if (!parsed.success) return parsed.error.issues[0]?.message ?? 'Datos inválidos.'
 
-  const { supabase: rawSupabase, user, perfil } = await getSession()
-  const supabase = rawSupabase as any
+  const { supabase, user, perfil } = await getSession()
   if (!user || !perfil?.empresa_id) return 'No autenticado.'
   if (!['administrador', 'vendedor'].includes(perfil.rol)) return 'Sin permisos.'
 

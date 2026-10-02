@@ -3,23 +3,40 @@
 import { revalidatePath } from 'next/cache'
 import { getSession, getSessionFast } from '@/lib/session'
 import { consultarRuc, consultarDni } from '@/lib/services/dniRuc'
+import { esValorDe, RA_TIPOS_DOCUMENTO } from '@/lib/types/database'
 import type {
   RaClienteInsert,
   RaClienteUpdate,
   RaCuentaCorrienteMovimiento,
   RaMetodoPago,
   RaMoneda,
+  RaTipoDocumento,
   RaVenta,
 } from '@/lib/types/database'
 
-export type MovimientoConVenta = RaCuentaCorrienteMovimiento & {
+export type MovimientoConVenta = Pick<
+  RaCuentaCorrienteMovimiento,
+  | 'id'
+  | 'empresa_id'
+  | 'cliente_id'
+  | 'venta_id'
+  | 'tipo'
+  | 'monto'
+  | 'fecha'
+  | 'fecha_vencimiento'
+  | 'moneda_cobro'
+  | 'tipo_cambio_cobro'
+  | 'metodo_pago'
+  | 'referencia'
+  | 'usuario_id'
+  | 'created_at'
+> & {
   ra_ventas: Pick<RaVenta, 'id' | 'numero_completo' | 'moneda' | 'total' | 'created_at'> | null
   usuario_nombre: string | null
 }
 
 export async function getClientes() {
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return { data: null, error: 'No autenticado' }
 
   const { data, error } = await supabase
@@ -58,7 +75,7 @@ export async function upsertCliente(
 ): Promise<string | null> {
   const id = formData.get('id') as string | null
   const nombre = (formData.get('nombre') as string)?.trim()
-  const tipoDocumento = (formData.get('tipo_documento') as string) || null
+  const tipoDocumentoRaw = (formData.get('tipo_documento') as string) || null
   const nroDocumento = (formData.get('nro_documento') as string)?.trim() || null
   const telefono = (formData.get('telefono') as string)?.trim() || null
   const email = (formData.get('email') as string)?.trim() || null
@@ -68,6 +85,11 @@ export async function upsertCliente(
 
   if (!nombre) return 'El nombre del cliente es obligatorio.'
   if (isNaN(limiteCredito) || limiteCredito < 0) return 'El límite de crédito debe ser mayor o igual a 0.'
+  let tipoDocumento: RaTipoDocumento | null = null
+  if (tipoDocumentoRaw) {
+    if (!esValorDe(RA_TIPOS_DOCUMENTO, tipoDocumentoRaw)) return 'Tipo de documento inválido.'
+    tipoDocumento = tipoDocumentoRaw
+  }
   if (tipoDocumento === 'DNI' && nroDocumento && !/^\d{8}$/.test(nroDocumento)) {
     return 'El DNI debe tener exactamente 8 dígitos.'
   }
@@ -75,14 +97,13 @@ export async function upsertCliente(
     return 'El RUC debe tener exactamente 11 dígitos.'
   }
 
-  const { supabase: raw, perfil } = await getSession()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) return 'No autenticado.'
 
   if (id) {
     const payload: RaClienteUpdate = {
       nombre,
-      tipo_documento: tipoDocumento as any,
+      tipo_documento: tipoDocumento,
       nro_documento: nroDocumento,
       telefono,
       email,
@@ -100,7 +121,7 @@ export async function upsertCliente(
     const payload: RaClienteInsert = {
       empresa_id: perfil.empresa_id,
       nombre,
-      tipo_documento: tipoDocumento as any,
+      tipo_documento: tipoDocumento,
       nro_documento: nroDocumento,
       telefono,
       email,
@@ -120,8 +141,7 @@ export async function getEstadoCuenta(clienteId: string): Promise<{
   data: MovimientoConVenta[] | null
   error: string | null
 }> {
-  const { supabase: raw, perfil } = await getSessionFast()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return { data: null, error: 'No autenticado' }
 
   const { data: movimientos, error } = await supabase
@@ -138,15 +158,16 @@ export async function getEstadoCuenta(clienteId: string): Promise<{
   if (error) return { data: null, error: 'Error al obtener el estado de cuenta' }
 
   const filas = movimientos ?? []
-  const usuarioIds = [...new Set(filas.map((m: any) => m.usuario_id))]
-  const { data: perfiles } = usuarioIds.length
+  const usuarioIds = [...new Set(filas.map((m) => m.usuario_id))]
+  const { data: perfiles, error: perfilesError } = usuarioIds.length
     ? await supabase.from('ra_perfiles').select('id, nombre').in('id', usuarioIds)
-    : { data: [] }
+    : { data: [], error: null }
+  if (perfilesError) return { data: null, error: 'Error al obtener el estado de cuenta' }
   const nombrePorUsuario: Record<string, string> = Object.fromEntries(
-    (perfiles ?? []).map((p: any) => [p.id, p.nombre])
+    (perfiles ?? []).map((p) => [p.id, p.nombre])
   )
 
-  const data: MovimientoConVenta[] = filas.map((m: any) => ({
+  const data: MovimientoConVenta[] = filas.map((m) => ({
     ...m,
     usuario_nombre: nombrePorUsuario[m.usuario_id] ?? null,
   }))
@@ -175,8 +196,7 @@ export async function registrarCobro(
   if (['yape', 'tarjeta', 'transferencia'].includes(metodoPago) && !referencia?.trim()) {
     return { error: 'Los pagos digitales requieren número de operación o voucher.' }
   }
-  const { supabase: raw, perfil } = await getSession()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) return { error: 'No autenticado' }
   if (!['administrador', 'superadmin'].includes(perfil.rol)) return { error: 'Sin permisos.' }
   const { error } = await supabase.rpc('ra_registrar_cobro_v2', {
@@ -210,8 +230,7 @@ function mapTreasuryError(message: string | null | undefined, fallback: string):
 }
 
 export async function toggleActivoCliente(id: string, activo: boolean): Promise<string | null> {
-  const { supabase: raw, perfil } = await getSession()
-  const supabase = raw as any
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) return 'No autenticado.'
 
   const { error } = await supabase

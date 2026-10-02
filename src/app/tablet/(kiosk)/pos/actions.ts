@@ -56,8 +56,7 @@ export async function buscarProductos(
   marcaRepuestoId?: string,
   offset = 0
 ): Promise<ActionResponse<BuscarProductosResult>> {
-  const { supabase: rawSupabase, user, perfil, sucursalId } = await getSessionFast()
-  const supabase = rawSupabase as any
+  const { supabase, user, perfil, sucursalId } = await getSessionFast()
   if (!user || !perfil?.empresa_id) return { data: null, error: 'No autenticado' }
   if (!sucursalId) return { data: null, error: 'Tienda no seleccionada' }
 
@@ -89,9 +88,8 @@ export async function buscarProductos(
   if (error) return { data: null, error: 'Error buscando productos' }
 
   const filas = data ?? []
-  const productos: ProductoBuscado[] = filas.flatMap((row: any) => {
-    const prods: any[] = Array.isArray(row.ra_productos) ? row.ra_productos : [row.ra_productos]
-    return prods.map((p) => ({
+  const productos: ProductoBuscado[] = filas.flatMap((row) =>
+    row.ra_productos.map((p) => ({
       productoId: p.id,
       catalogoId: row.id,
       nombre: row.nombre,
@@ -101,7 +99,7 @@ export async function buscarProductos(
       precioDolar: p.precio_venta_dolar ?? null,
       stockActual: p.stock_actual,
     }))
-  })
+  )
 
   return { data: { productos, hasMore: filas.length === PAGE_SIZE }, error: null }
 }
@@ -172,9 +170,9 @@ function mapRpcVentaResult(result: RpcVentaResult): VentaResult {
 export async function consultarResultadoVenta(operationId: string): Promise<ActionResponse<VentaResult>> {
   const parsed = z.string().uuid().safeParse(operationId)
   if (!parsed.success) return { data: null, error: 'Identificador de operación inválido' }
-  const { supabase: rawSupabase, user } = await getSession()
+  const { supabase, user } = await getSession()
   if (!user) return { data: null, error: 'No autenticado' }
-  const { data, error } = await rawSupabase.rpc('ra_obtener_resultado_venta', {
+  const { data, error } = await supabase.rpc('ra_obtener_resultado_venta', {
     p_operation_id: operationId,
   })
   if (error) return { data: null, error: ventaErrorMessage(error.message) }
@@ -183,7 +181,7 @@ export async function consultarResultadoVenta(operationId: string): Promise<Acti
 }
 
 export async function procesarVenta(input: unknown): Promise<ActionResponse<VentaResult>> {
-  const { supabase: rawSupabase, user, perfil, sucursalId } = await getSession()
+  const { supabase, user, perfil, sucursalId } = await getSession()
   if (!user || !perfil?.empresa_id) return { data: null, error: 'No autenticado' }
   if (!sucursalId) return { data: null, error: 'Tienda no seleccionada' }
   if (perfil.rol === 'lectura') return { data: null, error: 'Sin permisos para registrar ventas' }
@@ -191,7 +189,7 @@ export async function procesarVenta(input: unknown): Promise<ActionResponse<Vent
   const parsed = VentaInputSchema.safeParse(input)
   if (!parsed.success) return { data: null, error: parsed.error.issues[0]?.message ?? 'Datos inválidos' }
   const value = parsed.data
-  const { data, error } = await rawSupabase.rpc('ra_confirmar_venta', {
+  const { data, error } = await supabase.rpc('ra_confirmar_venta', {
     p_operation_id: value.operationId,
     p_sucursal_id: sucursalId,
     p_tipo_comprobante: value.tipoComprobante,

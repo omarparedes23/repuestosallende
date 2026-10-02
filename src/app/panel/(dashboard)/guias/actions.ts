@@ -96,29 +96,6 @@ export type PreviewSerieGuia = {
   numeroPreview: string
 }
 
-type ProductoEnSucursalQuery = {
-  id: string
-  catalogo_id: string
-  stock_actual: number
-  ra_catalogo_repuestos: {
-    nombre: string
-    codigo_oem: string | null
-  } | null
-}
-
-type GuiaQueryResult = {
-  id: string
-  estado: GuiaRow['estado']
-  serie: string | null
-  correlativo: number | null
-  notas: string | null
-  fecha_emision: string | null
-  created_at: string
-  fecha_recepcion: string | null
-  origen: { nombre: string } | null
-  destino: { nombre: string } | null
-}
-
 /**
  * Busca únicamente el inventario disponible de la sucursal que será origen de
  * la guía. La validación definitiva sigue perteneciendo a las RPC de guía:
@@ -154,7 +131,7 @@ export async function buscarProductosEnSucursal(
 
   if (error) return []
 
-  return ((data ?? []) as unknown as ProductoEnSucursalQuery[]).map((row) => ({
+  return (data ?? []).map((row) => ({
     productoId: row.id,
     catalogoId: row.catalogo_id,
     nombre: row.ra_catalogo_repuestos?.nombre ?? '',
@@ -184,7 +161,7 @@ export async function getGuias() {
     .eq('empresa_id', perfil.empresa_id)
     .order('created_at', { ascending: false })
 
-  const mapped = ((data ?? []) as unknown as GuiaQueryResult[]).map((row) => ({
+  const mapped = (data ?? []).map((row) => ({
     id: row.id,
     estado: row.estado,
     serie: row.serie,
@@ -204,13 +181,14 @@ export async function getSucursales() {
   const { supabase, perfil } = await getSessionFast()
   if (!perfil?.empresa_id) return []
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('ra_sucursales')
     .select('id, nombre')
     .eq('empresa_id', perfil.empresa_id)
     .eq('activo', true)
     .order('nombre')
 
+  if (error) throw new Error(error.message)
   return data ?? []
 }
 

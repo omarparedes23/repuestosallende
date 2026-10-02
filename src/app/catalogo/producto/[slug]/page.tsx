@@ -13,7 +13,7 @@ type Props = { params: Promise<{ slug: string }> }
 
 async function getProducto(id: string) {
   const supabase = createPublicClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('ra_catalogo_repuestos')
     .select(
       `*,
@@ -24,7 +24,8 @@ async function getProducto(id: string) {
     .eq('activo', true)
     .single()
 
-  return data as any
+  if (error && error.code !== 'PGRST116') throw new Error(error.message)
+  return data
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -36,9 +37,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!producto) return {}
 
   const oem = producto.codigo_oem ? ` (OEM: ${producto.codigo_oem})` : ''
-  const modeloPrincipal = (producto.compatibilidades ?? [])
-    .map((c: any) => c.modelo)
-    .filter(Boolean)[0]
+  const modeloPrincipal = producto.compatibilidades
+    .map((c) => c.modelo)
+    .filter((m) => m !== null)[0]
   const modeloYaEnNombre =
     modeloPrincipal &&
     producto.nombre.toUpperCase().includes(modeloPrincipal.nombre.toUpperCase())
@@ -75,11 +76,9 @@ export default async function ProductoDetallePage({ params }: Props) {
 
   const isAdmin = await getIsAdminPublico()
 
-  const modelos: { id: string; nombre: string; slug: string }[] = (
-    producto.compatibilidades ?? []
-  )
-    .map((c: any) => c.modelo)
-    .filter(Boolean)
+  const modelos = producto.compatibilidades
+    .map((c) => c.modelo)
+    .filter((m) => m !== null)
 
   const modeloPrincipal = modelos[0]
   const modeloYaEnNombre =
@@ -92,7 +91,7 @@ export default async function ProductoDetallePage({ params }: Props) {
   // Prioriza relacionados que compartan modelo de vehículo (evita mezclar marcas
   // dentro de una misma categoría amplia como "Motor"). Si el producto no tiene
   // modelo asignado, cae a solo filtrar por categoría.
-  const { data: relacionadosData } = modeloIds.length > 0
+  const { data: relacionadosData, error: relacionadosError } = modeloIds.length > 0
     ? await supabase
         .from('ra_catalogo_repuestos')
         .select('id, nombre, imagen_url, codigo_oem, ra_compatibilidades!inner(modelo_id)')
@@ -109,12 +108,14 @@ export default async function ProductoDetallePage({ params }: Props) {
         .neq('id', id)
         .limit(4)
 
+  if (relacionadosError) throw new Error(relacionadosError.message)
+
   const relacionados = Array.from(
-    new Map((relacionadosData ?? []).map((r: any) => [r.id, r])).values()
+    new Map((relacionadosData ?? []).map((r) => [r.id, r] as const)).values()
   ).slice(0, 4)
 
   const codigosAlternos = producto.codigos_alternos
-    ? producto.codigos_alternos.split(/[,;]/).map((c: string) => c.trim()).filter(Boolean)
+    ? producto.codigos_alternos.split(/[,;]/).map((c) => c.trim()).filter(Boolean)
     : []
 
   return (
@@ -236,7 +237,7 @@ export default async function ProductoDetallePage({ params }: Props) {
         <div>
           <h2 className="text-lg font-bold text-[#002D62] mb-4">Productos relacionados</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {relacionados.map((r: any) => (
+            {relacionados.map((r) => (
               <Link
                 key={r.id}
                 href={`/catalogo/producto/${productoSlug(r.nombre, r.id)}`}

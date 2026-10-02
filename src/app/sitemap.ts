@@ -30,11 +30,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     const supabase = createPublicClient()
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('ra_modelos_auto')
       .select('slug, updated_at')
       .eq('activo', true)
       .returns<Array<{ slug: string; updated_at: string | null }>>()
+
+    if (error) throw new Error(error.message)
 
     dinamicas =
       data?.map((m) => ({
@@ -44,11 +46,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.8,
       })) ?? []
 
-    const { data: productos } = await supabase
+    const { data: productos, error: productosError } = await supabase
       .from('ra_catalogo_repuestos')
       .select('id, nombre, updated_at, ra_compatibilidades!inner(modelo_id)')
       .eq('activo', true)
       .returns<Array<{ id: string; nombre: string; updated_at: string | null }>>()
+
+    if (productosError) throw new Error(productosError.message)
 
     const productosSitemap: MetadataRoute.Sitemap =
       productos?.map((p) => ({

@@ -8,8 +8,7 @@ export async function seleccionarSucursal(
   _prevState: string | null,
   formData: FormData
 ): Promise<string | null> {
-  const { supabase: rawSupabase, user, perfil } = await getSession()
-  const supabase = rawSupabase as any
+  const { supabase, user, perfil } = await getSession()
 
   if (!user || !perfil?.empresa_id) return 'No autenticado'
 
@@ -17,7 +16,7 @@ export async function seleccionarSucursal(
   if (!sucursalId) return 'Selecciona una tienda'
 
   // Validate the sucursal belongs to this empresa
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('ra_sucursales')
     .select('id')
     .eq('id', sucursalId)
@@ -25,7 +24,7 @@ export async function seleccionarSucursal(
     .eq('activo', true)
     .single()
 
-  if (!data) return 'Tienda no válida'
+  if (error || !data) return 'Tienda no válida'
 
   const jar = await cookies()
   // La sucursal activa debe acompañar al usuario también dentro del Panel.

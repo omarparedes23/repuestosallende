@@ -12,27 +12,29 @@ type Props = { params: Promise<{ modelo: string }> }
 
 export async function generateStaticParams() {
   const supabase = createPublicClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('ra_modelos_auto')
     .select('slug')
     .eq('activo', true)
-  return ((data as any) ?? []).map((m: any) => ({ modelo: m.slug }))
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((m) => ({ modelo: m.slug }))
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { modelo: slug } = await params
   const supabase = createPublicClient()
-  const { data: modelo } = await supabase
+  const { data: modelo, error } = await supabase
     .from('ra_modelos_auto')
     .select('nombre, ra_marcas_auto(nombre)')
     .eq('slug', slug)
     .eq('activo', true)
     .single()
-  
+
+  if (error && error.code !== 'PGRST116') throw new Error(error.message)
   if (!modelo) return {}
-  
-  const brand = (modelo as any).ra_marcas_auto?.nombre || "Mercedes-Benz"
-  const modelName = (modelo as any).nombre
+
+  const brand = modelo.ra_marcas_auto?.nombre || "Mercedes-Benz"
+  const modelName = modelo.nombre
   
   return {
     title: `Repuestos ${brand} ${modelName} | Repuestos Allende`,
@@ -47,13 +49,14 @@ export default async function CatalogoModeloPage({ params }: Props) {
   const { modelo: slug } = await params
   const supabase = createPublicClient()
 
-  const { data: modelo } = await supabase
+  const { data: modelo, error: modeloError } = await supabase
     .from('ra_modelos_auto')
     .select('*, marca:ra_marcas_auto(id, nombre)')
     .eq('slug', slug)
     .eq('activo', true)
     .single()
 
+  if (modeloError && modeloError.code !== 'PGRST116') throw new Error(modeloError.message)
   if (!modelo) notFound()
 
   // La lista de categorias/marcas para los filtros del sidebar se deriva en el
@@ -61,19 +64,18 @@ export default async function CatalogoModeloPage({ params }: Props) {
   // ra_categorias) - evita mostrar categorias en 0 (de otros modelos) y
   // duplicados por nombre (ra_categorias tiene varias filas con el mismo
   // nombre, ej. "MOTOR" x7, una por subcategoria del ERP).
-  // as any: marca_repuesto_id / ra_marcas_repuesto no estan en el tipo Database
-  // generado (quedo desactualizado desde la migracion 024) - mismo patron que
-  // ya usa el panel admin (articulos/actions.ts) para estos mismos campos.
-  const { data: repuestos } = await (supabase as any)
+  const { data: repuestos, error: repuestosError } = await supabase
     .from('ra_catalogo_repuestos')
     .select('*, categoria:ra_categorias(id, nombre, slug, orden), marca_repuesto:ra_marcas_repuesto(id, nombre), ra_compatibilidades!inner(modelo_id)')
     .eq('activo', true)
-    .eq('ra_compatibilidades.modelo_id', (modelo as any).id)
+    	.eq('ra_compatibilidades.modelo_id', modelo.id)
     .order('nombre')
 
+  if (repuestosError) throw new Error(repuestosError.message)
+
   const isAdmin = await getIsAdminPublico()
-  const precios = await getPreciosPublicos((repuestos ?? []).map((repuesto: any) => repuesto.id))
-  const repuestosConPrecio = (repuestos ?? []).map((repuesto: any) => ({
+  const precios = await getPreciosPublicos((repuestos ?? []).map((repuesto) => repuesto.id))
+  const repuestosConPrecio = (repuestos ?? []).map((repuesto) => ({
     ...repuesto,
     precio_venta: precios[repuesto.id]?.precioVenta ?? null,
     precio_venta_dolar: precios[repuesto.id]?.precioVentaDolar ?? null,

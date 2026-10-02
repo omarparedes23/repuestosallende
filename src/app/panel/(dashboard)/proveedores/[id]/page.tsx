@@ -7,20 +7,21 @@ import { EstadoCuentaProveedorView } from './components/EstadoCuentaProveedorVie
 
 export default async function ProveedorDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { supabase: raw, perfil } = await getSession()
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) redirect('/panel/login')
-  const supabase = raw as any
 
-  const { data: proveedor } = await supabase
+  const { data: proveedor, error } = await supabase
     .from('ra_proveedores')
     .select('*')
     .eq('id', id)
     .eq('empresa_id', perfil.empresa_id)
     .single()
 
+  if (error && error.code !== 'PGRST116') throw new Error(error.message)
   if (!proveedor) redirect('/panel/proveedores')
 
-  const { data: movimientos } = await getEstadoCuentaProveedor(id)
+  const { data: movimientos, error: movimientosError } = await getEstadoCuentaProveedor(id)
+  if (movimientosError) throw new Error(movimientosError)
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6">

@@ -13,11 +13,10 @@ const ESTADO_STYLE: Record<string, { bg: string; color: string; label: string }>
 
 export default async function OrdenCompraDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { supabase: raw, perfil } = await getSession()
+  const { supabase, perfil } = await getSession()
   if (!perfil?.empresa_id) redirect('/panel/login')
-  const supabase = raw as any
 
-  const { data: ordenCompra } = await supabase
+  const { data: ordenCompra, error } = await supabase
     .from('ra_ordenes_compra')
     .select(`
       *,
@@ -35,11 +34,12 @@ export default async function OrdenCompraDetailPage({ params }: { params: Promis
     .eq('empresa_id', perfil.empresa_id)
     .single()
 
+  if (error && error.code !== 'PGRST116') throw new Error(error.message)
   if (!ordenCompra) redirect('/panel/ordenes-compra')
 
   const estilo = ESTADO_STYLE[ordenCompra.estado] ?? ESTADO_STYLE.borrador
-  const items = ordenCompra.ra_orden_compra_items ?? []
-  const totalEstimado = items.reduce((acc: number, item: any) => acc + Number(item.subtotal), 0)
+  const items = ordenCompra.ra_orden_compra_items
+  const totalEstimado = items.reduce((acc, item) => acc + Number(item.subtotal), 0)
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-6">
@@ -122,7 +122,7 @@ export default async function OrdenCompraDetailPage({ params }: { params: Promis
             </tr>
           </thead>
           <tbody>
-            {items.map((item: any, i: number) => {
+            {items.map((item, i) => {
               const pendiente = Number(item.cantidad) - Number(item.cantidad_recibida)
               return (
                 <tr

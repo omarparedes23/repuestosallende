@@ -14,12 +14,22 @@ export type RaEstadoGuia       = 'borrador' | 'emitida' | 'en_transito' | 'recib
 
 // ── Enums: migration 003 (Tablet POS) ──────────────────────
 export type RaTipoCliente    = 'mayorista' | 'minorista'
-export type RaTipoDocumento  = 'DNI' | 'RUC' | 'CE' | 'PASAPORTE'
-export type RaEstadoCaja     = 'abierta' | 'cerrada'
-export type RaTipoMovimiento = 'ingreso' | 'egreso'
-export type RaMetodoPago     = 'efectivo' | 'yape' | 'tarjeta' | 'transferencia' | 'credito'
-export type RaTipoComprobante = 'ticket' | 'boleta' | 'factura'
-export type RaEstadoVenta    = 'pendiente' | 'completada' | 'anulada' | 'error_sunat'
+// Values validated at runtime are declared once as const arrays; the union derives from them.
+export const RA_TIPOS_DOCUMENTO = ['DNI', 'RUC', 'CE', 'PASAPORTE'] as const
+export const RA_METODOS_PAGO = ['efectivo', 'yape', 'tarjeta', 'transferencia', 'credito'] as const
+export const RA_TIPOS_COMPROBANTE = ['ticket', 'boleta', 'factura'] as const
+export const RA_ESTADOS_VENTA = ['pendiente', 'completada', 'anulada', 'error_sunat'] as const
+
+export type RaTipoDocumento   = (typeof RA_TIPOS_DOCUMENTO)[number]
+export type RaEstadoCaja      = 'abierta' | 'cerrada'
+export type RaTipoMovimiento  = 'ingreso' | 'egreso'
+export type RaMetodoPago      = (typeof RA_METODOS_PAGO)[number]
+export type RaTipoComprobante = (typeof RA_TIPOS_COMPROBANTE)[number]
+export type RaEstadoVenta     = (typeof RA_ESTADOS_VENTA)[number]
+
+export function esValorDe<T extends string>(valores: readonly T[], value: string): value is T {
+  return (valores as readonly string[]).includes(value)
+}
 export type RaTipoKardex     = 'entrada' | 'salida' | 'ajuste'
 export type RaMotivoKardex   = 'venta' | 'compra' | 'ajuste_manual' | 'devolucion' | 'merma' | 'traslado'
 
@@ -37,6 +47,12 @@ export type RaEstadoCompra = 'confirmada' | 'anulada'
 
 // ── Enums: migration 035 (Cuentas por pagar) ────────────────
 export type RaCxpTipoMovimiento = 'cargo' | 'abono'
+
+export type RaEstadoOutboxSunat =
+  | 'pending' | 'processing' | 'retry' | 'submitted' | 'accepted' | 'rejected' | 'dead_letter'
+
+// ── Liquidaciones de caja ───────────────────────────────────
+export type RaEstadoRevisionLiquidacion = 'pendiente_revision' | 'validada' | 'observada'
 
 // ── Migrations 055–065 (Devoluciones y notas de crédito) ───────────────
 export type RaEstadoDevolucion = 'solicitada' | 'recibida' | 'aprobada' | 'liquidada' | 'rechazada'
@@ -75,11 +91,13 @@ type ColumnOverrides = {
     estado_nuevo: RaEstadoPagoCompra
   }
   ra_devoluciones: { estado: RaEstadoDevolucion }
-  ra_sunat_nota_credito_outbox: { tipo_referenciado: RaTipoComprobante }
+  ra_sunat_nota_credito_outbox: { tipo_referenciado: RaTipoComprobante; status: RaEstadoOutboxSunat }
+  ra_liquidaciones: { estado_revision: RaEstadoRevisionLiquidacion }
 }
 
 type ArgOverrides = {
   ra_avanzar_estado_guia: { p_nuevo_estado: RaEstadoGuia }
+  ra_revisar_liquidacion_v1: { p_decision: Exclude<RaEstadoRevisionLiquidacion, 'pendiente_revision'> }
   ra_confirmar_venta: { p_tipo_comprobante: RaTipoComprobante }
   ra_registrar_cobro_v2: { p_metodo_pago: RaMetodoPago }
   ra_registrar_pago_proveedor_v2: { p_metodo_pago: RaMetodoPago }
@@ -94,7 +112,12 @@ type NarrowTable<T, P> = T extends { Row: infer R; Insert: infer I; Update: infe
 type NullableArgs = {
   ra_confirmar_compra: 'p_nro_documento' | 'p_notas' | 'p_orden_compra_id' | 'p_tipo_cambio'
   ra_confirmar_venta: 'p_cliente_id' | 'p_tipo_cambio' | 'p_fecha_vencimiento' | 'p_numero_placa'
+  ra_registrar_cobro_v2: 'p_tipo_cambio_cobro' | 'p_referencia'
+  ra_registrar_pago_proveedor_v2: 'p_referencia'
   ra_crear_guia: 'p_notas'
+  ra_cerrar_caja_v1: 'p_notas'
+  ra_abrir_caja_v1: 'p_notas'
+  ra_registrar_movimiento_caja_v1: 'p_notas'
   ra_registrar_recepcion_devolucion_v1: 'p_observacion'
   ra_aprobar_devolucion_v1: 'p_reingreso_override_motivo'
 }

@@ -7,7 +7,8 @@ export default async function GuiasPage() {
   const { perfil } = await getSession()
   if (!perfil?.empresa_id) redirect('/panel/login')
 
-  const { data: guias } = await getGuias()
+  const { data: guias, error } = await getGuias()
+  if (error) throw new Error(error)
 
   return <GuiasView initialGuias={guias ?? []} />
 }

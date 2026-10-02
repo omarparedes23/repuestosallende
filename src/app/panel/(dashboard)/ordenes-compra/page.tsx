@@ -7,7 +7,8 @@ export default async function OrdenesCompraPage() {
   const { perfil } = await getSession()
   if (!perfil?.empresa_id) redirect('/panel/login')
 
-  const { data: ordenesCompra } = await getOrdenesCompra()
+  const { data: ordenesCompra, error } = await getOrdenesCompra()
+  if (error) throw new Error(error)
 
   return <OrdenesCompraView initialOrdenesCompra={ordenesCompra ?? []} />
 }

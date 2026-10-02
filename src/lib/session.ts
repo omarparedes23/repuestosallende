@@ -8,12 +8,13 @@ export type { Perfil }
 // unstable_cache() prohíbe cookies() en su interior — usar cache() de React en su lugar
 export const getCachedPerfil = cache(async (userId: string): Promise<Perfil | null> => {
   const supabase = await createClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('ra_perfiles')
-    .select('id, empresa_id, sucursal_id, rol, activo')
+    .select('id, nombre, empresa_id, sucursal_id, rol, activo')
     .eq('id', userId)
     .single()
-  return (data as Perfil | null) ?? null
+  if (error && error.code !== 'PGRST116') throw new Error(error.message)
+  return data
 })
 
 // sucursal_id resolution:
