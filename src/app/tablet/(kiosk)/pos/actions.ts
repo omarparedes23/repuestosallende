@@ -1,5 +1,6 @@
 'use server'
 
+import { ilikeAny } from '@/lib/supabase/filters'
 import { z } from 'zod'
 import { getSession, getSessionFast } from '@/lib/session'
 import { VentaInputSchema } from './actions.schema'
@@ -76,7 +77,7 @@ export async function buscarProductos(
     .range(offset, offset + PAGE_SIZE - 1)
 
   if (query.trim()) {
-    q = q.or(`nombre.ilike.%${query.trim()}%,codigo_oem.ilike.%${query.trim()}%`)
+    q = q.or(ilikeAny(['nombre', 'codigo_oem'], query.trim()))
   }
 
   if (marcaRepuestoId) {

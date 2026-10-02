@@ -1,5 +1,6 @@
 'use server'
 
+import { ilikeAny } from '@/lib/supabase/filters'
 import { revalidatePath } from 'next/cache'
 import { getSession, getSessionFast } from '@/lib/session'
 
@@ -100,7 +101,7 @@ export async function buscarProductosParaCompra(q: string) {
     `)
     .eq('empresa_id', perfil.empresa_id)
     .eq('activo', true)
-    .or(`nombre.ilike.%${q}%,codigo_oem.ilike.%${q}%`, { foreignTable: 'ra_catalogo_repuestos' })
+    .or(ilikeAny(['nombre', 'codigo_oem'], q), { foreignTable: 'ra_catalogo_repuestos' })
     .limit(20)
 
   if (error) {

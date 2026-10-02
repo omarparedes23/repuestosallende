@@ -1,5 +1,6 @@
 'use server'
 
+import { ilikeAny } from '@/lib/supabase/filters'
 import { revalidatePath } from 'next/cache'
 import { getSession, getSessionFast } from '@/lib/session'
 import type { Json } from '@/lib/types/database'
@@ -123,7 +124,7 @@ export async function buscarProductosEnSucursal(
     .eq('sucursal_id', sucursalOrigenId)
     .eq('activo', true)
     .gt('stock_actual', 0)
-    .or(`nombre.ilike.%${term}%,codigo_oem.ilike.%${term}%`, {
+    .or(ilikeAny(['nombre', 'codigo_oem'], term), {
       foreignTable: 'ra_catalogo_repuestos',
     })
     .order('stock_actual', { ascending: false })

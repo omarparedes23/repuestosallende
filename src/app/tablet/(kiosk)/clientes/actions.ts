@@ -1,5 +1,6 @@
 'use server'
 
+import { ilikeAny } from '@/lib/supabase/filters'
 import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
 import { getSession, getSessionFast } from '@/lib/session'
@@ -60,7 +61,7 @@ export async function buscarClientes(query: string): Promise<{
     .limit(40)
 
   if (query.trim()) {
-    q = q.or(`nombre.ilike.%${query.trim()}%,nro_documento.ilike.%${query.trim()}%`)
+    q = q.or(ilikeAny(['nombre', 'nro_documento'], query.trim()))
   }
 
   const { data, error } = await q

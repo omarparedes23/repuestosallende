@@ -1,5 +1,6 @@
 'use server'
 
+import { ilikeAny } from '@/lib/supabase/filters'
 import { revalidatePath } from 'next/cache'
 import { getSession, getSessionFast } from '@/lib/session'
 import { subirImagen, IMAGENES_TIPOS_PERMITIDOS, IMAGEN_MAX_BYTES } from '@/lib/r2'
@@ -189,7 +190,7 @@ export async function buscarArticulos(
 
   if (term) {
     q = q.or(
-      `nombre.ilike.%${term}%,codigo_oem.ilike.%${term}%,codigos_alternos.ilike.%${term}%`,
+      ilikeAny(['nombre', 'codigo_oem', 'codigos_alternos'], term),
       { foreignTable: 'ra_catalogo_repuestos' }
     )
   }
