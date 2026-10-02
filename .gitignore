@@ -84,3 +84,5 @@ backfill_precios.log
 # local chat log (solo desarrollo)
 chat-log.txt
 
+# script local para limpiar datos de prueba (destructivo)
+scripts/wipe_ventas_compras_tesoreria.sql
