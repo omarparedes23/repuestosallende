@@ -1,5 +1,6 @@
 'use client'
 
+import { formatearFechaTipoCambio } from '@/lib/calc/tipoCambio'
 import type { RaMoneda } from '@/lib/types/database'
 
 const MONEDA_LABELS: Record<RaMoneda, string> = {
@@ -12,11 +13,13 @@ type Props = {
   setMoneda: (moneda: RaMoneda) => void
   tipoCambio: number | null
   setTipoCambio: (tipoCambio: number | null) => void
+  /** Fecha del T.C. de referencia (si se pudo consultar) y si está vigente. */
+  tipoCambioInfo?: { fecha: string; vigente: boolean } | null
 }
 
-export function MonedaSelector({ moneda, setMoneda, tipoCambio, setTipoCambio }: Props) {
+export function MonedaSelector({ moneda, setMoneda, tipoCambio, setTipoCambio, tipoCambioInfo }: Props) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <div className="flex rounded-xl overflow-hidden border-2" style={{ borderColor: '#D1D5DB' }}>
         {(['PEN', 'USD'] as RaMoneda[]).map((m) => (
           <button
@@ -52,6 +55,17 @@ export function MonedaSelector({ moneda, setMoneda, tipoCambio, setTipoCambio }:
             style={{ borderColor: '#D1D5DB' }}
           />
         </div>
+      )}
+
+      {moneda === 'USD' && tipoCambioInfo && (
+        <p
+          className="w-full text-xs"
+          style={{ color: tipoCambioInfo.vigente ? '#374151' : '#92400E' }}
+        >
+          {tipoCambioInfo.vigente
+            ? `T.C. venta del ${formatearFechaTipoCambio(tipoCambioInfo.fecha)}`
+            : `T.C. desactualizado: último del ${formatearFechaTipoCambio(tipoCambioInfo.fecha)}. Verifica antes de cobrar.`}
+        </p>
       )}
     </div>
   )

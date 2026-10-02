@@ -4,6 +4,7 @@ import { ilikeAny } from '@/lib/supabase/filters'
 import { z } from 'zod'
 import { getSession, getSessionFast } from '@/lib/session'
 import { VentaInputSchema } from './actions.schema'
+import { fechaLocalISO } from '@/lib/calc/tipoCambio'
 import type { RaMoneda, RaTipoComprobante } from '@/lib/types/database'
 
 export type ProductoBuscado = {
@@ -210,4 +211,21 @@ export async function procesarVenta(input: unknown): Promise<ActionResponse<Vent
 
   const result = data as RpcVentaResult
   return { data: mapRpcVentaResult(result), error: null }
+}
+
+export type TipoCambioVigente = { fecha: string; venta: number }
+
+/** Último T.C. de venta publicado a la fecha de hoy (puede estar desactualizado). */
+export async function getTipoCambioVigente(): Promise<ActionResponse<TipoCambioVigente>> {
+  const { supabase, user } = await getSessionFast()
+  if (!user) return { data: null, error: 'No autenticado' }
+  const { data, error } = await supabase
+    .from('ra_tipo_cambio')
+    .select('fecha, venta')
+    .lte('fecha', fechaLocalISO(new Date()))
+    .order('fecha', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) return { data: null, error: 'Error consultando el tipo de cambio' }
+  return { data: data ? { fecha: data.fecha, venta: Number(data.venta) } : null, error: null }
 }

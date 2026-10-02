@@ -5682,6 +5682,27 @@ export type Database = {
           },
         ]
       }
+      ra_tipo_cambio: {
+        Row: {
+          compra: number
+          fecha: string
+          updated_at: string
+          venta: number
+        }
+        Insert: {
+          compra: number
+          fecha: string
+          updated_at?: string
+          venta: number
+        }
+        Update: {
+          compra?: number
+          fecha?: string
+          updated_at?: string
+          venta?: number
+        }
+        Relationships: []
+      }
       ra_tipos_repuesto: {
         Row: {
           activo: boolean

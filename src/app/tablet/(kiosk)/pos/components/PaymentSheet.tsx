@@ -55,6 +55,7 @@ export function PaymentSheet({ onClose }: Props) {
               setMoneda={s.setMoneda}
               tipoCambio={s.tipoCambio}
               setTipoCambio={s.setTipoCambio}
+              tipoCambioInfo={s.tipoCambioInfo}
             />
             {s.bloqueo.tipo === 'falta_precio' && (
               <AlertBox tone="danger">

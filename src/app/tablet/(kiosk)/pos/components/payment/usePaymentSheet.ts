@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { usePosStore } from '@/app/tablet/stores/posStore'
 import { calcularTotalesVenta } from '@/lib/calc/totales'
 import { simboloMoneda } from '@/lib/calc/moneda'
+import { debePrellenarTipoCambio, esTipoCambioVigente, fechaLocalISO } from '@/lib/calc/tipoCambio'
 import type { RaMoneda } from '@/lib/types/database'
 import {
   clearPendingSale,
@@ -10,7 +11,13 @@ import {
   savePendingSale,
   type PendingSaleAttemptV1,
 } from '@/lib/ventas/pendingSale'
-import { consultarResultadoVenta, procesarVenta, type VentaResult } from '../../actions'
+import {
+  consultarResultadoVenta,
+  getTipoCambioVigente,
+  procesarVenta,
+  type TipoCambioVigente,
+  type VentaResult,
+} from '../../actions'
 import { getVentaDetalle, type VentaDetalle } from '../../../ventas/actions'
 import { useClienteSelector } from './useClienteSelector'
 import {
@@ -55,6 +62,9 @@ export function usePaymentSheet(onClose: () => void) {
   // "pegado" que otra pantalla (carrito, botón flotante) pueda leer por error.
   const [moneda, setMonedaState] = useState<RaMoneda>('PEN')
   const [tipoCambio, setTipoCambio] = useState<number | null>(null)
+  // T.C. de referencia (ra_tipo_cambio): se consulta una sola vez por modal.
+  const [tasaReferencia, setTasaReferencia] = useState<TipoCambioVigente | null>(null)
+  const tasaPedida = useRef(false)
   // Precio unitario editado por línea (productoId -> precio), en la moneda actual.
   // El precio de lista nunca se toca — esto es un valor aparte.
   const [preciosEditados, setPreciosEditados] = useState<Record<string, number>>({})
@@ -77,6 +87,31 @@ export function usePaymentSheet(onClose: () => void) {
   const setMoneda = (m: RaMoneda) => {
     setMonedaState(m)
     setPreciosEditados({})
+    if (m === 'USD') void prellenarTipoCambio()
+  }
+
+  // Prellena el T.C. con la venta del día al pasar a USD. Nunca pisa lo que el
+  // cajero ya escribió, y un fallo no bloquea el flujo manual.
+  const prellenarTipoCambio = async () => {
+    if (tasaPedida.current) {
+      if (!tasaReferencia) return
+      const tasa = tasaReferencia
+      setTipoCambio((actual) => (debePrellenarTipoCambio('USD', actual, tasa) ? tasa.venta : actual))
+      return
+    }
+    tasaPedida.current = true
+    try {
+      const { data, error: tcError } = await getTipoCambioVigente()
+      if (tcError) {
+        console.error('getTipoCambioVigente', tcError)
+        return
+      }
+      if (!data) return
+      setTasaReferencia(data)
+      setTipoCambio((actual) => (debePrellenarTipoCambio('USD', actual, data) ? data.venta : actual))
+    } catch (e) {
+      console.error('getTipoCambioVigente', e)
+    }
   }
 
   // Recupera un intento de venta pendiente (mismo operationId) y consulta su resultado.
@@ -128,6 +163,12 @@ export function usePaymentSheet(onClose: () => void) {
   const creditoInvalido = esCreditoInvalido(lineas, cliente)
   const limiteExcedido = limiteCreditoExcedido(lineas, cliente)
   const hoy = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const tipoCambioInfo = tasaReferencia
+    ? {
+        fecha: tasaReferencia.fecha,
+        vigente: esTipoCambioVigente(tasaReferencia.fecha, fechaLocalISO(new Date())),
+      }
+    : null
 
   const puedeCobrar =
     !isPending &&
@@ -256,6 +297,7 @@ export function usePaymentSheet(onClose: () => void) {
     setTipoCambio,
     simbolo,
     tipoCambioInvalido,
+    tipoCambioInfo,
     bloqueo,
     items,
     preciosEditados,
